@@ -1,0 +1,118 @@
+{
+  "users": [
+    {
+      "uid": "admin-1",
+      "email": "vinicius.lopes@msn.com",
+      "displayName": "Vinícius Lopes",
+      "role": "admin"
+    }
+  ],
+  "clients": [
+    {
+      "id": "c1",
+      "name": "João Silva",
+      "email": "joao@email.com",
+      "phone": "(11) 98888-7777",
+      "birthDate": "1985-03-25",
+      "brokerId": "b1",
+      "createdAt": "2026-03-23T13:42:12.616Z"
+    },
+    {
+      "id": "c2",
+      "name": "Maria Oliveira",
+      "email": "maria@email.com",
+      "phone": "(11) 99999-8888",
+      "birthDate": "1992-03-10",
+      "brokerId": "b1",
+      "createdAt": "2026-03-23T13:42:12.616Z"
+    }
+  ],
+  "processes": [
+    {
+      "id": "p1",
+      "clientId": "c1",
+      "participants": [
+        {
+          "id": "a1",
+          "type": "agency",
+          "name": "Solutz Imóveis"
+        },
+        {
+          "id": "b1",
+          "type": "broker",
+          "name": "Ricardo Santos"
+        }
+      ],
+      "type": "Financiamento",
+      "status": "Em andamento",
+      "stage": "Aprovado",
+      "bankId": "1",
+      "purchaseValue": 500000,
+      "financingValue": 400000,
+      "value": 400000,
+      "brokerId": "b1",
+      "notifications": [
+        {
+          "id": "n1",
+          "date": "2026-03-23",
+          "reason": "Vistoria agendada para as 14h",
+          "createdAt": "2026-03-23T10:00:00Z"
+        }
+      ],
+      "updatedAt": "2026-03-23T13:42:12.616Z"
+    }
+  ],
+  "agencies": [
+    {
+      "id": "a1",
+      "name": "Solutz Imóveis",
+      "cnpj": "12.345.678/0001-90",
+      "email": "contato@solutz.com",
+      "phone": "(11) 3333-4444",
+      "createdAt": "2026-03-23T13:42:12.616Z"
+    }
+  ],
+  "brokers": [
+    {
+      "id": "b1",
+      "name": "Ricardo Santos",
+      "creci": "12345-F",
+      "email": "ricardo@solutz.com",
+      "phone": "(11) 97777-6666",
+      "birthDate": "1988-03-28",
+      "agencyId": "a1",
+      "createdAt": "2026-03-23T13:42:12.616Z"
+    }
+  ],
+  "banks": [
+    {
+      "id": "1",
+      "name": "Caixa Econômica",
+      "processTypes": [
+        "MCMV",
+        "SBPE",
+        "Pró-Cotista"
+      ],
+      "logoUrl": "https://logodownload.org/wp-content/uploads/2014/05/caixa-logo-1.png"
+    },
+    {
+      "id": "2",
+      "name": "Itaú",
+      "processTypes": [
+        "SBPE",
+        "Home Equity"
+      ],
+      "logoUrl": "https://logodownload.org/wp-content/uploads/2014/05/itau-logo-1.png"
+    },
+    {
+      "id": "3",
+      "name": "Santander",
+      "processTypes": [
+        "SBPE",
+        "Home Equity"
+      ],
+      "logoUrl": "https://logodownload.org/wp-content/uploads/2014/05/santander-logo-1.png"
+    }
+  ],
+  "market_data": []
+}
