@@ -1,29 +1,56 @@
+import { db, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where, OperationType, handleFirestoreError, onSnapshot } from './firebase';
 import { UserProfile, Client, Process, Bank, MarketData } from './types';
 
-const API_BASE = '/api';
-
 export const api = {
+  subscribeToCollection(collectionName: string, callback: (data: any[]) => void) {
+    const q = collection(db, collectionName);
+    return onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      callback(data);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, collectionName);
+    });
+  },
   async getData() {
-    const res = await fetch(`${API_BASE}/data`);
-    return res.json();
+    try {
+      const collections = ['users', 'clients', 'processes', 'agencies', 'brokers', 'banks', 'market_data'];
+      const data: any = {};
+      
+      for (const colName of collections) {
+        const querySnapshot = await getDocs(collection(db, colName));
+        data[colName] = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      }
+      return data;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, 'all');
+    }
   },
-  async create(collection: string, data: any) {
-    const res = await fetch(`${API_BASE}/${collection}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    return res.json();
+  async create(collectionName: string, data: any) {
+    try {
+      const docRef = doc(collection(db, collectionName));
+      const id = docRef.id;
+      const newItem = { ...data, id };
+      await setDoc(docRef, newItem);
+      return newItem;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, collectionName);
+    }
   },
-  async update(collection: string, id: string, data: any) {
-    const res = await fetch(`${API_BASE}/${collection}/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    return res.json();
+  async update(collectionName: string, id: string, data: any) {
+    try {
+      const docRef = doc(db, collectionName, id);
+      await updateDoc(docRef, data);
+      return { id, ...data };
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `${collectionName}/${id}`);
+    }
   },
-  async delete(collection: string, id: string) {
-    await fetch(`${API_BASE}/${collection}/${id}`, { method: 'DELETE' });
+  async delete(collectionName: string, id: string) {
+    try {
+      const docRef = doc(db, collectionName, id);
+      await deleteDoc(docRef);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `${collectionName}/${id}`);
+    }
   }
 };

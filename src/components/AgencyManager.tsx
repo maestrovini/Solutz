@@ -4,6 +4,7 @@ import { Agency, Broker, Process } from '../types';
 import { Plus, Search, Trash2, Edit2, X, Building2, Phone, Mail, MapPin, FileText, Filter, TrendingUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
+import { useAuth } from '../context/AuthContext';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -12,6 +13,7 @@ function cn(...inputs: ClassValue[]) {
 }
 
 export default function AgencyManager() {
+  const { isAdmin } = useAuth();
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [processes, setProcesses] = useState<Process[]>([]);
@@ -83,31 +85,40 @@ export default function AgencyManager() {
         >
           <Filter className="w-5 h-5" />
         </button>
-        <button
-          onClick={() => {
-            setEditingAgency(null);
-            setFormData({ name: '', cnpj: '', email: '', phone: '', address: '' });
-            setIsModalOpen(true);
-          }}
-          className="p-2 bg-white text-black border border-white/10 rounded-lg hover:bg-white/80 transition-colors shadow-sm"
-          title="Nova Imobiliária"
-        >
-          <Plus className="w-5 h-5" />
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => {
+              setEditingAgency(null);
+              setFormData({ name: '', cnpj: '', email: '', phone: '', address: '' });
+              setIsModalOpen(true);
+            }}
+            className="p-2 bg-white text-black border border-white/10 rounded-lg hover:bg-white/80 transition-colors shadow-sm"
+            title="Nova Imobiliária"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+        )}
       </div>
     );
-  }, [isSearchOpen, searchTerm, isFilterOpen]);
+  }, [isSearchOpen, searchTerm, isFilterOpen, isAdmin]);
 
-  const fetchAgencies = async () => {
-    try {
-      const data = await api.getData();
-      setAgencies(data.agencies || []);
-      setBrokers(data.brokers || []);
-      setProcesses(data.processes || []);
-    } catch (error) {
-      console.error("Erro ao buscar imobiliárias:", error);
-    }
-  };
+  useEffect(() => {
+    const unsubAgencies = api.subscribeToCollection('agencies', (data) => {
+      setAgencies(data as Agency[]);
+    });
+    const unsubBrokers = api.subscribeToCollection('brokers', (data) => {
+      setBrokers(data as Broker[]);
+    });
+    const unsubProcesses = api.subscribeToCollection('processes', (data) => {
+      setProcesses(data as Process[]);
+    });
+
+    return () => {
+      unsubAgencies();
+      unsubBrokers();
+      unsubProcesses();
+    };
+  }, []);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -115,10 +126,6 @@ export default function AgencyManager() {
       currency: 'BRL',
     }).format(value);
   };
-
-  useEffect(() => {
-    fetchAgencies();
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,7 +144,6 @@ export default function AgencyManager() {
       setIsModalOpen(false);
       setEditingAgency(null);
       setFormData({ name: '', cnpj: '', email: '', phone: '', address: '' });
-      fetchAgencies();
     } catch (error) {
       console.error("Erro ao salvar imobiliária:", error);
     }
@@ -147,7 +153,6 @@ export default function AgencyManager() {
     if (confirm("Tem certeza que deseja excluir esta imobiliária?")) {
       try {
         await api.delete('agencies', id);
-        fetchAgencies();
       } catch (error) {
         console.error("Erro ao excluir imobiliária:", error);
       }
@@ -242,32 +247,34 @@ export default function AgencyManager() {
                   </div>
                 </div>
                 
-                <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                  <button 
-                    onClick={() => {
-                      setEditingAgency(agency);
-                      setFormData({
-                        name: agency.name,
-                        cnpj: agency.cnpj || '',
-                        email: agency.email,
-                        phone: agency.phone,
-                        address: agency.address || '',
-                      });
-                      setIsModalOpen(true);
-                    }}
-                    className="p-2 text-black/60 hover:bg-black/5 rounded-xl transition-colors"
-                    title="Editar"
-                  >
-                    <Edit2 className="w-5 h-5" />
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(agency.id!)}
-                    className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"
-                    title="Excluir"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </div>
+                {isAdmin && (
+                  <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                    <button 
+                      onClick={() => {
+                        setEditingAgency(agency);
+                        setFormData({
+                          name: agency.name,
+                          cnpj: agency.cnpj || '',
+                          email: agency.email,
+                          phone: agency.phone,
+                          address: agency.address || '',
+                        });
+                        setIsModalOpen(true);
+                      }}
+                      className="p-2 text-black/60 hover:bg-black/5 rounded-xl transition-colors"
+                      title="Editar"
+                    >
+                      <Edit2 className="w-5 h-5" />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(agency.id!)}
+                      className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"
+                      title="Excluir"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+                )}
               </div>
 
               <AnimatePresence>

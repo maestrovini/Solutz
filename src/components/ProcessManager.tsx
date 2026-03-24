@@ -4,6 +4,7 @@ import { Process, Client, Bank, Agency, Broker, Participant, Notification } from
 import { Plus, Search, Trash2, Edit2, X, FileText, Clock, DollarSign, Building2, User, Users, CheckCircle2, Ban, Pause, AlertCircle, Save, Phone, Mail, MapPin, Calendar, Briefcase, Filter, Bell } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
+import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/cn';
 
 interface ProcessManagerProps {
@@ -12,6 +13,7 @@ interface ProcessManagerProps {
 }
 
 export default function ProcessManager({ initialSelectedProcessId, onCloseDetail }: ProcessManagerProps) {
+  const { isAdmin } = useAuth();
   const [processes, setProcesses] = useState<Process[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
@@ -138,45 +140,60 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
             <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-white border-2 border-black rounded-full" />
           )}
         </button>
-        <button
-          onClick={() => {
-            setEditingProcess(null);
-            setFormData({
-              clientId: '',
-              participants: [],
-              type: 'Financiamento',
-              status: 'Em andamento',
-              stage: 'Aprovado',
-              bankId: '',
-              purchaseValue: 0,
-              financingValue: 0,
-              financingType: 'SBPE',
-              value: 0,
-              notes: '',
-            });
-            setIsModalOpen(true);
-          }}
-          className="p-2 bg-white text-black border border-white/10 rounded-lg hover:bg-white/80 transition-colors shadow-sm"
-          title="Novo Processo"
-        >
-          <Plus className="w-5 h-5" />
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => {
+              setEditingProcess(null);
+              setFormData({
+                clientId: '',
+                participants: [],
+                type: 'Financiamento',
+                status: 'Em andamento',
+                stage: 'Aprovado',
+                bankId: '',
+                purchaseValue: 0,
+                financingValue: 0,
+                financingType: 'SBPE',
+                value: 0,
+                notes: '',
+              });
+              setIsModalOpen(true);
+            }}
+            className="p-2 bg-white text-black border border-white/10 rounded-lg hover:bg-white/80 transition-colors shadow-sm"
+            title="Novo Processo"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+        )}
       </div>
     );
-  }, [isSearchOpen, searchTerm, isFilterOpen, filters]);
+  }, [isSearchOpen, searchTerm, isFilterOpen, filters, isAdmin]);
 
-  const fetchData = async () => {
-    try {
-      const data = await api.getData();
-      setProcesses(data.processes || []);
-      setClients(data.clients || []);
-      setBanks(data.banks || []);
-      setAgencies(data.agencies || []);
-      setBrokers(data.brokers || []);
-    } catch (error) {
-      console.error("Erro ao buscar dados:", error);
-    }
-  };
+  useEffect(() => {
+    const unsubProcesses = api.subscribeToCollection('processes', (data) => {
+      setProcesses(data as Process[]);
+    });
+    const unsubClients = api.subscribeToCollection('clients', (data) => {
+      setClients(data as Client[]);
+    });
+    const unsubBanks = api.subscribeToCollection('banks', (data) => {
+      setBanks(data as Bank[]);
+    });
+    const unsubAgencies = api.subscribeToCollection('agencies', (data) => {
+      setAgencies(data as Agency[]);
+    });
+    const unsubBrokers = api.subscribeToCollection('brokers', (data) => {
+      setBrokers(data as Broker[]);
+    });
+
+    return () => {
+      unsubProcesses();
+      unsubClients();
+      unsubBanks();
+      unsubAgencies();
+      unsubBrokers();
+    };
+  }, []);
 
   const handleCreateNotification = async () => {
     if (!selectedProcessForDetail || !notificationData.date || !notificationData.reason) return;
@@ -207,7 +224,6 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
 
     try {
       await api.update('processes', updatedProcess.id!, updatedProcess);
-      setProcesses(processes.map(p => p.id === updatedProcess.id ? updatedProcess : p));
       setSelectedProcessForDetail(updatedProcess);
       setIsNotificationModalOpen(false);
       setNotificationData({ date: '', reason: '' });
@@ -229,7 +245,6 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
 
     try {
       await api.update('processes', processId, updatedProcess);
-      setProcesses(processes.map(p => p.id === processId ? updatedProcess : p));
       if (selectedProcessForDetail?.id === processId) {
         setSelectedProcessForDetail(updatedProcess);
       }
@@ -256,7 +271,6 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
 
     try {
       await api.update('processes', processId, updatedProcess);
-      setProcesses(processes.map(p => p.id === processId ? updatedProcess : p));
       if (selectedProcessForDetail?.id === processId) {
         setSelectedProcessForDetail(updatedProcess);
       }
@@ -264,10 +278,6 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
       console.error("Erro ao atualizar etapa:", error);
     }
   };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -308,7 +318,6 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
         value: 0, 
         notes: '' 
       });
-      fetchData();
     } catch (error) {
       console.error("Erro ao salvar processo:", error);
     }
@@ -318,7 +327,6 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
     try {
       await api.delete('processes', id);
       setDeleteConfirmId(null);
-      fetchData();
     } catch (error) {
       console.error("Erro ao excluir processo:", error);
     }
@@ -370,17 +378,7 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
       
       await api.update(collection as any, selectedEntityForDetail.id, entityFormData);
       
-      // Update local state to reflect changes immediately
-      if (selectedEntityForDetail.type === 'client') {
-        setClients(clients.map(c => c.id === selectedEntityForDetail.id ? entityFormData : c));
-      } else if (selectedEntityForDetail.type === 'broker') {
-        setBrokers(brokers.map(b => b.id === selectedEntityForDetail.id ? entityFormData : b));
-      } else {
-        setAgencies(agencies.map(a => a.id === selectedEntityForDetail.id ? entityFormData : a));
-      }
-
       setIsEditingEntity(false);
-      fetchData(); // Refresh all data to be sure
     } catch (error) {
       console.error("Erro ao atualizar entidade:", error);
     }
@@ -753,66 +751,69 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
                         referrerPolicy="no-referrer"
                       />
                     </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button 
-                    onClick={() => {
-                      setEditingNotificationId(null);
-                      setNotificationData({ date: '', reason: '' });
-                      setIsNotificationModalOpen(true);
-                    }}
-                    className="p-2 hover:bg-black/5 rounded-full text-black/40"
-                    title="Criar Notificação"
-                  >
-                    <Bell className="w-5 h-5" />
-                  </button>
-                  <button 
-                    onClick={() => {
-                      setDeleteConfirmId(selectedProcessForDetail.id!);
-                      setSelectedProcessForDetail(null);
-                      onCloseDetail?.();
-                    }}
-                    className="p-2 hover:bg-red-50 text-red-500 rounded-full transition-colors"
-                    title="Excluir"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                  <button 
-                    onClick={() => {
-                      const process = selectedProcessForDetail;
-                      setEditingProcess(process);
-                      setFormData({
-                        clientId: process.clientId,
-                        participants: process.participants || [],
-                        type: process.type,
-                        status: process.status,
-                        stage: process.stage,
-                        bankId: process.bankId || '',
-                        purchaseValue: process.purchaseValue || 0,
-                        financingValue: process.financingValue || 0,
-                        financingType: process.financingType || 'SBPE',
-                        value: process.value,
-                        notes: process.notes || '',
-                      });
-                      setSelectedProcessForDetail(null);
-                      onCloseDetail?.();
-                      setIsModalOpen(true);
-                    }} 
-                    className="p-2 hover:bg-black/5 rounded-full text-black/40"
-                    title="Editar"
-                  >
-                    <Edit2 className="w-5 h-5" />
-                  </button>
-                  <button 
-                    onClick={() => {
-                      setSelectedProcessForDetail(null);
-                      onCloseDetail?.();
-                    }} 
-                    className="p-2 hover:bg-black/5 rounded-full text-black/40"
-                  >
-                    <X />
-                  </button>
+                  )}                  <div className="flex items-center gap-2">
+                    {isAdmin && (
+                      <>
+                        <button 
+                          onClick={() => {
+                            setEditingNotificationId(null);
+                            setNotificationData({ date: '', reason: '' });
+                            setIsNotificationModalOpen(true);
+                          }}
+                          className="p-2 hover:bg-black/5 rounded-full text-black/40"
+                          title="Criar Notificação"
+                        >
+                          <Bell className="w-5 h-5" />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setDeleteConfirmId(selectedProcessForDetail.id!);
+                            setSelectedProcessForDetail(null);
+                            onCloseDetail?.();
+                          }}
+                          className="p-2 hover:bg-red-50 text-red-500 rounded-full transition-colors"
+                          title="Excluir"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            const process = selectedProcessForDetail;
+                            setEditingProcess(process);
+                            setFormData({
+                              clientId: process.clientId,
+                              participants: process.participants || [],
+                              type: process.type,
+                              status: process.status,
+                              stage: process.stage,
+                              bankId: process.bankId || '',
+                              purchaseValue: process.purchaseValue || 0,
+                              financingValue: process.financingValue || 0,
+                              financingType: process.financingType || 'SBPE',
+                              value: process.value,
+                              notes: process.notes || '',
+                            });
+                            setSelectedProcessForDetail(null);
+                            onCloseDetail?.();
+                            setIsModalOpen(true);
+                          }} 
+                          className="p-2 hover:bg-black/5 rounded-full text-black/40"
+                          title="Editar"
+                        >
+                          <Edit2 className="w-5 h-5" />
+                        </button>
+                      </>
+                    )}
+                    <button 
+                      onClick={() => {
+                        setSelectedProcessForDetail(null);
+                        onCloseDetail?.();
+                      }} 
+                      className="p-2 hover:bg-black/5 rounded-full text-black/40"
+                    >
+                      <X />
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto">
@@ -966,11 +967,11 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
                                   <div className="w-6 h-6 rounded-full bg-amber-500 border-4 border-white shadow-sm shrink-0 z-10 flex items-center justify-center">
                                     <Bell className="w-3 h-3 text-white" />
                                   </div>
-                                  <div className="flex-1 pt-0.5">
-                                    <div className="flex items-center justify-between group/notif">
+                                                                      <div className="flex items-center justify-between group/notif">
                                       <div 
                                         className="flex-1 cursor-pointer"
                                         onClick={() => {
+                                          if (!isAdmin) return;
                                           const notif = item as Notification;
                                           setEditingNotificationId(notif.id);
                                           setNotificationData({ date: notif.date, reason: notif.reason });
@@ -988,18 +989,19 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
                                           Criada em: {new Date((item as any).createdAt).toLocaleDateString('pt-BR')}
                                         </p>
                                       </div>
-                                      <button
-                                        onClick={() => handleDeleteNotification(selectedProcessForDetail.id!, (item as any).id)}
-                                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover/notif:opacity-100 transition-all"
-                                        title="Excluir Notificação"
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </button>
+                                      {isAdmin && (
+                                        <button
+                                          onClick={() => handleDeleteNotification(selectedProcessForDetail.id!, (item as any).id)}
+                                          className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover/notif:opacity-100 transition-all"
+                                          title="Excluir Notificação"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      )}
                                     </div>
-                                  </div>
-                                </>
-                              )}
-                            </div>
+                                  </>
+                                )}
+                              </div>
                           ))}
                         </div>
                       );

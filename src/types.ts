@@ -2,7 +2,7 @@ export interface UserProfile {
   uid: string;
   email: string;
   displayName: string;
-  role: 'admin' | 'broker' | 'agency';
+  role: 'admin' | 'user';
   agencyId?: string;
 }
 

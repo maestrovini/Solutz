@@ -26,22 +26,30 @@ export default function Dashboard({ onOpenProcess }: DashboardProps) {
   }, []);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const data = await api.getData();
-        setClients(data.clients || []);
-        setProcesses(data.processes || []);
-        setBanks(data.banks || []);
-        setAgencies(data.agencies || []);
-        setBrokers(data.brokers || []);
-      } catch (error) {
-        console.error("Erro ao buscar dados:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    const unsubClients = api.subscribeToCollection('clients', (data) => {
+      setClients(data as Client[]);
+    });
+    const unsubProcesses = api.subscribeToCollection('processes', (data) => {
+      setProcesses(data as Process[]);
+    });
+    const unsubBanks = api.subscribeToCollection('banks', (data) => {
+      setBanks(data as Bank[]);
+    });
+    const unsubAgencies = api.subscribeToCollection('agencies', (data) => {
+      setAgencies(data as Agency[]);
+    });
+    const unsubBrokers = api.subscribeToCollection('brokers', (data) => {
+      setBrokers(data as Broker[]);
+      setLoading(false);
+    });
 
-    fetchData();
+    return () => {
+      unsubClients();
+      unsubProcesses();
+      unsubBanks();
+      unsubAgencies();
+      unsubBrokers();
+    };
   }, []);
 
   const stats = [

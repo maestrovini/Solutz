@@ -1,21 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
-import { Bank, UserProfile } from '../types';
-import { Plus, Trash2, Edit2, X, Building2, Percent } from 'lucide-react';
+import { Bank } from '../types';
+import { Plus, Trash2, Edit2, X, Building2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
+import { useAuth } from '../context/AuthContext';
 
 export default function BankManager() {
+  const { isAdmin } = useAuth();
   const [banks, setBanks] = useState<Bank[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { setTitle, setActions } = useHeader();
   const [editingBank, setEditingBank] = useState<Bank | null>(null);
-  const [user, setUser] = useState<UserProfile | null>({
-    uid: 'admin-1',
-    email: 'vinicius.lopes@msn.com',
-    displayName: 'Vinícius Lopes',
-    role: 'admin',
-  });
   const [formData, setFormData] = useState<{
     name: string;
     logoUrl: string;
@@ -30,7 +26,7 @@ export default function BankManager() {
 
   useEffect(() => {
     setTitle('Bancos Parceiros');
-    if (user?.role === 'admin') {
+    if (isAdmin) {
       setActions(
         <button
           onClick={() => {
@@ -47,19 +43,13 @@ export default function BankManager() {
     } else {
       setActions(null);
     }
-  }, [user]);
-
-  const fetchBanks = async () => {
-    try {
-      const data = await api.getData();
-      setBanks(data.banks);
-    } catch (error) {
-      console.error("Erro ao buscar bancos:", error);
-    }
-  };
+  }, [isAdmin]);
 
   useEffect(() => {
-    fetchBanks();
+    const unsubscribe = api.subscribeToCollection('banks', (data) => {
+      setBanks(data as Bank[]);
+    });
+    return () => unsubscribe();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -74,7 +64,6 @@ export default function BankManager() {
       setIsModalOpen(false);
       setEditingBank(null);
       setFormData({ name: '', logoUrl: '', processTypes: [] });
-      fetchBanks();
     } catch (error) {
       console.error("Erro ao salvar banco:", error);
     }
@@ -93,7 +82,6 @@ export default function BankManager() {
     if (confirm("Excluir banco?")) {
       try {
         await api.delete('banks', id);
-        fetchBanks();
       } catch (error) {
         console.error("Erro ao excluir banco:", error);
       }
@@ -147,7 +135,7 @@ export default function BankManager() {
                 </div>
               </div>
 
-              {user?.role === 'admin' && (
+              {isAdmin && (
                 <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button 
                     onClick={handleEdit}

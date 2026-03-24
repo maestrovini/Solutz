@@ -6,7 +6,9 @@ import ProcessManager from './components/ProcessManager';
 import BankManager from './components/BankManager';
 import AgencyManager from './components/AgencyManager';
 import BrokerManager from './components/BrokerManager';
+import UserManager from './components/UserManager';
 import { HeaderProvider } from './context/HeaderContext';
+import { AuthProvider } from './context/AuthContext';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -29,6 +31,8 @@ export default function App() {
         return <AgencyManager />;
       case 'brokers':
         return <BrokerManager />;
+      case 'users':
+        return <UserManager />;
       case 'processes':
         return (
           <ProcessManager 
@@ -44,10 +48,12 @@ export default function App() {
   };
 
   return (
-    <HeaderProvider>
-      <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
-        {renderContent()}
-      </Layout>
-    </HeaderProvider>
+    <AuthProvider>
+      <HeaderProvider>
+        <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
+          {renderContent()}
+        </Layout>
+      </HeaderProvider>
+    </AuthProvider>
   );
 }

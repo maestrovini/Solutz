@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../api';
+import { auth, signInWithPopup, googleProvider, onAuthStateChanged, User, db, doc, getDoc, setDoc } from '../firebase';
 import { UserProfile } from '../types';
-import { LogIn, LogOut, Home, Users, FileText, Building2, Menu, X, User, Landmark } from 'lucide-react';
+import { LogOut, Home, Users, FileText, Building2, Menu, X, User as UserIcon, Landmark, LogIn, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
+import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/cn';
 
 interface LayoutProps {
@@ -13,36 +14,25 @@ interface LayoutProps {
 }
 
 export default function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading, isAdmin } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { title, actions } = useHeader();
 
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const data = await api.getData();
-        // Auto-login for demo
-        setUser(data.users[0]);
-      } catch (error) {
-        console.error("Erro ao carregar usuário:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadUser();
-  }, []);
-
-  const handleLogin = () => {
-    setUser({
-      uid: 'admin-1',
-      email: 'vinicius.lopes@msn.com',
-      displayName: 'Vinícius Lopes',
-      role: 'admin',
-    });
+  const handleLogin = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error) {
+      console.error("Erro ao fazer login:", error);
+    }
   };
 
-  const handleLogout = () => setUser(null);
+  const handleLogout = async () => {
+    try {
+      await auth.signOut();
+    } catch (error) {
+      console.error("Erro ao fazer logout:", error);
+    }
+  };
 
   if (loading) {
     return (
@@ -58,22 +48,23 @@ export default function Layout({ children, activeTab, setActiveTab }: LayoutProp
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f5f5f0] p-4 text-[#1a1a1a]">
+      <div className="min-h-screen flex items-center justify-center bg-[#f5f5f0] p-4">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="max-w-md w-full bg-white p-8 rounded-[32px] shadow-xl text-center border border-black/5"
+          className="bg-white p-8 rounded-[32px] shadow-2xl border border-black/5 max-w-md w-full text-center"
         >
-          <div className="w-16 h-16 bg-black rounded-2xl flex items-center justify-center mx-auto mb-6 border border-black/5">
-            <Building2 className="text-white w-8 h-8" />
+          <div className="w-16 h-16 bg-black rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <Building2 className="text-white w-10 h-10" />
           </div>
-          <h1 className="text-3xl font-sans font-bold text-[#1a1a1a] mb-2">Solutz</h1>
-          <p className="text-black/60 mb-8">Gestão inteligente para o mercado imobiliário</p>
+          <h1 className="text-3xl font-bold mb-2">Solutz</h1>
+          <p className="text-black/60 mb-8 text-lg">Gestão de Financiamentos Imobiliários</p>
+          
           <button
             onClick={handleLogin}
-            className="w-full flex items-center justify-center gap-3 bg-black text-white py-4 rounded-full font-medium hover:bg-zinc-800 transition-colors shadow-lg"
+            className="w-full flex items-center justify-center gap-3 bg-black text-white py-4 rounded-full font-bold hover:bg-black/80 transition-all shadow-lg group"
           >
-            <LogIn className="w-5 h-5" />
+            <LogIn className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             Entrar com Google
           </button>
         </motion.div>
@@ -85,9 +76,10 @@ export default function Layout({ children, activeTab, setActiveTab }: LayoutProp
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'processes', label: 'Processos', icon: FileText },
     { id: 'clients', label: 'Clientes', icon: Users },
-    { id: 'brokers', label: 'Corretores', icon: User },
+    { id: 'brokers', label: 'Corretores', icon: UserIcon },
     { id: 'agencies', label: 'Imobiliárias', icon: Building2 },
     { id: 'banks', label: 'Bancos', icon: Landmark },
+    ...(isAdmin ? [{ id: 'users', label: 'Usuários', icon: Shield }] : []),
   ];
 
   return (

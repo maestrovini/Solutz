@@ -4,9 +4,11 @@ import { Client } from '../types';
 import { Plus, Search, Trash2, Edit2, X, UserPlus, Phone, Mail, MapPin, Calendar, FileText, Filter } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
+import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/cn';
 
 export default function ClientManager() {
+  const { isAdmin } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -76,36 +78,33 @@ export default function ClientManager() {
         >
           <Filter className="w-5 h-5" />
         </button>
-        <button
-          onClick={() => {
-            setEditingClient(null);
-            setFormData({ name: '', email: '', phone: '', phone2: '', cpf: '', birthDate: '' });
-            setIsModalOpen(true);
-          }}
-          className="p-2 bg-white text-black border border-white/10 rounded-lg hover:bg-white/80 transition-colors shadow-sm"
-          title="Novo Cliente"
-        >
-          <UserPlus className="w-5 h-5" />
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => {
+              setEditingClient(null);
+              setFormData({ name: '', email: '', phone: '', phone2: '', cpf: '', birthDate: '' });
+              setIsModalOpen(true);
+            }}
+            className="p-2 bg-white text-black border border-white/10 rounded-lg hover:bg-white/80 transition-colors shadow-sm"
+            title="Novo Cliente"
+          >
+            <UserPlus className="w-5 h-5" />
+          </button>
+        )}
       </div>
     );
-  }, [isSearchOpen, searchTerm, isFilterOpen]);
-
-  const fetchClients = async () => {
-    try {
-      const data = await api.getData();
-      setClients(data.clients);
-    } catch (error) {
-      console.error("Erro ao buscar clientes:", error);
-    }
-  };
+  }, [isSearchOpen, searchTerm, isFilterOpen, isAdmin]);
 
   useEffect(() => {
-    fetchClients();
+    const unsubscribe = api.subscribeToCollection('clients', (data) => {
+      setClients(data as Client[]);
+    });
+    return () => unsubscribe();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAdmin) return;
 
     const clientData = {
       ...formData,
@@ -122,17 +121,16 @@ export default function ClientManager() {
       setIsModalOpen(false);
       setEditingClient(null);
       setFormData({ name: '', email: '', phone: '', phone2: '', cpf: '', birthDate: '' });
-      fetchClients();
     } catch (error) {
       console.error("Erro ao salvar cliente:", error);
     }
   };
 
   const handleDelete = async (id: string) => {
+    if (!isAdmin) return;
     if (confirm("Tem certeza que deseja excluir este cliente?")) {
       try {
         await api.delete('clients', id);
-        fetchClients();
       } catch (error) {
         console.error("Erro ao excluir cliente:", error);
       }
@@ -209,33 +207,35 @@ export default function ClientManager() {
                   </div>
                 </div>
                 
-                <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                  <button 
-                    onClick={() => {
-                      setEditingClient(client);
-                      setFormData({
-                        name: client.name,
-                        email: client.email,
-                        phone: client.phone,
-                        phone2: client.phone2 || '',
-                        cpf: client.cpf || '',
-                        birthDate: client.birthDate || '',
-                      });
-                      setIsModalOpen(true);
-                    }}
-                    className="p-2 text-black/60 hover:bg-black/5 rounded-xl transition-colors"
-                    title="Editar"
-                  >
-                    <Edit2 className="w-5 h-5" />
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(client.id!)}
-                    className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"
-                    title="Excluir"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </div>
+                {isAdmin && (
+                  <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                    <button 
+                      onClick={() => {
+                        setEditingClient(client);
+                        setFormData({
+                          name: client.name,
+                          email: client.email,
+                          phone: client.phone,
+                          phone2: client.phone2 || '',
+                          cpf: client.cpf || '',
+                          birthDate: client.birthDate || '',
+                        });
+                        setIsModalOpen(true);
+                      }}
+                      className="p-2 text-black/60 hover:bg-black/5 rounded-xl transition-colors"
+                      title="Editar"
+                    >
+                      <Edit2 className="w-5 h-5" />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(client.id!)}
+                      className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"
+                      title="Excluir"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+                )}
               </div>
 
               <AnimatePresence>

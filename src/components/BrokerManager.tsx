@@ -4,9 +4,11 @@ import { Broker, Agency, Process } from '../types';
 import { Plus, Search, Trash2, Edit2, X, User, Phone, Mail, FileText, Building2, Filter, TrendingUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
+import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/cn';
 
 export default function BrokerManager() {
+  const { isAdmin } = useAuth();
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [processes, setProcesses] = useState<Process[]>([]);
@@ -68,31 +70,40 @@ export default function BrokerManager() {
         >
           <Filter className="w-5 h-5" />
         </button>
-        <button
-          onClick={() => {
-            setEditingBroker(null);
-            setFormData({ name: '', creci: '', email: '', phone: '', agencyId: '' });
-            setIsModalOpen(true);
-          }}
-          className="p-2 bg-white text-black border border-white/10 rounded-lg hover:bg-white/80 transition-colors shadow-sm"
-          title="Novo Corretor"
-        >
-          <Plus className="w-5 h-5" />
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => {
+              setEditingBroker(null);
+              setFormData({ name: '', creci: '', email: '', phone: '', agencyId: '' });
+              setIsModalOpen(true);
+            }}
+            className="p-2 bg-white text-black border border-white/10 rounded-lg hover:bg-white/80 transition-colors shadow-sm"
+            title="Novo Corretor"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+        )}
       </div>
     );
-  }, [isSearchOpen, searchTerm, isFilterOpen]);
+  }, [isSearchOpen, searchTerm, isFilterOpen, isAdmin]);
 
-  const fetchData = async () => {
-    try {
-      const data = await api.getData();
-      setBrokers(data.brokers || []);
-      setAgencies(data.agencies || []);
-      setProcesses(data.processes || []);
-    } catch (error) {
-      console.error("Erro ao buscar dados:", error);
-    }
-  };
+  useEffect(() => {
+    const unsubBrokers = api.subscribeToCollection('brokers', (data) => {
+      setBrokers(data as Broker[]);
+    });
+    const unsubAgencies = api.subscribeToCollection('agencies', (data) => {
+      setAgencies(data as Agency[]);
+    });
+    const unsubProcesses = api.subscribeToCollection('processes', (data) => {
+      setProcesses(data as Process[]);
+    });
+
+    return () => {
+      unsubBrokers();
+      unsubAgencies();
+      unsubProcesses();
+    };
+  }, []);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -100,10 +111,6 @@ export default function BrokerManager() {
       currency: 'BRL',
     }).format(value);
   };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,7 +129,6 @@ export default function BrokerManager() {
       setIsModalOpen(false);
       setEditingBroker(null);
       setFormData({ name: '', creci: '', email: '', phone: '', agencyId: '' });
-      fetchData();
     } catch (error) {
       console.error("Erro ao salvar corretor:", error);
     }
@@ -132,7 +138,6 @@ export default function BrokerManager() {
     if (confirm("Tem certeza que deseja excluir este corretor?")) {
       try {
         await api.delete('brokers', id);
-        fetchData();
       } catch (error) {
         console.error("Erro ao excluir corretor:", error);
       }
@@ -231,32 +236,34 @@ export default function BrokerManager() {
                   </div>
                 </div>
                 
-                <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                  <button 
-                    onClick={() => {
-                      setEditingBroker(broker);
-                      setFormData({
-                        name: broker.name,
-                        creci: broker.creci,
-                        email: broker.email,
-                        phone: broker.phone,
-                        agencyId: broker.agencyId || '',
-                      });
-                      setIsModalOpen(true);
-                    }}
-                    className="p-2 text-black/60 hover:bg-black/5 rounded-xl transition-colors"
-                    title="Editar"
-                  >
-                    <Edit2 className="w-5 h-5" />
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(broker.id!)}
-                    className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"
-                    title="Excluir"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </div>
+                {isAdmin && (
+                  <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                    <button 
+                      onClick={() => {
+                        setEditingBroker(broker);
+                        setFormData({
+                          name: broker.name,
+                          creci: broker.creci,
+                          email: broker.email,
+                          phone: broker.phone,
+                          agencyId: broker.agencyId || '',
+                        });
+                        setIsModalOpen(true);
+                      }}
+                      className="p-2 text-black/60 hover:bg-black/5 rounded-xl transition-colors"
+                      title="Editar"
+                    >
+                      <Edit2 className="w-5 h-5" />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(broker.id!)}
+                      className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"
+                      title="Excluir"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+                )}
               </div>
 
               <AnimatePresence>
