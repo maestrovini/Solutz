@@ -2,14 +2,24 @@ import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import fs from 'fs/promises';
+import { createClient } from '@supabase/supabase-js';
 
 const app = express();
 const PORT = 3000;
 const DATA_FILE = path.join(process.cwd(), 'data.json');
 
+// Supabase configuration
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+let supabase: any = null;
+if (supabaseUrl && supabaseKey) {
+  supabase = createClient(supabaseUrl, supabaseKey);
+}
+
 app.use(express.json());
 
-// Initial data structure
+// Initial data structure (for reference or fallback)
 const initialData = {
   users: [
     { uid: 'admin-1', email: 'vinicius.lopes@msn.com', displayName: 'Vinícius Lopes', role: 'admin' }
@@ -51,6 +61,22 @@ const initialData = {
 };
 
 async function readData() {
+  if (supabase) {
+    const collections = ['users', 'clients', 'processes', 'agencies', 'brokers', 'banks', 'market_data'];
+    const data: any = {};
+    
+    for (const collection of collections) {
+      const { data: items, error } = await supabase.from(collection).select('*');
+      if (error) {
+        console.error(`Error reading ${collection} from Supabase:`, error);
+        data[collection] = [];
+      } else {
+        data[collection] = items;
+      }
+    }
+    return data;
+  }
+
   try {
     const content = await fs.readFile(DATA_FILE, 'utf-8');
     return JSON.parse(content);
@@ -60,11 +86,16 @@ async function readData() {
   }
 }
 
-async function writeData(data: any) {
-  await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2));
-}
-
 // API Routes
+app.get('/api/status/supabase', (req, res) => {
+  res.json({
+    configured: !!supabase,
+    urlSet: !!supabaseUrl,
+    keySet: !!supabaseKey,
+    mode: supabase ? 'Supabase' : 'Local (data.json)'
+  });
+});
+
 app.get('/api/data', async (req, res) => {
   const data = await readData();
   res.json(data);
@@ -72,12 +103,28 @@ app.get('/api/data', async (req, res) => {
 
 app.post('/api/:collection', async (req, res) => {
   const { collection } = req.params;
+  
+  if (supabase) {
+    const { data: newItem, error } = await supabase
+      .from(collection)
+      .insert([req.body])
+      .select()
+      .single();
+      
+    if (error) {
+      res.status(500).json({ error: error.message });
+    } else {
+      res.status(201).json(newItem);
+    }
+    return;
+  }
+
   const data = await readData();
   const newItem = { ...req.body, id: Math.random().toString(36).substr(2, 9) };
   
   if (data[collection]) {
     data[collection].push(newItem);
-    await writeData(data);
+    await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2));
     res.status(201).json(newItem);
   } else {
     res.status(404).send('Collection not found');
@@ -86,13 +133,30 @@ app.post('/api/:collection', async (req, res) => {
 
 app.put('/api/:collection/:id', async (req, res) => {
   const { collection, id } = req.params;
+  
+  if (supabase) {
+    const { data: updatedItem, error } = await supabase
+      .from(collection)
+      .update(req.body)
+      .eq('id', id)
+      .select()
+      .single();
+      
+    if (error) {
+      res.status(500).json({ error: error.message });
+    } else {
+      res.json(updatedItem);
+    }
+    return;
+  }
+
   const data = await readData();
   
   if (data[collection]) {
     const index = data[collection].findIndex((item: any) => item.id === id);
     if (index !== -1) {
       data[collection][index] = { ...data[collection][index], ...req.body };
-      await writeData(data);
+      await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2));
       res.json(data[collection][index]);
     } else {
       res.status(404).send('Item not found');
@@ -104,11 +168,26 @@ app.put('/api/:collection/:id', async (req, res) => {
 
 app.delete('/api/:collection/:id', async (req, res) => {
   const { collection, id } = req.params;
+  
+  if (supabase) {
+    const { error } = await supabase
+      .from(collection)
+      .delete()
+      .eq('id', id);
+      
+    if (error) {
+      res.status(500).json({ error: error.message });
+    } else {
+      res.status(204).send();
+    }
+    return;
+  }
+
   const data = await readData();
   
   if (data[collection]) {
     data[collection] = data[collection].filter((item: any) => item.id !== id);
-    await writeData(data);
+    await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2));
     res.status(204).send();
   } else {
     res.status(404).send('Collection not found');
