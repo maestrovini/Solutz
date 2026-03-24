@@ -653,16 +653,19 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
                     </div>
 
                     {/* Bank Logo - Top Right */}
-                    {process.bankId && (
-                      <div className="h-8 flex items-center justify-center bg-black/5 p-1 rounded-lg">
-                        <img 
-                          src={banks.find(b => b.id === process.bankId)?.logoUrl} 
-                          alt="Bank" 
-                          className="h-full max-w-[80px] object-contain"
-                          referrerPolicy="no-referrer"
-                        />
-                      </div>
-                    )}
+                    {(() => {
+                      const bankLogo = banks.find(b => b.id === process.bankId)?.logoUrl;
+                      return process.bankId && bankLogo ? (
+                        <div className="h-8 flex items-center justify-center bg-black/5 p-1 rounded-lg">
+                          <img 
+                            src={bankLogo} 
+                            alt="Bank" 
+                            className="h-full max-w-[80px] object-contain"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
                 </div>
 
@@ -742,16 +745,19 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
             >
               <div className="p-8 border-b border-black/5 flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  {selectedProcessForDetail.bankId && (
-                    <div className="h-10 flex items-center justify-center bg-black/5 p-1.5 rounded-xl">
-                      <img 
-                        src={banks.find(b => b.id === selectedProcessForDetail.bankId)?.logoUrl} 
-                        alt="Bank" 
-                        className="h-full max-w-[100px] object-contain"
-                        referrerPolicy="no-referrer"
-                      />
-                    </div>
-                  )}                  <div className="flex items-center gap-2">
+                  {(() => {
+                    const bankLogo = banks.find(b => b.id === selectedProcessForDetail.bankId)?.logoUrl;
+                    return selectedProcessForDetail.bankId && bankLogo ? (
+                      <div className="h-10 flex items-center justify-center bg-black/5 p-1.5 rounded-xl">
+                        <img 
+                          src={bankLogo} 
+                          alt="Bank" 
+                          className="h-full max-w-[100px] object-contain"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    ) : null;
+                  })()}                  <div className="flex items-center gap-2">
                     {isAdmin && (
                       <>
                         <button 

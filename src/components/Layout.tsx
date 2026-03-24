@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { auth, signInWithPopup, googleProvider, onAuthStateChanged, User, db, doc, getDoc, setDoc } from '../firebase';
 import { UserProfile } from '../types';
-import { LogOut, Home, Users, FileText, Building2, Menu, X, User as UserIcon, Landmark, LogIn, Shield } from 'lucide-react';
+import { LogOut, Home, Users, FileText, Building2, Menu, X, User as UserIcon, Landmark, LogIn, Shield, BarChart3 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
 import { useAuth } from '../context/AuthContext';
@@ -79,6 +79,7 @@ export default function Layout({ children, activeTab, setActiveTab }: LayoutProp
     { id: 'brokers', label: 'Corretores', icon: UserIcon },
     { id: 'agencies', label: 'Imobiliárias', icon: Building2 },
     { id: 'banks', label: 'Bancos', icon: Landmark },
+    { id: 'reports', label: 'Relatórios', icon: BarChart3 },
     ...(isAdmin ? [{ id: 'users', label: 'Usuários', icon: Shield }] : []),
   ];
 
