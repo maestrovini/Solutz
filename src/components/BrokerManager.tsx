@@ -89,7 +89,7 @@ export default function BrokerManager() {
 
   useEffect(() => {
     const unsubBrokers = api.subscribeToCollection('brokers', (data) => {
-      setBrokers(data as Broker[]);
+      setBrokers((data as Broker[]).sort((a, b) => a.name.localeCompare(b.name)));
     });
     const unsubAgencies = api.subscribeToCollection('agencies', (data) => {
       setAgencies(data as Agency[]);

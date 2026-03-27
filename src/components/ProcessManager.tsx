@@ -174,16 +174,16 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
       setProcesses(data as Process[]);
     });
     const unsubClients = api.subscribeToCollection('clients', (data) => {
-      setClients(data as Client[]);
+      setClients((data as Client[]).sort((a, b) => a.name.localeCompare(b.name)));
     });
     const unsubBanks = api.subscribeToCollection('banks', (data) => {
-      setBanks(data as Bank[]);
+      setBanks((data as Bank[]).sort((a, b) => a.name.localeCompare(b.name)));
     });
     const unsubAgencies = api.subscribeToCollection('agencies', (data) => {
-      setAgencies(data as Agency[]);
+      setAgencies((data as Agency[]).sort((a, b) => a.name.localeCompare(b.name)));
     });
     const unsubBrokers = api.subscribeToCollection('brokers', (data) => {
-      setBrokers(data as Broker[]);
+      setBrokers((data as Broker[]).sort((a, b) => a.name.localeCompare(b.name)));
     });
 
     return () => {
@@ -203,7 +203,7 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
     if (editingNotificationId) {
       updatedNotifications = (selectedProcessForDetail.notifications || []).map(n => 
         n.id === editingNotificationId 
-          ? { ...n, date: notificationData.date, reason: notificationData.reason }
+          ? { ...n, date: notificationData.date, reason: notificationData.reason, completed: false }
           : n
       );
     } else {
@@ -285,8 +285,8 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
     const now = new Date().toISOString();
     let stageHistory = editingProcess?.stageHistory || [];
     
-    // Record history if it's a new process or the stage has changed
-    if (!editingProcess || editingProcess.stage !== formData.stage) {
+    // Record history if it's a new process or the stage has changed or history is empty
+    if (!editingProcess || editingProcess.stage !== formData.stage || stageHistory.length === 0) {
       stageHistory = [...stageHistory, { stage: formData.stage, date: now }];
     }
 
@@ -355,12 +355,15 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
   const getBankName = (id: string) => banks.find(b => b.id === id)?.name || 'N/A';
 
   const getDaysInCurrentStage = (process: Process) => {
-    if (!process.stageHistory || process.stageHistory.length === 0) return 0;
-    const lastHistory = process.stageHistory[process.stageHistory.length - 1];
+    const lastHistory = process.stageHistory && process.stageHistory.length > 0 
+      ? process.stageHistory[process.stageHistory.length - 1]
+      : { date: process.updatedAt || new Date().toISOString() };
+
     const startDate = new Date(lastHistory.date);
     const now = new Date();
     const diffTime = Math.max(0, now.getTime() - startDate.getTime());
-    return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return days === 0 ? 1 : days; // Show at least 1 day if it's in the stage
   };
 
   const handleEntityEdit = (type: 'client' | 'broker' | 'agency', entity: any) => {
@@ -656,11 +659,11 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
                     {(() => {
                       const bankLogo = banks.find(b => b.id === process.bankId)?.logoUrl;
                       return process.bankId && bankLogo ? (
-                        <div className="h-8 flex items-center justify-center bg-black/5 p-1 rounded-lg">
+                        <div className="h-8 w-8 bg-black/5 rounded-lg overflow-hidden shrink-0">
                           <img 
                             src={bankLogo} 
                             alt="Bank" 
-                            className="h-full max-w-[80px] object-contain"
+                            className="w-full h-full object-cover"
                             referrerPolicy="no-referrer"
                           />
                         </div>
@@ -743,21 +746,36 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
               exit={{ opacity: 0, scale: 0.95 }}
               className="bg-white w-full max-w-2xl rounded-[32px] shadow-2xl overflow-hidden border border-black/10"
             >
-              <div className="p-8 border-b border-black/5 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  {(() => {
-                    const bankLogo = banks.find(b => b.id === selectedProcessForDetail.bankId)?.logoUrl;
-                    return selectedProcessForDetail.bankId && bankLogo ? (
-                      <div className="h-10 flex items-center justify-center bg-black/5 p-1.5 rounded-xl">
-                        <img 
-                          src={bankLogo} 
-                          alt="Bank" 
-                          className="h-full max-w-[100px] object-contain"
-                          referrerPolicy="no-referrer"
-                        />
-                      </div>
-                    ) : null;
-                  })()}                  <div className="flex items-center gap-2">
+              <div className="px-8 pt-8 pb-4 border-b border-black/5 space-y-4">
+                <div className="flex items-center justify-between">
+                  {/* Bank, Type and Stage */}
+                  <div className="flex items-center gap-3 bg-black/5 p-3 rounded-2xl">
+                    {(() => {
+                      const bankLogo = banks.find(b => b.id === selectedProcessForDetail.bankId)?.logoUrl;
+                      return selectedProcessForDetail.bankId && bankLogo ? (
+                        <div className="h-10 w-10 bg-white rounded-xl overflow-hidden shrink-0 shadow-sm border border-black/5">
+                          <img 
+                            src={bankLogo} 
+                            alt="Bank" 
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+                      ) : null;
+                    })()}
+                    <div className="text-left">
+                      <p className="text-[10px] font-bold text-[#1a1a1a] uppercase tracking-wider">
+                        {selectedProcessForDetail.type}
+                        {selectedProcessForDetail.financingType && ` - ${selectedProcessForDetail.financingType}`}
+                      </p>
+                      <p className="text-[10px] font-medium text-black/40 uppercase tracking-widest mt-0.5">
+                        {selectedProcessForDetail.stage}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1">
                     {isAdmin && (
                       <>
                         <button 
@@ -817,28 +835,18 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
                       }} 
                       className="p-2 hover:bg-black/5 rounded-full text-black/40"
                     >
-                      <X />
+                      <X className="w-5 h-5" />
                     </button>
                   </div>
                 </div>
-              </div>
-              <div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Tipo de Processo</p>
-                    <p className="text-sm font-semibold text-[#1a1a1a]">
-                      {selectedProcessForDetail.type}
-                      {selectedProcessForDetail.financingType && ` - ${selectedProcessForDetail.financingType}`}
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Etapa</p>
-                    <span className="inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-black/5 text-black">
-                      {selectedProcessForDetail.stage}
-                    </span>
-                  </div>
-                </div>
 
+                <div className="flex-1">
+                  <h2 className="text-2xl font-bold text-[#1a1a1a]">
+                    {clients.find(c => c.id === selectedProcessForDetail.clientId)?.name}
+                  </h2>
+                </div>
+              </div>
+              <div className="px-8 pt-4 pb-8 space-y-6 max-h-[70vh] overflow-y-auto">
                 <div className="space-y-6">
                   <div className="space-y-4">
                     <div className="space-y-1">

@@ -31,7 +31,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(newProfile);
         }
       } else {
-        setUser(null);
+        // Default guest user to bypass login requirement
+        setUser({
+          uid: 'public-guest',
+          email: 'guest@solutz.com',
+          displayName: 'Visitante',
+          role: 'admin', // Default to admin so they can use all features
+        });
       }
       setLoading(false);
     });

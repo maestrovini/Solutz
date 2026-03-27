@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { Client, Process, Agency, Broker, Bank } from '../types';
-import { Users, Building2, User, ChevronDown, ChevronUp, Trophy, TrendingUp, Award, BarChart3, Star, Layers, Landmark, X, Cake, CalendarDays, AlertCircle, Bell } from 'lucide-react';
+import { Users, Building2, User, ChevronDown, ChevronUp, Trophy, TrendingUp, Award, BarChart3, Star, Layers, Landmark, X, Cake, CalendarDays, AlertCircle, Bell, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
 import { cn } from '../utils/cn';
@@ -17,7 +17,7 @@ export default function Dashboard({ onOpenProcess }: DashboardProps) {
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeView, setActiveView] = useState<'agencies' | 'brokers' | 'stages' | 'banks' | null>(null);
+  const [concludeConfirm, setConcludeConfirm] = useState<{ processId: string, notificationId: string } | null>(null);
   const { setTitle, setActions } = useHeader();
 
   useEffect(() => {
@@ -40,7 +40,7 @@ export default function Dashboard({ onOpenProcess }: DashboardProps) {
     });
     const unsubBrokers = api.subscribeToCollection('brokers', (data) => {
       setBrokers(data as Broker[]);
-      setLoading(false);
+      if (loading) setLoading(false);
     });
 
     return () => {
@@ -50,108 +50,7 @@ export default function Dashboard({ onOpenProcess }: DashboardProps) {
       unsubAgencies();
       unsubBrokers();
     };
-  }, []);
-
-  const stats = [
-    { label: 'Clientes', value: clients.length, icon: Users, color: 'bg-blue-500' },
-  ];
-
-  const interactiveStats = [
-    { 
-      label: 'Imobiliárias', 
-      value: agencies.length, 
-      icon: Building2, 
-      color: 'bg-black', 
-      isExpanded: activeView === 'agencies', 
-      toggle: () => setActiveView(activeView === 'agencies' ? null : 'agencies')
-    },
-    { 
-      label: 'Corretores', 
-      value: brokers.length, 
-      icon: User, 
-      color: 'bg-amber-500', 
-      isExpanded: activeView === 'brokers', 
-      toggle: () => setActiveView(activeView === 'brokers' ? null : 'brokers')
-    },
-    { 
-      label: 'Etapas', 
-      value: processes.length, 
-      icon: Layers, 
-      color: 'bg-emerald-500', 
-      isExpanded: activeView === 'stages', 
-      toggle: () => setActiveView(activeView === 'stages' ? null : 'stages')
-    },
-    { 
-      label: 'Bancos', 
-      value: banks.length, 
-      icon: Landmark, 
-      color: 'bg-indigo-500', 
-      isExpanded: activeView === 'banks', 
-      toggle: () => setActiveView(activeView === 'banks' ? null : 'banks')
-    },
-  ];
-
-  const stages = ['Aprovado', 'Vistoria', 'Contrato', 'Registro', 'Finalizado'];
-  
-  const stageConfig: Record<string, { color: string }> = {
-    'Aprovado': { color: '#3b82f6' },
-    'Vistoria': { color: '#f59e0b' },
-    'Contrato': { color: '#8b5cf6' },
-    'Registro': { color: '#f97316' },
-    'Finalizado': { color: '#1a1a1a' },
-  };
-
-  const getStageStats = (stage: string) => {
-    const stageProcesses = processes.filter(p => p.stage === stage);
-    const totalFinancing = stageProcesses.reduce((sum, p) => sum + (p.financingValue || 0), 0);
-    return {
-      count: stageProcesses.length,
-      totalFinancing
-    };
-  };
-
-  const getBankStats = (bankId: string) => {
-    const bankProcesses = processes.filter(p => p.bankId === bankId);
-    const totalFinancing = bankProcesses.reduce((sum, p) => sum + (p.financingValue || 0), 0);
-    return {
-      count: bankProcesses.length,
-      totalFinancing
-    };
-  };
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
-  };
-
-  const getTopPerformers = () => {
-    const agencyStats = agencies.map(agency => {
-      const agencyProcesses = processes.filter(p => 
-        p.participants?.some(part => part.type === 'agency' && part.id === agency.id)
-      );
-      const count = agencyProcesses.length;
-      const totalFinancing = agencyProcesses.reduce((sum, p) => sum + (p.financingValue || 0), 0);
-      return { name: agency.name, count, totalFinancing };
-    });
-
-    const brokerStats = brokers.map(broker => {
-      const brokerProcesses = processes.filter(p => 
-        p.participants?.some(part => part.type === 'broker' && part.id === broker.id)
-      );
-      const count = brokerProcesses.length;
-      const totalFinancing = brokerProcesses.reduce((sum, p) => sum + (p.financingValue || 0), 0);
-      return { name: broker.name, count, totalFinancing };
-    });
-
-    const topAgencyByCount = [...agencyStats].sort((a, b) => b.count - a.count)[0];
-    const topAgencyByVolume = [...agencyStats].sort((a, b) => b.totalFinancing - a.totalFinancing)[0];
-    const topBrokerByCount = [...brokerStats].sort((a, b) => b.count - a.count)[0];
-    const topBrokerByVolume = [...brokerStats].sort((a, b) => b.totalFinancing - a.totalFinancing)[0];
-
-    return { topAgencyByCount, topAgencyByVolume, topBrokerByCount, topBrokerByVolume };
-  };
+  }, [loading]);
 
   const getBirthdaysOfMonth = () => {
     const currentMonth = new Date().getMonth(); // 0-11
@@ -179,27 +78,60 @@ export default function Dashboard({ onOpenProcess }: DashboardProps) {
     });
   };
 
-  const getNotificationsToday = () => {
+  const getCategorizedNotifications = () => {
     const today = new Date().toISOString().split('T')[0];
-    const todayNotifications: { processId: string, clientName: string, reason: string, date: string }[] = [];
+    const categorized: {
+      hoje: { processId: string, notificationId: string, clientName: string, reason: string, date: string }[],
+      futuras: { processId: string, notificationId: string, clientName: string, reason: string, date: string }[],
+      pendentes: { processId: string, notificationId: string, clientName: string, reason: string, date: string }[]
+    } = { hoje: [], futuras: [], pendentes: [] };
 
     processes.forEach(p => {
       if (p.notifications) {
         p.notifications.forEach(n => {
-          if (n.date === today) {
+          if (!n.completed) {
+            const buyers = p.participants?.filter(part => part.type === 'buyer').map(part => part.name).join(', ');
             const client = clients.find(c => c.id === p.clientId);
-            todayNotifications.push({
+            const clientName = buyers || client?.name || 'Cliente Desconhecido';
+
+            const notification = {
               processId: p.id!,
-              clientName: client?.name || 'Cliente Desconhecido',
+              notificationId: n.id,
+              clientName,
               reason: n.reason,
               date: n.date
-            });
+            };
+
+            if (n.date === today) {
+              categorized.hoje.push(notification);
+            } else if (n.date > today) {
+              categorized.futuras.push(notification);
+            } else {
+              categorized.pendentes.push(notification);
+            }
           }
         });
       }
     });
 
-    return todayNotifications;
+    return categorized;
+  };
+
+  const handleConcludeNotification = async (processId: string, notificationId: string) => {
+    const process = processes.find(p => p.id === processId);
+    if (!process || !process.notifications) return;
+
+    const updatedNotifications = process.notifications.map(n => 
+      n.id === notificationId ? { ...n, completed: true } : n
+    );
+
+    try {
+      await api.update('processes', processId, {
+        notifications: updatedNotifications
+      });
+    } catch (error) {
+      console.error('Erro ao concluir notificação:', error);
+    }
   };
 
   if (loading) {
@@ -210,266 +142,153 @@ export default function Dashboard({ onOpenProcess }: DashboardProps) {
     );
   }
 
-  const { topAgencyByCount, topAgencyByVolume, topBrokerByCount, topBrokerByVolume } = getTopPerformers();
   const birthdays = getBirthdaysOfMonth();
-  const todayNotifications = getNotificationsToday();
+  const { hoje, futuras, pendentes } = getCategorizedNotifications();
+  const allNotifications = [...pendentes, ...hoje, ...futuras];
+
+  const formatDate = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('-');
+    return `${day}/${month}/${year}`;
+  };
 
   return (
     <div className="space-y-6">
       {/* Notifications Section */}
-      {todayNotifications.length > 0 && (
+      {allNotifications.length > 0 && (
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-amber-50 p-6 rounded-[24px] shadow-sm border border-amber-200"
+          className="bg-white p-6 rounded-[24px] shadow-sm border border-black/5"
         >
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-amber-500/20">
+            <div className="w-10 h-10 bg-black rounded-xl flex items-center justify-center text-white shadow-lg shadow-black/20">
               <Bell className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-amber-900 leading-none">Notificações de Hoje</h2>
-              <p className="text-[10px] text-amber-700/60 uppercase tracking-wider mt-1">Lembretes agendados</p>
+              <h2 className="text-xl font-bold text-[#1a1a1a] leading-none">Notificações</h2>
+              <p className="text-[10px] text-black/40 uppercase tracking-wider mt-1">Acompanhamento de processos</p>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-            {todayNotifications.map((n, i) => (
-              <button 
-                key={i} 
-                onClick={() => onOpenProcess?.(n.processId)}
-                className="bg-white p-3 rounded-xl border border-amber-100 shadow-sm flex flex-col gap-2 text-left hover:border-amber-300 transition-all group"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-md bg-amber-100 flex items-center justify-center group-hover:bg-amber-200 transition-colors">
-                      <AlertCircle className="w-3 h-3 text-amber-600" />
+          <div className="max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {allNotifications.map((n) => {
+                const today = new Date().toISOString().split('T')[0];
+                const isToday = n.date === today;
+                const isPending = n.date < today;
+                const isFuture = n.date > today;
+
+                return (
+                  <div 
+                    key={`${n.processId}-${n.notificationId}`}
+                    className={cn(
+                      "p-3 rounded-xl border shadow-sm flex flex-col gap-2 text-left transition-all group relative",
+                      isToday ? "bg-amber-50 border-amber-200" :
+                      isPending ? "bg-red-50 border-red-200" :
+                      "bg-green-50 border-green-200"
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <button 
+                          onClick={() => onOpenProcess?.(n.processId)}
+                          className="flex items-center gap-2 text-left hover:opacity-70 transition-opacity mb-1 w-full"
+                        >
+                          <div className={cn(
+                            "w-6 h-6 rounded-md flex items-center justify-center shrink-0 transition-colors",
+                            isToday ? "bg-amber-100 group-hover:bg-amber-200" :
+                            isPending ? "bg-red-100 group-hover:bg-red-200" :
+                            "bg-green-100 group-hover:bg-green-200"
+                          )}>
+                            <AlertCircle className={cn(
+                              "w-3 h-3",
+                              isToday ? "text-amber-600" :
+                              isPending ? "text-red-600" :
+                              "text-green-600"
+                            )} />
+                          </div>
+                          <p className={cn(
+                            "text-xs font-bold truncate",
+                            isToday ? "text-amber-900" :
+                            isPending ? "text-red-900" :
+                            "text-green-900"
+                          )}>{n.clientName}</p>
+                        </button>
+                        <p className={cn(
+                          "text-[11px] leading-tight line-clamp-2",
+                          isToday ? "text-amber-800/70" :
+                          isPending ? "text-red-800/70" :
+                          "text-green-800/70"
+                        )}>{n.reason}</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-2 shrink-0">
+                        <span className={cn(
+                          "text-[8px] font-bold uppercase px-1.5 py-0.5 rounded-md",
+                          isToday ? "bg-amber-100 text-amber-600" :
+                          isPending ? "bg-red-100 text-red-600" :
+                          "bg-green-100 text-green-600"
+                        )}>
+                          {isToday ? 'Hoje' : formatDate(n.date)}
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConcludeConfirm({ processId: n.processId, notificationId: n.notificationId });
+                          }}
+                          className={cn(
+                            "p-1 rounded-full transition-colors",
+                            isToday ? "hover:bg-amber-200 text-amber-600" :
+                            isPending ? "hover:bg-red-200 text-red-600" :
+                            "hover:bg-green-200 text-green-600"
+                          )}
+                          title="Concluir"
+                        >
+                          <CheckCircle2 className="w-6 h-6" />
+                        </button>
+                      </div>
                     </div>
-                    <p className="text-xs font-bold text-amber-900 truncate max-w-[120px]">{n.clientName}</p>
                   </div>
-                  <span className="text-[8px] font-bold uppercase px-1.5 py-0.5 bg-amber-100 text-amber-600 rounded-md">Hoje</span>
-                </div>
-                <p className="text-[11px] text-amber-800/70 leading-tight line-clamp-2">{n.reason}</p>
-              </button>
-            ))}
+                );
+              })}
+            </div>
           </div>
         </motion.div>
       )}
 
-      {/* Main Stats Row */}
-      <div className="grid grid-cols-5 gap-2 md:gap-4">
-        {stats.map((stat, i) => (
-          <motion.div
-            key={stat.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1 }}
-            className="bg-white p-3 rounded-[20px] shadow-sm border border-black/5 flex flex-col items-center justify-center gap-1"
-          >
-            <div className={`${stat.color} w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-lg shrink-0`}>
-              <stat.icon className="w-4 h-4" />
-            </div>
-            <p className="text-lg font-bold text-[#1a1a1a]">{stat.value}</p>
-          </motion.div>
-        ))}
-        {interactiveStats.map((stat, i) => (
-          <motion.button
-            key={stat.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: (i + 1) * 0.1 }}
-            onClick={stat.toggle}
-            className={cn(
-              "p-3 rounded-[20px] shadow-sm border transition-all flex flex-col items-center justify-center gap-1 group",
-              stat.isExpanded 
-                ? "bg-black border-black text-white" 
-                : "bg-white border-black/5 text-[#1a1a1a] hover:border-black/20"
-            )}
-          >
-            <div className={cn(
-              "w-8 h-8 rounded-lg flex items-center justify-center shadow-lg shrink-0 transition-colors",
-              stat.isExpanded ? "bg-white/20 text-white" : `${stat.color} text-white`
-            )}>
-              <stat.icon className="w-4 h-4" />
-            </div>
-            <div className="flex items-center justify-center gap-1">
-              <p className="text-lg font-bold">{stat.value}</p>
-              {stat.isExpanded ? <ChevronUp className="w-3 h-3 opacity-40" /> : <ChevronDown className="w-3 h-3 opacity-40" />}
-            </div>
-          </motion.button>
-        ))}
-      </div>
-
-      {/* Overlay View */}
       <AnimatePresence>
-        {activeView && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-[#f5f5f5] flex flex-col"
-          >
-            {/* Content Area - Preserving original card styles */}
-            <div className="flex-1 p-6 overflow-y-auto">
-              <div className="max-w-7xl mx-auto pt-12">
-                {activeView === 'agencies' && (
-                  <div className="bg-white p-8 rounded-[32px] shadow-sm border border-black/5 relative">
-                    <div className="flex items-center justify-between mb-8">
-                      <h2 className="text-2xl font-bold text-[#1a1a1a]">Destaques Imobiliárias</h2>
-                      <button 
-                        onClick={() => setActiveView(null)}
-                        className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center hover:bg-black/80 transition-all shadow-lg"
-                        title="Fechar"
-                      >
-                        <X className="w-6 h-6" />
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-y-8 md:gap-y-0 md:gap-x-12">
-                      {[
-                        { title: 'Top Imobiliária (Qtd)', data: topAgencyByCount, icon: Trophy, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-                        { title: 'Top Imobiliária (Vol)', data: topAgencyByVolume, icon: TrendingUp, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-                      ].map((item, i) => (
-                        <div key={item.title} className="relative flex items-center gap-4">
-                          {i !== 0 && <div className="hidden md:block absolute -left-6 top-0 bottom-0 w-px bg-black/5" />}
-                          <div className={`${item.bg} p-3 rounded-2xl shrink-0`}>
-                            <item.icon className={`w-8 h-8 ${item.color}`} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-base font-bold text-[#1a1a1a] truncate leading-tight" title={item.data?.name || 'N/A'}>
-                              {item.data?.name || 'Sem dados'}
-                            </h3>
-                          </div>
-                          <div className="flex flex-col items-end shrink-0 text-right">
-                            <span className={`text-[8px] font-bold uppercase tracking-wider ${item.color} mb-1`}>{item.title}</span>
-                            <span className="text-xs font-bold text-[#1a1a1a] leading-tight">{item.data?.count || 0} Processos</span>
-                            <span className="text-xs font-bold text-[#1a1a1a] leading-tight mt-0.5">{formatCurrency(item.data?.totalFinancing || 0)}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {activeView === 'brokers' && (
-                  <div className="bg-white p-8 rounded-[32px] shadow-sm border border-black/5 relative">
-                    <div className="flex items-center justify-between mb-8">
-                      <h2 className="text-2xl font-bold text-[#1a1a1a]">Destaques Corretores</h2>
-                      <button 
-                        onClick={() => setActiveView(null)}
-                        className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center hover:bg-black/80 transition-all shadow-lg"
-                        title="Fechar"
-                      >
-                        <X className="w-6 h-6" />
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-y-8 md:gap-y-0 md:gap-x-12">
-                      {[
-                        { title: 'Top Corretor (Qtd)', data: topBrokerByCount, icon: Award, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-                        { title: 'Top Corretor (Vol)', data: topBrokerByVolume, icon: BarChart3, color: 'text-purple-500', bg: 'bg-purple-500/10' },
-                      ].map((item, i) => (
-                        <div key={item.title} className="relative flex items-center gap-4">
-                          {i !== 0 && <div className="hidden md:block absolute -left-6 top-0 bottom-0 w-px bg-black/5" />}
-                          <div className={`${item.bg} p-3 rounded-2xl shrink-0`}>
-                            <item.icon className={`w-8 h-8 ${item.color}`} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-base font-bold text-[#1a1a1a] truncate leading-tight" title={item.data?.name || 'N/A'}>
-                              {item.data?.name || 'Sem dados'}
-                            </h3>
-                          </div>
-                          <div className="flex flex-col items-end shrink-0 text-right">
-                            <span className={`text-[8px] font-bold uppercase tracking-wider ${item.color} mb-1`}>{item.title}</span>
-                            <span className="text-xs font-bold text-[#1a1a1a] leading-tight">{item.data?.count || 0} Processos</span>
-                            <span className="text-xs font-bold text-[#1a1a1a] leading-tight mt-0.5">{formatCurrency(item.data?.totalFinancing || 0)}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {activeView === 'stages' && (
-                  <div className="bg-white p-8 rounded-[32px] shadow-sm border border-black/5 relative">
-                    <div className="flex items-center justify-between mb-8">
-                      <h2 className="text-2xl font-bold text-[#1a1a1a]">Processos por Etapa</h2>
-                      <button 
-                        onClick={() => setActiveView(null)}
-                        className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center hover:bg-black/80 transition-all shadow-lg"
-                        title="Fechar"
-                      >
-                        <X className="w-6 h-6" />
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-y-8 lg:gap-y-0 lg:gap-x-12">
-                      {stages.map((stage, i) => {
-                        const { count, totalFinancing } = getStageStats(stage);
-                        return (
-                          <div key={stage} className="relative flex flex-col space-y-3">
-                            {i % 5 !== 0 && <div className="hidden lg:block absolute -left-6 top-0 bottom-0 w-px bg-black/5" />}
-                            <div 
-                              className="w-full py-1.5 rounded-lg text-white text-[9px] font-bold uppercase tracking-widest shadow-sm text-center"
-                              style={{ backgroundColor: stageConfig[stage].color }}
-                            >
-                              {stage}
-                            </div>
-                            <div className="flex items-center justify-between gap-2 px-1">
-                              <div className="flex items-baseline gap-1">
-                                <span className="text-lg font-bold text-[#1a1a1a]">{count}</span>
-                                <span className="text-[8px] font-bold uppercase tracking-wider text-black/40">Processos</span>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-lg font-bold text-[#1a1a1a] truncate">
-                                  {formatCurrency(totalFinancing)}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {activeView === 'banks' && (
-                  <div className="bg-white p-8 rounded-[32px] shadow-sm border border-black/5 relative">
-                    <div className="flex items-center justify-between mb-8">
-                      <h2 className="text-2xl font-bold text-[#1a1a1a]">Processos por Banco</h2>
-                      <button 
-                        onClick={() => setActiveView(null)}
-                        className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center hover:bg-black/80 transition-all shadow-lg"
-                        title="Fechar"
-                      >
-                        <X className="w-6 h-6" />
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-y-8 lg:gap-y-0 lg:gap-x-12">
-                      {banks.map((bank, i) => {
-                        const { count, totalFinancing } = getBankStats(bank.id!);
-                        return (
-                          <div key={bank.id} className="relative flex flex-col space-y-3">
-                            {i % 4 !== 0 && <div className="hidden lg:block absolute -left-6 top-0 bottom-0 w-px bg-black/5" />}
-                            <div className="w-full py-1.5 rounded-lg text-white text-[9px] font-bold uppercase tracking-widest shadow-sm text-center bg-[#1a1a1a]">
-                              {bank.name}
-                            </div>
-                            <div className="flex items-center justify-between gap-2 px-1">
-                              <div className="flex items-baseline gap-1">
-                                <span className="text-lg font-bold text-[#1a1a1a]">{count}</span>
-                                <span className="text-[8px] font-bold uppercase tracking-wider text-black/40">Processos</span>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-lg font-bold text-[#1a1a1a] truncate">
-                                  {formatCurrency(totalFinancing)}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+        {concludeConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white w-full max-w-sm rounded-[32px] shadow-2xl overflow-hidden border border-black/10 p-8 text-center"
+            >
+              <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <CheckCircle2 className="w-8 h-8" />
               </div>
-            </div>
-          </motion.div>
+              <h3 className="text-xl font-bold text-[#1a1a1a] mb-2">Concluir Notificação?</h3>
+              <p className="text-sm text-black/40 mb-8">
+                Esta notificação será removida do seu Dashboard. Você confirma a conclusão?
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConcludeConfirm(null)}
+                  className="flex-1 px-6 py-3 rounded-full font-bold border border-black/10 text-black/60 hover:bg-black/5 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    handleConcludeNotification(concludeConfirm.processId, concludeConfirm.notificationId);
+                    setConcludeConfirm(null);
+                  }}
+                  className="flex-1 px-6 py-3 rounded-full font-bold bg-emerald-500 text-white hover:bg-emerald-600 transition-all"
+                >
+                  Confirmar
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 

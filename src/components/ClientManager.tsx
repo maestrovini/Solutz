@@ -17,6 +17,7 @@ export default function ClientManager() {
   const { setTitle, setActions } = useHeader();
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [expandedClientId, setExpandedClientId] = useState<string | null>(null);
+  const [errors, setErrors] = useState<{ cpf?: string }>({});
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -83,6 +84,7 @@ export default function ClientManager() {
             onClick={() => {
               setEditingClient(null);
               setFormData({ name: '', email: '', phone: '', phone2: '', cpf: '', birthDate: '' });
+              setErrors({});
               setIsModalOpen(true);
             }}
             className="p-2 bg-white text-black border border-white/10 rounded-lg hover:bg-white/80 transition-colors shadow-sm"
@@ -97,7 +99,7 @@ export default function ClientManager() {
 
   useEffect(() => {
     const unsubscribe = api.subscribeToCollection('clients', (data) => {
-      setClients(data as Client[]);
+      setClients((data as Client[]).sort((a, b) => a.name.localeCompare(b.name)));
     });
     return () => unsubscribe();
   }, []);
@@ -105,6 +107,12 @@ export default function ClientManager() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) return;
+
+    // CPF Validation
+    if (formData.cpf && !/^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(formData.cpf)) {
+      setErrors(prev => ({ ...prev, cpf: 'Formato de CPF inválido (000.000.000-00)' }));
+      return;
+    }
 
     const clientData = {
       ...formData,
@@ -121,6 +129,7 @@ export default function ClientManager() {
       setIsModalOpen(false);
       setEditingClient(null);
       setFormData({ name: '', email: '', phone: '', phone2: '', cpf: '', birthDate: '' });
+      setErrors({});
     } catch (error) {
       console.error("Erro ao salvar cliente:", error);
     }
@@ -220,6 +229,7 @@ export default function ClientManager() {
                           cpf: client.cpf || '',
                           birthDate: client.birthDate || '',
                         });
+                        setErrors({});
                         setIsModalOpen(true);
                       }}
                       className="p-2 text-black/60 hover:bg-black/5 rounded-xl transition-colors"
@@ -317,9 +327,19 @@ export default function ClientManager() {
                       type="text"
                       placeholder="000.000.000-00"
                       value={formData.cpf}
-                      onChange={(e) => setFormData({ ...formData, cpf: formatCPF(e.target.value) })}
-                      className="w-full px-4 py-3 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all placeholder:text-black/40"
+                      onChange={(e) => {
+                        const formatted = formatCPF(e.target.value);
+                        setFormData({ ...formData, cpf: formatted });
+                        if (errors.cpf) setErrors(prev => ({ ...prev, cpf: undefined }));
+                      }}
+                      className={cn(
+                        "w-full px-4 py-3 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border outline-none transition-all placeholder:text-black/40",
+                        errors.cpf ? "border-red-500 focus:ring-red-500/10" : "border-black/10 focus:ring-black/5"
+                      )}
                     />
+                    {errors.cpf && (
+                      <p className="mt-1 text-xs text-red-500">{errors.cpf}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-black/60 mb-2">Data de Nascimento</label>

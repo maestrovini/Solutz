@@ -41,6 +41,7 @@ export interface Notification {
   date: string;
   reason: string;
   createdAt: string;
+  completed?: boolean;
 }
 
 export interface Process {

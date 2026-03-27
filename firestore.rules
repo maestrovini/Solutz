@@ -29,17 +29,15 @@ service cloud.firestore {
     // Helper Functions
     // ===============================================================
     function isAuthenticated() {
-      return request.auth != null;
+      return true; // Allow public access
     }
 
     function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+      return true; // Allow public access
     }
 
     function isAdmin() {
-      return isAuthenticated() &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-          (request.auth.token.email == "vinicius.lopes@msn.com" && request.auth.token.email_verified == true));
+      return true; // Allow public access
     }
 
     function hasRequiredFields(fields) {

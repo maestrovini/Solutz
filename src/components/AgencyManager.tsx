@@ -104,7 +104,7 @@ export default function AgencyManager() {
 
   useEffect(() => {
     const unsubAgencies = api.subscribeToCollection('agencies', (data) => {
-      setAgencies(data as Agency[]);
+      setAgencies((data as Agency[]).sort((a, b) => a.name.localeCompare(b.name)));
     });
     const unsubBrokers = api.subscribeToCollection('brokers', (data) => {
       setBrokers(data as Broker[]);

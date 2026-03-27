@@ -47,7 +47,7 @@ export default function BankManager() {
 
   useEffect(() => {
     const unsubscribe = api.subscribeToCollection('banks', (data) => {
-      setBanks(data as Bank[]);
+      setBanks((data as Bank[]).sort((a, b) => a.name.localeCompare(b.name)));
     });
     return () => unsubscribe();
   }, []);
@@ -114,7 +114,7 @@ export default function BankManager() {
                 title="Clique para editar"
               >
                 {bank.logoUrl ? (
-                  <img src={bank.logoUrl} alt={bank.name} className="w-full h-full object-contain p-2" referrerPolicy="no-referrer" />
+                  <img src={bank.logoUrl} alt={bank.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 ) : (
                   <Building2 className="text-black/40 w-8 h-8" />
                 )}
