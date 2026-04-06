@@ -1,0 +1,118 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "User ID" },
+        "email": { "type": "string", "format": "email", "description": "User email" },
+        "displayName": { "type": "string", "description": "User display name" },
+        "role": { "type": "string", "enum": ["admin", "broker", "agency"], "description": "User role" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Client": {
+      "title": "Client",
+      "description": "Client information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Client ID" },
+        "name": { "type": "string", "description": "Client name" },
+        "email": { "type": "string", "format": "email", "description": "Client email" },
+        "phone": { "type": "string", "description": "Client phone" },
+        "brokerId": { "type": "string", "description": "Broker ID" },
+        "status": { "type": "string", "enum": ["Aprovado", "Condicionado", "Negado"], "description": "Client status" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["name", "email"]
+    },
+    "Process": {
+      "title": "Process",
+      "description": "Financing process information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Process ID" },
+        "clientId": { "type": "string", "description": "Client ID" },
+        "participants": { "type": "array", "description": "List of participants" },
+        "type": { "type": "string", "description": "Process type" },
+        "status": { "type": "string", "description": "Process status" },
+        "stage": { "type": "string", "description": "Process stage" },
+        "bankId": { "type": "string", "description": "Bank ID" },
+        "purchaseValue": { "type": "number", "description": "Purchase value" },
+        "financingValue": { "type": "number", "description": "Financing value" },
+        "value": { "type": "number", "description": "Process value" },
+        "brokerId": { "type": "string", "description": "Broker ID" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
+      },
+      "required": ["clientId", "type", "status"]
+    },
+    "Agency": {
+      "title": "Agency",
+      "description": "Real estate agency information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Agency ID" },
+        "name": { "type": "string", "description": "Agency name" },
+        "cnpj": { "type": "string", "description": "Agency CNPJ" },
+        "email": { "type": "string", "format": "email", "description": "Agency email" },
+        "phone": { "type": "string", "description": "Agency phone" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["name"]
+    },
+    "Broker": {
+      "title": "Broker",
+      "description": "Broker information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Broker ID" },
+        "name": { "type": "string", "description": "Broker name" },
+        "creci": { "type": "string", "description": "Broker CRECI" },
+        "email": { "type": "string", "format": "email", "description": "Broker email" },
+        "phone": { "type": "string", "description": "Broker phone" },
+        "agencyId": { "type": "string", "description": "Agency ID" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["name"]
+    },
+    "Bank": {
+      "title": "Bank",
+      "description": "Bank information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Bank ID" },
+        "name": { "type": "string", "description": "Bank name" },
+        "processTypes": { "type": "array", "description": "Supported process types" },
+        "logoUrl": { "type": "string", "description": "Bank logo URL" }
+      },
+      "required": ["name"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles"
+    },
+    "/clients/{clientId}": {
+      "schema": "Client",
+      "description": "Clients"
+    },
+    "/processes/{processId}": {
+      "schema": "Process",
+      "description": "Processes"
+    },
+    "/agencies/{agencyId}": {
+      "schema": "Agency",
+      "description": "Agencies"
+    },
+    "/brokers/{brokerId}": {
+      "schema": "Broker",
+      "description": "Brokers"
+    },
+    "/banks/{bankId}": {
+      "schema": "Bank",
+      "description": "Banks"
+    }
+  }
+}
