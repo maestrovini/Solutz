@@ -7,7 +7,8 @@ import {
 } from 'lucide-react';
 import { format, parseISO, differenceInDays, startOfMonth, endOfMonth, isWithinInterval, subMonths, eachMonthOfInterval, startOfYear, endOfYear, isSameMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Process, Client, Bank, Broker, Agency } from '../types';
+import { Process, Client, Bank, Broker, Agency, Participant } from '../types';
+import { resolveParticipantName } from '../utils/participantUtils';
 import { cn } from '../utils/cn';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
@@ -194,8 +195,8 @@ export const ReportsManager: React.FC<ReportsManagerProps> = ({
   const exportToCSV = () => {
     const headers = ['Data', 'Compradores', 'Vendedores', 'Tipo', 'Banco', 'Etapa', 'Valor Compra', 'Valor Financiado', 'Corretor', 'Imobiliária'];
     const rows = filteredProcesses.map(p => {
-      const buyers = p.participants?.filter(part => part.type === 'buyer').map(part => part.name).join('; ') || 'N/A';
-      const sellers = p.participants?.filter(part => part.type === 'seller').map(part => part.name).join('; ') || 'N/A';
+      const buyers = p.participants?.filter(part => part.type === 'buyer').map(part => resolveParticipantName(part, clients, brokers, agencies)).join('; ') || 'N/A';
+      const sellers = p.participants?.filter(part => part.type === 'seller').map(part => resolveParticipantName(part, clients, brokers, agencies)).join('; ') || 'N/A';
       const bank = banks.find(b => b.id === p.bankId);
       const broker = brokers.find(b => b.id === p.brokerId);
       const agency = agencies.find(a => a.id === broker?.agencyId);
@@ -264,8 +265,8 @@ export const ReportsManager: React.FC<ReportsManagerProps> = ({
     doc.text('Lista de Processos', 14, 22);
     
     const processRows = filteredProcesses.map(p => {
-      const buyers = p.participants?.filter(part => part.type === 'buyer').map(part => part.name).join(', ') || 'N/A';
-      const sellers = p.participants?.filter(part => part.type === 'seller').map(part => part.name).join(', ') || 'N/A';
+      const buyers = p.participants?.filter(part => part.type === 'buyer').map(part => resolveParticipantName(part, clients, brokers, agencies)).join(', ') || 'N/A';
+      const sellers = p.participants?.filter(part => part.type === 'seller').map(part => resolveParticipantName(part, clients, brokers, agencies)).join(', ') || 'N/A';
       const bank = banks.find(b => b.id === p.bankId);
       const broker = brokers.find(b => b.id === p.brokerId);
       

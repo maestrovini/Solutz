@@ -23,6 +23,9 @@ service cloud.firestore {
     // Collection: banks
     // Fields: id, name, processTypes, logoUrl
     //
+    // Collection: properties
+    // Fields: id, title, description, address, price, type, status, ownerId, brokerId, agencyId, createdAt, updatedAt
+    //
     // ===============================================================
 
     // ===============================================================
@@ -76,6 +79,16 @@ service cloud.firestore {
              data.status is string;
     }
 
+    function isValidProperty(data) {
+      return hasRequiredFields(['address', 'city', 'state', 'type']) &&
+             data.address is string && data.address.size() > 0 &&
+             data.city is string && data.city.size() > 0 &&
+             data.state is string && data.state.size() == 2 &&
+             data.type in ['Casa', 'Apartamento', 'Terreno', 'Comercial'] &&
+             (!('neighborhood' in data) || (data.neighborhood is string)) &&
+             (!('price' in data) || (data.price is number));
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -113,6 +126,13 @@ service cloud.firestore {
     match /banks/{bankId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
+    }
+
+    match /properties/{propertyId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
   }
 }

@@ -6,12 +6,13 @@ import ProcessManager from './components/ProcessManager';
 import BankManager from './components/BankManager';
 import AgencyManager from './components/AgencyManager';
 import BrokerManager from './components/BrokerManager';
+import PropertyManager from './components/PropertyManager';
 import UserManager from './components/UserManager';
 import { ReportsManager } from './components/ReportsManager';
 import { HeaderProvider } from './context/HeaderContext';
 import { AuthProvider } from './context/AuthContext';
 import { api } from './api';
-import { Process, Client, Bank, Agency, Broker } from './types';
+import { Process, Client, Bank, Agency, Broker, Property } from './types';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -22,6 +23,7 @@ export default function App() {
   const [banks, setBanks] = useState<Bank[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [brokers, setBrokers] = useState<Broker[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]);
 
   useEffect(() => {
     const unsubProcesses = api.subscribeToCollection('processes', (data) => setProcesses(data as Process[]));
@@ -29,6 +31,7 @@ export default function App() {
     const unsubBanks = api.subscribeToCollection('banks', (data) => setBanks(data as Bank[]));
     const unsubAgencies = api.subscribeToCollection('agencies', (data) => setAgencies(data as Agency[]));
     const unsubBrokers = api.subscribeToCollection('brokers', (data) => setBrokers(data as Broker[]));
+    const unsubProperties = api.subscribeToCollection('properties', (data) => setProperties(data as Property[]));
 
     return () => {
       unsubProcesses();
@@ -36,6 +39,7 @@ export default function App() {
       unsubBanks();
       unsubAgencies();
       unsubBrokers();
+      unsubProperties();
     };
   }, []);
 
@@ -51,11 +55,27 @@ export default function App() {
           />
         );
       case 'clients':
-        return <ClientManager />;
+        return (
+          <ClientManager 
+            onOpenProcess={(id) => {
+              setSelectedProcessId(id);
+              setActiveTab('processes');
+            }} 
+          />
+        );
       case 'agencies':
         return <AgencyManager />;
       case 'brokers':
         return <BrokerManager />;
+      case 'properties':
+        return (
+          <PropertyManager 
+            onOpenProcess={(id) => {
+              setSelectedProcessId(id);
+              setActiveTab('processes');
+            }} 
+          />
+        );
       case 'users':
         return <UserManager />;
       case 'processes':

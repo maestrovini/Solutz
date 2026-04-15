@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
-import { Process, Client, Bank, Agency, Broker, Participant, Notification } from '../types';
+import { Process, Client, Bank, Agency, Broker, Participant, Notification, Property } from '../types';
+import { resolveParticipantName } from '../utils/participantUtils';
 import { Plus, Search, Trash2, Edit2, X, FileText, Clock, DollarSign, Building2, User, Users, CheckCircle2, Ban, Pause, AlertCircle, Save, Phone, Mail, MapPin, Calendar, Briefcase, Filter, Bell } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/cn';
+import { hexToRgba, getContrastColor } from '../utils/colors';
 
 interface ProcessManagerProps {
   initialSelectedProcessId?: string | null;
@@ -19,6 +21,7 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
   const [banks, setBanks] = useState<Bank[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [brokers, setBrokers] = useState<Broker[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [editingProcess, setEditingProcess] = useState<Process | null>(null);
@@ -57,6 +60,7 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
     status: 'Em andamento',
     stage: 'Aprovado',
     bankId: '',
+    propertyId: '',
     purchaseValue: 0,
     financingValue: 0,
     financingType: 'SBPE' as Process['financingType'],
@@ -97,6 +101,15 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
       }
     }
   }, [initialSelectedProcessId, processes]);
+
+  useEffect(() => {
+    if (selectedProcessForDetail) {
+      const updatedProcess = processes.find(p => p.id === selectedProcessForDetail.id);
+      if (updatedProcess && JSON.stringify(updatedProcess) !== JSON.stringify(selectedProcessForDetail)) {
+        setSelectedProcessForDetail(updatedProcess);
+      }
+    }
+  }, [processes, selectedProcessForDetail]);
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -151,6 +164,7 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
                 status: 'Em andamento',
                 stage: 'Aprovado',
                 bankId: '',
+                propertyId: '',
                 purchaseValue: 0,
                 financingValue: 0,
                 financingType: 'SBPE',
@@ -185,6 +199,9 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
     const unsubBrokers = api.subscribeToCollection('brokers', (data) => {
       setBrokers((data as Broker[]).sort((a, b) => a.name.localeCompare(b.name)));
     });
+    const unsubProperties = api.subscribeToCollection('properties', (data) => {
+      setProperties((data as Property[]).sort((a, b) => a.address.localeCompare(b.address)));
+    });
 
     return () => {
       unsubProcesses();
@@ -192,6 +209,7 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
       unsubBanks();
       unsubAgencies();
       unsubBrokers();
+      unsubProperties();
     };
   }, []);
 
@@ -312,6 +330,7 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
         status: 'Em andamento', 
         stage: 'Aprovado', 
         bankId: '', 
+        propertyId: '',
         purchaseValue: 0,
         financingValue: 0,
         financingType: 'SBPE',
@@ -344,16 +363,18 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
   };
 
   const stageConfig: Record<string, { color: string, percent: number }> = {
-    'Aprovado': { color: '#dcfce7', percent: 15 },
-    'Vistoria': { color: '#bbf7d0', percent: 30 },
-    'Análise': { color: '#86efac', percent: 45 },
-    'Contrato': { color: '#4ade80', percent: 60 },
-    'Registro': { color: '#22c55e', percent: 80 },
-    'Finalizado': { color: '#16a34a', percent: 100 },
+    'Aprovado': { color: '#ffedd5', percent: 15 },
+    'Vistoria': { color: '#fed7aa', percent: 30 },
+    'Análise': { color: '#fdba74', percent: 45 },
+    'Contrato': { color: '#fb923c', percent: 60 },
+    'Registro': { color: '#f97316', percent: 80 },
+    'Finalizado': { color: '#ea580c', percent: 100 },
   };
 
   const getClientName = (id: string) => clients.find(c => c.id === id)?.name || 'Cliente Desconhecido';
   const getBankName = (id: string) => banks.find(b => b.id === id)?.name || 'N/A';
+
+  const getParticipantName = (p: Participant) => resolveParticipantName(p, clients, brokers, agencies);
 
   const getDaysInCurrentStage = (process: Process) => {
     const lastHistory = process.stageHistory && process.stageHistory.length > 0 
@@ -410,10 +431,10 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
     const agenciesList = process.participants?.filter(p => p.type === 'agency') || [];
     
     const searchMatch = 
-      buyers.some(p => p.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      sellers.some(p => p.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      brokersList.some(p => p.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      agenciesList.some(p => p.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      buyers.some(p => getParticipantName(p).toLowerCase().includes(searchTerm.toLowerCase())) ||
+      sellers.some(p => getParticipantName(p).toLowerCase().includes(searchTerm.toLowerCase())) ||
+      brokersList.some(p => getParticipantName(p).toLowerCase().includes(searchTerm.toLowerCase())) ||
+      agenciesList.some(p => getParticipantName(p).toLowerCase().includes(searchTerm.toLowerCase())) ||
       process.notes?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const bankMatch = !filters.bankId || process.bankId === filters.bankId;
@@ -438,12 +459,12 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
         {allStages.map((s, idx) => {
           const isSelected = filters.stage === s;
           const colors = [
-            "bg-green-100 text-green-800",
-            "bg-green-200 text-green-900",
-            "bg-green-300 text-green-900",
-            "bg-green-400 text-white",
-            "bg-green-500 text-white",
-            "bg-green-600 text-white",
+            "bg-orange-100 text-orange-800",
+            "bg-orange-200 text-orange-900",
+            "bg-orange-300 text-orange-900",
+            "bg-orange-400 text-white",
+            "bg-orange-500 text-white",
+            "bg-orange-600 text-white",
           ];
           return (
             <button
@@ -602,6 +623,7 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
           const agenciesList = process.participants?.filter(p => p.type === 'agency') || [];
 
           const isFinance = process.type === 'Financiamento' || process.type === 'Home Equity';
+          const bankColor = banks.find(b => b.id === process.bankId)?.color || stageConfig[process.stage]?.color || '#000000';
 
           const openEditModal = (process: Process) => {
             setEditingProcess(process);
@@ -612,6 +634,7 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
               status: process.status,
               stage: process.stage,
               bankId: process.bankId || '',
+              propertyId: process.propertyId || '',
               purchaseValue: process.purchaseValue || 0,
               financingValue: process.financingValue || 0,
               financingType: process.financingType || 'SBPE',
@@ -630,10 +653,12 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
             <motion.div
               layout
               key={process.id}
-              className="bg-white p-5 rounded-[24px] shadow-sm border-2 hover:shadow-md transition-all relative"
-              style={{ borderColor: stageConfig[process.stage]?.color || 'rgba(0,0,0,0.05)' }}
+              className="bg-white p-4 rounded-[24px] shadow-sm border hover:shadow-md transition-all relative"
+              style={{ 
+                borderColor: hexToRgba(bankColor, 0.3)
+              }}
             >
-              <div className="w-full space-y-4">
+              <div className="w-full space-y-2.5">
                 <div className="flex justify-between items-start">
                   <div className="space-y-0.5">
                     <p className="text-[9px] font-bold uppercase tracking-wider text-black/40">Compradores</p>
@@ -644,7 +669,7 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
                           onClick={() => openDetailModal(process)}
                           className="text-sm font-semibold text-[#1a1a1a] hover:text-black/60 transition-colors text-left"
                         >
-                          {p.name}
+                          {getParticipantName(p)}
                         </button>
                       )) : <span className="text-sm text-black/20">-</span>}
                     </div>
@@ -653,17 +678,31 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
                   <div className="flex items-center gap-2">
                     {/* Days in stage counter */}
                     <div className="flex items-center gap-1">
-                      <div className="h-8 px-2 flex items-center gap-1.5 bg-black/5 rounded-lg border border-black/5" title="Dias na etapa atual">
-                        <Clock className="w-3.5 h-3.5 text-black/40" />
-                        <span className="text-[10px] font-bold text-[#1a1a1a]">{getDaysInCurrentStage(process)}d</span>
+                      <div 
+                        className="h-8 px-2 flex items-center gap-1.5 rounded-lg border transition-colors" 
+                        title="Dias na etapa atual"
+                        style={{ 
+                          backgroundColor: hexToRgba(bankColor, 0.05),
+                          borderColor: hexToRgba(bankColor, 0.1)
+                        }}
+                      >
+                        <Clock className="w-3.5 h-3.5" style={{ color: bankColor }} />
+                        <span className="text-[10px] font-bold" style={{ color: bankColor }}>{getDaysInCurrentStage(process)}d</span>
                       </div>
                       {process.notifications?.some(n => {
                         const now = new Date();
                         const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
                         return n.date >= today;
                       }) && (
-                        <div className="h-8 w-8 flex items-center justify-center bg-amber-50 rounded-lg border border-amber-100" title="Possui notificações ativas">
-                          <Bell className="w-3.5 h-3.5 text-amber-500 fill-amber-500/20" />
+                        <div 
+                          className="h-8 w-8 flex items-center justify-center rounded-lg border transition-colors" 
+                          title="Possui notificações ativas"
+                          style={{ 
+                            backgroundColor: hexToRgba(bankColor, 0.05),
+                            borderColor: hexToRgba(bankColor, 0.1)
+                          }}
+                        >
+                          <Bell className="w-3.5 h-3.5" style={{ color: bankColor, fill: hexToRgba(bankColor, 0.2) }} />
                         </div>
                       )}
                     </div>
@@ -685,7 +724,26 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                {process.propertyId && (() => {
+                  const property = properties.find(p => p.id === process.propertyId);
+                  if (!property) return null;
+                  return (
+                    <div 
+                      className="flex items-center gap-2 py-1.5 px-2 rounded-xl border transition-colors"
+                      style={{ 
+                        backgroundColor: hexToRgba(bankColor, 0.05),
+                        borderColor: hexToRgba(bankColor, 0.1)
+                      }}
+                    >
+                      <MapPin className="w-3 h-3" style={{ color: bankColor }} />
+                      <span className="text-[10px] font-bold truncate" style={{ color: bankColor }}>
+                        {property.address}{property.number ? `, ${property.number}` : ''} - {property.neighborhood}
+                      </span>
+                    </div>
+                  );
+                })()}
+
+                <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-0.5">
                     <p className="text-[9px] font-bold uppercase tracking-wider text-black/40">Compra/Venda</p>
                     <p className="text-sm font-bold text-[#1a1a1a]">
@@ -711,23 +769,29 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
                     const currentIdx = allStages.indexOf(process.stage);
                     const isPast = stageIdx < currentIdx;
                     
-                    const colors = [
-                      "bg-green-100 text-green-800 border-green-200",
-                      "bg-green-200 text-green-900 border-green-300",
-                      "bg-green-300 text-green-900 border-green-400",
-                      "bg-green-400 text-white border-green-500",
-                      "bg-green-500 text-white border-green-600",
-                      "bg-green-600 text-white border-green-700",
-                    ];
+                    const bank = banks.find(b => b.id === process.bankId);
+                    const baseColor = bank?.color || '#f97316'; // Default to orange-500
+                    const opacities = [0.15, 0.3, 0.45, 0.6, 0.8, 1];
+                    const opacity = opacities[idx];
+                    
+                    const bgColor = hexToRgba(baseColor, opacity);
+                    const textColor = opacity > 0.5 ? getContrastColor(baseColor) : 'rgba(0, 0, 0, 0.6)';
+                    const borderColor = hexToRgba(baseColor, opacity + 0.1);
 
                     return (
                       <div 
                         key={s}
                         className={cn(
-                          "h-6 flex items-center justify-center rounded-md transition-all border",
-                          (isCurrent || isPast) ? colors[idx] : "text-black/20 border-black/5 bg-[#f5f5f0]/50",
-                          isCurrent && "shadow-sm ring-1 ring-green-500/20"
+                          "h-5 flex items-center justify-center rounded-md transition-all border",
+                          (isCurrent || isPast) ? "" : "text-black/20 border-black/5 bg-[#f5f5f0]/50",
+                          isCurrent && "shadow-sm ring-1"
                         )}
+                        style={{ 
+                          backgroundColor: (isCurrent || isPast) ? bgColor : undefined,
+                          color: (isCurrent || isPast) ? textColor : undefined,
+                          borderColor: (isCurrent || isPast) ? borderColor : undefined,
+                          boxShadow: isCurrent ? `0 0 0 2px ${hexToRgba(baseColor, 0.2)}` : undefined
+                        }}
                       >
                         <span className="text-[8px] font-bold uppercase truncate px-1">{s}</span>
                       </div>
@@ -737,7 +801,7 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
 
                 {/* Observations in Main Card */}
                 {process.notes && (
-                  <div className="pt-2 border-t border-black/5">
+                  <div className="pt-1.5 border-t border-black/5">
                     <p className="text-[8px] font-bold uppercase tracking-wider text-black/40 mb-1">Observações</p>
                     <p className="text-xs text-black/60 line-clamp-2 italic">{process.notes}</p>
                   </div>
@@ -765,7 +829,7 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
               exit={{ opacity: 0, scale: 0.95 }}
               className="bg-white w-full max-w-2xl rounded-[32px] shadow-2xl overflow-hidden border border-black/10"
             >
-              <div className="px-8 pt-8 pb-4 border-b border-black/5 space-y-4">
+              <div className="px-5 pt-6 pb-4 border-b border-black/5 space-y-4">
                 <div className="flex items-center justify-between">
                   {/* Bank, Type and Stage */}
                   <div className="flex items-center gap-3 bg-black/5 p-3 rounded-2xl">
@@ -830,6 +894,7 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
                               status: process.status,
                               stage: process.stage,
                               bankId: process.bankId || '',
+                              propertyId: process.propertyId || '',
                               purchaseValue: process.purchaseValue || 0,
                               financingValue: process.financingValue || 0,
                               financingType: process.financingType || 'SBPE',
@@ -865,69 +930,109 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
                   </h2>
                 </div>
               </div>
-              <div className="px-8 pt-4 pb-8 space-y-6 max-h-[70vh] overflow-y-auto">
-                <div className="space-y-6">
-                  <div className="space-y-4">
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Compradores</p>
+              <div className="px-5 pt-4 pb-8 space-y-4 max-h-[70vh] overflow-y-auto">
+                <div className="space-y-4">
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        {selectedProcessForDetail.participants?.filter(p => p.type === 'buyer').map((p, i) => (
-                          <button 
-                            key={i} 
-                            onClick={() => setSelectedEntityForDetail({ type: 'client', id: p.id })}
-                            className="text-sm text-[#1a1a1a] font-medium hover:text-black/60 transition-colors block text-left"
-                          >
-                            {p.name}
-                          </button>
-                        ))}
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Compradores</p>
+                        <div className="space-y-0.5">
+                          {selectedProcessForDetail.participants?.filter(p => p.type === 'buyer').map((p, i) => (
+                            <button 
+                              key={i} 
+                              onClick={() => setSelectedEntityForDetail({ type: 'client', id: p.id })}
+                              className="text-sm text-[#1a1a1a] font-medium hover:text-black/60 transition-colors block text-left"
+                            >
+                              {getParticipantName(p)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Vendedores</p>
+                        <div className="space-y-0.5">
+                          {selectedProcessForDetail.participants?.filter(p => p.type === 'seller').map((p, i) => (
+                            <button 
+                              key={i} 
+                              onClick={() => setSelectedEntityForDetail({ type: 'client', id: p.id })}
+                              className="text-sm text-[#1a1a1a] font-medium hover:text-black/60 transition-colors block text-left"
+                            >
+                              {getParticipantName(p)}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Vendedores</p>
+
+                    {selectedProcessForDetail.propertyId && (() => {
+                      const property = properties.find(p => p.id === selectedProcessForDetail.propertyId);
+                      if (!property) return null;
+                      return (
+                        <div className="p-4 bg-[#f5f5f0] rounded-2xl border border-black/5 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-black/40" />
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Imóvel</p>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-sm font-bold text-[#1a1a1a]">
+                              {property.address}{property.number ? `, ${property.number}` : ''}{property.complement ? ` - ${property.complement}` : ''}
+                            </p>
+                            <p className="text-xs text-black/60">
+                              {property.neighborhood ? `${property.neighborhood}, ` : ''}{property.city} - {property.state}
+                            </p>
+                            {(property.registrationNumber || property.zone) && (
+                              <div className="flex gap-3 pt-1">
+                                {property.registrationNumber && (
+                                  <p className="text-[10px] font-bold text-black/40 uppercase tracking-wider">
+                                    Matrícula: <span className="text-black/60">{property.registrationNumber}</span>
+                                  </p>
+                                )}
+                                {property.zone && (
+                                  <p className="text-[10px] font-bold text-black/40 uppercase tracking-wider">
+                                    Zona: <span className="text-black/60">{property.zone}</span>
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        {selectedProcessForDetail.participants?.filter(p => p.type === 'seller').map((p, i) => (
-                          <button 
-                            key={i} 
-                            onClick={() => setSelectedEntityForDetail({ type: 'client', id: p.id })}
-                            className="text-sm text-[#1a1a1a] font-medium hover:text-black/60 transition-colors block text-left"
-                          >
-                            {p.name}
-                          </button>
-                        ))}
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Imobiliárias</p>
+                        <div className="space-y-0.5">
+                          {selectedProcessForDetail.participants?.filter(p => p.type === 'agency').map((p, i) => (
+                            <button 
+                              key={i} 
+                              onClick={() => setSelectedEntityForDetail({ type: 'agency', id: p.id })}
+                              className="text-sm text-[#1a1a1a] font-medium hover:text-black/60 transition-colors block text-left"
+                            >
+                              {getParticipantName(p)}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Imobiliárias</p>
                       <div className="space-y-1">
-                        {selectedProcessForDetail.participants?.filter(p => p.type === 'agency').map((p, i) => (
-                          <button 
-                            key={i} 
-                            onClick={() => setSelectedEntityForDetail({ type: 'agency', id: p.id })}
-                            className="text-sm text-[#1a1a1a] font-medium hover:text-black/60 transition-colors block text-left"
-                          >
-                            {p.name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Corretores</p>
-                      <div className="space-y-1">
-                        {selectedProcessForDetail.participants?.filter(p => p.type === 'broker').map((p, i) => (
-                          <button 
-                            key={i} 
-                            onClick={() => setSelectedEntityForDetail({ type: 'broker', id: p.id })}
-                            className="text-sm text-[#1a1a1a] font-medium hover:text-black/60 transition-colors block text-left"
-                          >
-                            {p.name}
-                          </button>
-                        ))}
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Corretores</p>
+                        <div className="space-y-0.5">
+                          {selectedProcessForDetail.participants?.filter(p => p.type === 'broker').map((p, i) => (
+                            <button 
+                              key={i} 
+                              onClick={() => setSelectedEntityForDetail({ type: 'broker', id: p.id })}
+                              className="text-sm text-[#1a1a1a] font-medium hover:text-black/60 transition-colors block text-left"
+                            >
+                              {getParticipantName(p)}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-6">
+                <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Compra/Venda</p>
@@ -943,18 +1048,18 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
                 </div>
 
                 {selectedProcessForDetail.notes && (
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Observações</p>
-                    <p className="text-sm text-black/60 bg-[#f5f5f0] p-4 rounded-2xl border border-black/5">{selectedProcessForDetail.notes}</p>
+                    <p className="text-sm text-black/60 bg-[#f5f5f0] p-3 rounded-2xl border border-black/5">{selectedProcessForDetail.notes}</p>
                   </div>
                 )}
 
-                <div className="pt-6 border-t border-black/5 space-y-4">
+                <div className="pt-4 border-t border-black/5 space-y-3">
                   <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4 text-black/40" />
                     <h4 className="text-[10px] font-bold uppercase tracking-wider text-black/40">Histórico e Notificações</h4>
                   </div>
-                  <div className="space-y-6">
+                  <div className="space-y-4">
                     {(() => {
                       const timeline = [
                         ...(selectedProcessForDetail.stageHistory || []).map(h => ({ ...h, type: 'stage' as const })),
@@ -981,20 +1086,17 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
                                   <div 
                                     className={cn(
                                       "w-6 h-6 rounded-full border-4 border-white shadow-sm shrink-0 z-10",
-                                      (() => {
+                                    )}
+                                    style={{
+                                      backgroundColor: (() => {
                                         const stageName = (item as any).stage;
                                         const idx = allStages.indexOf(stageName);
-                                        const colors = [
-                                          "bg-green-100",
-                                          "bg-green-200",
-                                          "bg-green-300",
-                                          "bg-green-400",
-                                          "bg-green-500",
-                                          "bg-green-600",
-                                        ];
-                                        return colors[idx] || "bg-gray-400";
+                                        const bank = banks.find(b => b.id === selectedProcessForDetail.bankId);
+                                        const baseColor = bank?.color || '#f97316';
+                                        const opacities = [0.15, 0.3, 0.45, 0.6, 0.8, 1];
+                                        return hexToRgba(baseColor, opacities[idx] || 1);
                                       })()
-                                    )}
+                                    }}
                                   />
                                   <div className="flex-1 pt-0.5">
                                     <p className="text-sm font-bold text-[#1a1a1a]">{(item as any).stage}</p>
@@ -1536,7 +1638,7 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
                         <div className="flex flex-wrap gap-2 transition-all">
                           {formData.participants.filter(p => p.type === 'buyer').map((p, idx) => (
                             <div key={idx} className="flex items-center gap-2 bg-blue-50 px-3 py-1 rounded-full text-xs text-blue-600 border border-blue-100">
-                                {p.name}
+                                {getParticipantName(p)}
                                 <button type="button" onClick={() => removeParticipant(p.id, p.type)} className="hover:text-blue-800"><X className="w-3 h-3" /></button>
                             </div>
                           ))}
@@ -1579,7 +1681,7 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
                         <div className="flex flex-wrap gap-2">
                           {formData.participants.filter(p => p.type === 'seller').map((p, idx) => (
                             <div key={idx} className="flex items-center gap-2 bg-purple-50 px-3 py-1 rounded-full text-xs text-purple-600 border border-purple-100">
-                                {p.name}
+                                {getParticipantName(p)}
                                 <button type="button" onClick={() => removeParticipant(p.id, p.type)} className="hover:text-purple-800"><X className="w-3 h-3" /></button>
                             </div>
                           ))}
@@ -1622,7 +1724,7 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
                         <div className="flex flex-wrap gap-2">
                           {formData.participants.filter(p => p.type === 'broker').map((p, idx) => (
                             <div key={idx} className="flex items-center gap-2 bg-amber-50 px-3 py-1 rounded-full text-xs text-amber-600 border border-amber-100">
-                                {p.name}
+                                {getParticipantName(p)}
                                 <button type="button" onClick={() => removeParticipant(p.id, p.type)} className="hover:text-amber-800"><X className="w-3 h-3" /></button>
                             </div>
                           ))}
@@ -1669,13 +1771,29 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
                         <div className="flex flex-wrap gap-2">
                           {formData.participants.filter(p => p.type === 'agency').map((p, idx) => (
                             <div key={idx} className="flex items-center gap-2 bg-black/5 px-3 py-1 rounded-full text-xs text-black border border-black/10">
-                                {p.name}
+                                {getParticipantName(p)}
                                 <button type="button" onClick={() => removeParticipant(p.id, p.type)} className="hover:text-black"><X className="w-3 h-3" /></button>
                             </div>
                           ))}
                         </div>
                       </div>
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-black/60 mb-1">Imóvel</label>
+                    <select
+                      value={formData.propertyId}
+                      onChange={(e) => setFormData({ ...formData, propertyId: e.target.value })}
+                      className="w-full px-4 py-2 text-sm rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] focus:ring-2 focus:ring-black/5 outline-none"
+                    >
+                      <option value="">Selecione um imóvel</option>
+                      {properties.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.address}{p.number ? `, ${p.number}` : ''} - {p.neighborhood} ({p.city})
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>

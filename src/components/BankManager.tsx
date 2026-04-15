@@ -5,6 +5,7 @@ import { Plus, Trash2, Edit2, X, Building2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
 import { useAuth } from '../context/AuthContext';
+import { hexToRgba } from '../utils/colors';
 
 export default function BankManager() {
   const { isAdmin } = useAuth();
@@ -15,14 +16,25 @@ export default function BankManager() {
   const [formData, setFormData] = useState<{
     name: string;
     logoUrl: string;
+    color: string;
     processTypes: ('MCMV' | 'SBPE' | 'Pró-Cotista' | 'Home Equity')[];
   }>({
     name: '',
     logoUrl: '',
+    color: '#000000',
     processTypes: [],
   });
 
   const processOptions = ['MCMV', 'SBPE', 'Pró-Cotista', 'Home Equity'] as const;
+  const presetColors = [
+    { name: 'Caixa', color: '#005ca9' },
+    { name: 'Itaú', color: '#ec7000' },
+    { name: 'Bradesco', color: '#cc092f' },
+    { name: 'Santander', color: '#ec0000' },
+    { name: 'BB', color: '#003399' },
+    { name: 'Inter', color: '#ff7a00' },
+    { name: 'Nubank', color: '#8a05be' },
+  ];
 
   useEffect(() => {
     setTitle('Bancos Parceiros');
@@ -31,7 +43,7 @@ export default function BankManager() {
         <button
           onClick={() => {
             setEditingBank(null);
-            setFormData({ name: '', logoUrl: '', processTypes: [] });
+            setFormData({ name: '', logoUrl: '', color: '#000000', processTypes: [] });
             setIsModalOpen(true);
           }}
           className="p-2 bg-white text-black border border-white/10 rounded-lg hover:bg-white/80 transition-colors shadow-sm"
@@ -63,7 +75,7 @@ export default function BankManager() {
       }
       setIsModalOpen(false);
       setEditingBank(null);
-      setFormData({ name: '', logoUrl: '', processTypes: [] });
+      setFormData({ name: '', logoUrl: '', color: '#000000', processTypes: [] });
     } catch (error) {
       console.error("Erro ao salvar banco:", error);
     }
@@ -97,6 +109,7 @@ export default function BankManager() {
             setFormData({ 
               name: bank.name, 
               logoUrl: bank.logoUrl || '',
+              color: bank.color || '#000000',
               processTypes: bank.processTypes || []
             });
             setIsModalOpen(true);
@@ -110,13 +123,14 @@ export default function BankManager() {
             >
               <div 
                 onClick={handleEdit}
-                className="w-16 h-16 shrink-0 bg-[#f5f5f0] rounded-2xl flex items-center justify-center border border-black/5 overflow-hidden cursor-pointer hover:scale-105 transition-transform"
+                className="w-12 h-12 shrink-0 bg-[#f5f5f0] rounded-xl flex items-center justify-center border overflow-hidden cursor-pointer hover:scale-105 transition-transform"
+                style={{ borderColor: bank.color ? hexToRgba(bank.color, 0.3) : 'rgba(0,0,0,0.05)' }}
                 title="Clique para editar"
               >
                 {bank.logoUrl ? (
                   <img src={bank.logoUrl} alt={bank.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 ) : (
-                  <Building2 className="text-black/40 w-8 h-8" />
+                  <Building2 className="text-black/40 w-6 h-6" />
                 )}
               </div>
 
@@ -200,6 +214,30 @@ export default function BankManager() {
                         {type}
                       </button>
                     ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-black/60 mb-2">Cor da Marca</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={formData.color}
+                      onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                      className="w-12 h-12 rounded-lg border border-black/10 cursor-pointer"
+                    />
+                    <div className="flex flex-wrap gap-1">
+                      {presetColors.map((preset) => (
+                        <button
+                          key={preset.name}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, color: preset.color })}
+                          className="w-6 h-6 rounded-full border border-black/5"
+                          style={{ backgroundColor: preset.color }}
+                          title={preset.name}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
 

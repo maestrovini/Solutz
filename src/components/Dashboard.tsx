@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
-import { Client, Process, Agency, Broker, Bank } from '../types';
+import { Client, Process, Agency, Broker, Bank, Participant } from '../types';
+import { resolveParticipantName } from '../utils/participantUtils';
 import { Users, Building2, User, ChevronDown, ChevronUp, Trophy, TrendingUp, Award, BarChart3, Star, Layers, Landmark, X, Cake, CalendarDays, AlertCircle, Bell, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
@@ -91,7 +92,7 @@ export default function Dashboard({ onOpenProcess }: DashboardProps) {
       if (p.notifications) {
         p.notifications.forEach(n => {
           if (!n.completed) {
-            const buyers = p.participants?.filter(part => part.type === 'buyer').map(part => part.name).join(', ');
+            const buyers = p.participants?.filter(part => part.type === 'buyer').map(part => resolveParticipantName(part, clients, brokers, agencies)).join(', ');
             const client = clients.find(c => c.id === p.clientId);
             const clientName = buyers || client?.name || 'Cliente Desconhecido';
 

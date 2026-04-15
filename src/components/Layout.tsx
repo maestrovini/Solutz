@@ -54,6 +54,7 @@ export default function Layout({ children, activeTab, setActiveTab }: LayoutProp
     { id: 'clients', label: 'Clientes', icon: Users },
     { id: 'brokers', label: 'Corretores', icon: UserIcon },
     { id: 'agencies', label: 'Imobiliárias', icon: Building2 },
+    { id: 'properties', label: 'Imóveis', icon: Building2 },
     { id: 'banks', label: 'Bancos', icon: Landmark },
     { id: 'reports', label: 'Relatórios', icon: BarChart3 },
     ...(isAdmin ? [{ id: 'users', label: 'Usuários', icon: Shield }] : []),

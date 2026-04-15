@@ -1,16 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
-import { Client, Process } from '../types';
+import { Client, Process, Bank } from '../types';
 import { Plus, Search, Trash2, Edit2, X, UserPlus, Phone, Mail, MapPin, Calendar, FileText, Filter, AlertCircle, TrendingUp, TrendingDown, CheckCircle2, Clock, XCircle, MessageCircle, Save } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/cn';
+import { hexToRgba } from '../utils/colors';
 
-export default function ClientManager() {
+interface ClientManagerProps {
+  onOpenProcess?: (id: string) => void;
+}
+
+export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
   const { isAdmin } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [processes, setProcesses] = useState<Process[]>([]);
+  const [banks, setBanks] = useState<Bank[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -41,6 +47,7 @@ export default function ClientManager() {
     cpf: '',
     birthDate: '',
     status: '' as 'Aprovado' | 'Condicionado' | 'Negado' | '',
+    statusDate: '',
   });
 
   const formatCPF = (value: string) => {
@@ -99,7 +106,7 @@ export default function ClientManager() {
           <button
             onClick={() => {
               setEditingClient(null);
-              setFormData({ name: '', email: '', phone: '', phone2: '', cpf: '', birthDate: '', status: '' });
+              setFormData({ name: '', email: '', phone: '', phone2: '', cpf: '', birthDate: '', status: '', statusDate: '' });
               setErrors({});
               setIsModalOpen(true);
             }}
@@ -120,9 +127,13 @@ export default function ClientManager() {
     const unsubscribeProcesses = api.subscribeToCollection('processes', (data) => {
       setProcesses(data as Process[]);
     });
+    const unsubscribeBanks = api.subscribeToCollection('banks', (data) => {
+      setBanks(data as Bank[]);
+    });
     return () => {
       unsubscribe();
       unsubscribeProcesses();
+      unsubscribeBanks();
     };
   }, []);
 
@@ -146,7 +157,7 @@ export default function ClientManager() {
     const clientData = {
       ...formData,
       brokerId: 'admin-1',
-      createdAt: new Date().toISOString(),
+      createdAt: editingClient?.createdAt || new Date().toISOString(),
     };
 
     try {
@@ -157,7 +168,7 @@ export default function ClientManager() {
       }
       setIsModalOpen(false);
       setEditingClient(null);
-      setFormData({ name: '', email: '', phone: '', phone2: '', cpf: '', birthDate: '', status: '' });
+      setFormData({ name: '', email: '', phone: '', phone2: '', cpf: '', birthDate: '', status: '', statusDate: '' });
       setErrors({});
     } catch (error) {
       console.error("Erro ao salvar cliente:", error);
@@ -236,6 +247,15 @@ export default function ClientManager() {
         <AnimatePresence mode="popLayout">
           {filteredClients.map((client) => {
             const isExpanded = expandedClientId === client.id;
+            const status = client.status || 'Avaliar';
+            const statusColors = {
+              'Aprovado': { bg: 'bg-green-50', text: 'text-green-600', icon: 'text-green-800', border: 'border-green-100', borderStrong: 'border-green-300', hex: '#10b981' },
+              'Condicionado': { bg: 'bg-amber-50', text: 'text-amber-600', icon: 'text-amber-800', border: 'border-amber-100', borderStrong: 'border-amber-300', hex: '#f59e0b' },
+              'Negado': { bg: 'bg-red-50', text: 'text-red-600', icon: 'text-red-800', border: 'border-red-100', borderStrong: 'border-red-300', hex: '#ef4444' },
+              'Avaliar': { bg: 'bg-blue-50', text: 'text-blue-600', icon: 'text-blue-800', border: 'border-blue-100', borderStrong: 'border-blue-300', hex: '#3b82f6' }
+            };
+            const currentStatusStyle = statusColors[status as keyof typeof statusColors];
+
             const buyerProcesses = processes.filter(p => 
               p.clientId === client.id || 
               p.participants?.some(part => part.type === 'buyer' && part.id === client.id)
@@ -262,6 +282,14 @@ export default function ClientManager() {
               p.clientId === client.id || 
               p.participants?.some(part => part.id === client.id)
             );
+
+            const activeProcesses = allClientProcesses.filter(p => p.stage !== 'Finalizado');
+            const activeBankInfo = activeProcesses
+              .map(p => ({
+                id: p.id,
+                logoUrl: banks.find(b => b.id === p.bankId)?.logoUrl
+              }))
+              .filter((info, index, self) => info.logoUrl && self.findIndex(i => i.logoUrl === info.logoUrl) === index);
             
             return (
               <motion.div
@@ -273,65 +301,67 @@ export default function ClientManager() {
                 key={client.id}
                 onClick={() => setExpandedClientId(isExpanded ? null : client.id!)}
                 className={cn(
-                  "bg-white p-3 pl-4 rounded-[24px] shadow-sm border border-black/5 hover:shadow-md transition-all relative group cursor-pointer overflow-hidden",
+                  "bg-white p-3 rounded-[24px] shadow-sm border hover:shadow-md transition-all relative group cursor-pointer overflow-hidden",
                   isExpanded ? "ring-2 ring-black/5" : ""
                 )}
+                style={{
+                  borderColor: hexToRgba(currentStatusStyle.hex, 0.2)
+                }}
               >
-                {client.status && (
-                  <div 
-                    className={cn(
-                      "absolute left-0 top-0 bottom-0 w-1.5",
-                      client.status === 'Aprovado' && "bg-blue-500",
-                      client.status === 'Condicionado' && "bg-amber-500",
-                      client.status === 'Negado' && "bg-red-500"
-                    )}
-                  />
-                )}
-              <div className="flex items-start justify-between">
-                <div className="min-w-0">
-                  <h3 className="text-lg font-bold text-[#1a1a1a] leading-tight truncate">{client.name}</h3>
-                  {!isExpanded && (
-                    <div className="flex flex-wrap gap-1.5 mt-1.5">
-                      <div className="flex items-center gap-1 px-2 py-0.5 bg-black/5 text-black/60 text-[8px] font-bold uppercase tracking-wider rounded-full border border-black/5" title={`${allClientProcesses.length} ${allClientProcesses.length === 1 ? 'Processo' : 'Processos'}`}>
-                        <span>{allClientProcesses.length} {allClientProcesses.length === 1 ? 'Processo' : 'Processos'}</span>
+                <div className="flex items-center justify-between">
+                  <div className="min-w-0 pr-14">
+                    <h3 className="text-lg font-bold text-[#1a1a1a] leading-tight truncate">{client.name}</h3>
+                    {!isExpanded && (
+                      <div className="flex flex-wrap gap-1.5 mt-1.5">
+                        <div 
+                          className={cn(
+                            "flex items-center gap-1 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider rounded-full border",
+                            currentStatusStyle.bg,
+                            currentStatusStyle.text,
+                            currentStatusStyle.border
+                          )}
+                          title={`Status: ${status}`}
+                        >
+                          <span>{status}</span>
+                        </div>
                       </div>
-                      {buyerTotal > 0 && (
-                        <div className="flex items-center gap-1 px-2 py-0.5 bg-black/5 text-black/60 text-[8px] font-bold uppercase tracking-wider rounded-full border border-black/5" title="Total como Comprador">
-                          <span>Comprador: {formatCurrency(buyerTotal)}</span>
-                        </div>
-                      )}
-                      {sellerTotal > 0 && (
-                        <div className="flex items-center gap-1 px-2 py-0.5 bg-black/5 text-black/60 text-[8px] font-bold uppercase tracking-wider rounded-full border border-black/5" title="Total como Vendedor">
-                          <span>Vendedor: {formatCurrency(sellerTotal)}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
                 
-                {isAdmin && (
-                  <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                    {client.phone && (
+                  <div className="absolute right-4 top-3 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                    {activeBankInfo.length > 0 && (
+                      <div className="flex gap-1">
+                        {activeBankInfo.map((info, idx) => (
+                          <div 
+                            key={idx} 
+                            onClick={() => info.id && onOpenProcess?.(info.id)}
+                            className={cn(
+                              "w-8 h-8 flex items-center justify-center rounded-lg border shadow-sm shrink-0 cursor-pointer hover:scale-110 transition-transform active:scale-95",
+                              currentStatusStyle.bg,
+                              currentStatusStyle.borderStrong
+                            )}
+                            title="Ver Processo"
+                          >
+                            <FileText className={cn("w-4 h-4", currentStatusStyle.icon)} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {isAdmin && client.phone && (
                       <button 
                         onClick={() => handleWhatsApp(client.phone)}
-                        className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                        className={cn(
+                          "w-8 h-8 flex items-center justify-center rounded-lg border transition-all hover:scale-110 active:scale-95 shrink-0",
+                          currentStatusStyle.bg,
+                          currentStatusStyle.borderStrong
+                        )}
                         title="Enviar WhatsApp"
                       >
-                        <MessageCircle className="w-5 h-5" />
-                      </button>
-                    )}
-                    {client.email && (
-                      <button 
-                        onClick={() => handleEmail(client.email)}
-                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Enviar E-mail"
-                      >
-                        <Mail className="w-5 h-5" />
+                        <MessageCircle className={cn("w-4 h-4", currentStatusStyle.icon)} />
                       </button>
                     )}
                   </div>
-                )}
-              </div>
+                </div>
 
               <AnimatePresence>
                 {isExpanded && (
@@ -342,57 +372,62 @@ export default function ClientManager() {
                     className="overflow-hidden"
                   >
                     <div className="mt-4 pt-4 border-t border-black/5 space-y-3">
-                      <div className="flex items-center gap-3 text-sm text-black/60">
+                      <div className="flex items-center gap-3 text-sm text-[#1a1a1a] font-bold">
                         <Mail className="w-4 h-4 shrink-0" />
                         <span className="truncate">{client.email}</span>
                       </div>
-                      <div className="flex items-center gap-3 text-sm text-black/60">
+                      <div className="flex items-center gap-3 text-sm text-[#1a1a1a] font-bold">
                         <Phone className="w-4 h-4 shrink-0" />
                         <span>{client.phone}</span>
                       </div>
                       {client.phone2 && (
-                        <div className="flex items-center gap-3 text-sm text-black/60">
+                        <div className="flex items-center gap-3 text-sm text-[#1a1a1a] font-bold">
                           <Phone className="w-4 h-4 shrink-0" />
                           <span>{client.phone2}</span>
                         </div>
                       )}
                       {client.cpf && (
-                        <div className="flex items-center gap-3 text-sm text-black/60">
+                        <div className="flex items-center gap-3 text-sm text-[#1a1a1a] font-bold">
                           <FileText className="w-4 h-4 shrink-0" />
                           <span>CPF: {client.cpf}</span>
                         </div>
                       )}
                       {client.birthDate && (
-                        <div className="flex items-center gap-3 text-sm text-black/60">
+                        <div className="flex items-center gap-3 text-sm text-[#1a1a1a] font-bold">
                           <Calendar className="w-4 h-4 shrink-0" />
                           <span>Nascimento: {new Date(client.birthDate).toLocaleDateString('pt-BR')}</span>
                         </div>
                       )}
-                      {client.status && (
+                      <div className="flex items-center justify-between text-sm font-bold">
                         <div className={cn(
-                          "flex items-center gap-3 text-sm font-bold",
-                          client.status === 'Aprovado' && "text-blue-600",
+                          "flex items-center gap-3",
+                          client.status === 'Aprovado' && "text-green-600",
                           client.status === 'Condicionado' && "text-amber-600",
-                          client.status === 'Negado' && "text-red-600"
+                          client.status === 'Negado' && "text-red-600",
+                          !client.status && "text-blue-600"
                         )}>
                           {client.status === 'Aprovado' && <CheckCircle2 className="w-4 h-4 shrink-0" />}
                           {client.status === 'Condicionado' && <Clock className="w-4 h-4 shrink-0" />}
                           {client.status === 'Negado' && <XCircle className="w-4 h-4 shrink-0" />}
-                          <span>Status: {client.status}</span>
+                          {!client.status && <AlertCircle className="w-4 h-4 shrink-0" />}
+                          <span>{client.status || 'Avaliar'}</span>
                         </div>
-                      )}
-                      <div className="flex items-center gap-3 text-sm text-emerald-600 font-bold">
+                        {client.statusDate && (
+                          <span className="text-[#1a1a1a] font-bold">{new Date(client.statusDate).toLocaleDateString('pt-BR')}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 text-sm text-[#1a1a1a] font-bold">
                         <FileText className="w-4 h-4 shrink-0" />
                         <span>{allClientProcesses.length} {allClientProcesses.length === 1 ? 'Processo' : 'Processos'}</span>
                       </div>
                       {buyerTotal > 0 && (
-                        <div className="flex items-center gap-3 text-sm text-emerald-600 font-bold">
+                        <div className="flex items-center gap-3 text-sm text-[#1a1a1a] font-bold">
                           <TrendingUp className="w-4 h-4 shrink-0" />
                           <span>Comprador: {formatCurrency(buyerTotal)}</span>
                         </div>
                       )}
                       {sellerTotal > 0 && (
-                        <div className="flex items-center gap-3 text-sm text-emerald-600 font-bold">
+                        <div className="flex items-center gap-3 text-sm text-[#1a1a1a] font-bold">
                           <TrendingDown className="w-4 h-4 shrink-0" />
                           <span>Vendedor: {formatCurrency(sellerTotal)}</span>
                         </div>
@@ -411,6 +446,7 @@ export default function ClientManager() {
                                 cpf: client.cpf || '',
                                 birthDate: client.birthDate || '',
                                 status: client.status || '',
+                                statusDate: client.statusDate || '',
                               });
                               setErrors({});
                               setIsModalOpen(true);
@@ -419,18 +455,6 @@ export default function ClientManager() {
                             title="Editar"
                           >
                             <Edit2 className="w-5 h-5" />
-                          </button>
-                          <button 
-                            onClick={() => {
-                              setEditingClient(client);
-                              // Trigger submit logic
-                              const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
-                              handleSubmit(fakeEvent);
-                            }}
-                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors"
-                            title="Salvar"
-                          >
-                            <Save className="w-5 h-5" />
                           </button>
                           <button 
                             onClick={() => setDeleteConfirmId(client.id!)}
@@ -492,20 +516,20 @@ export default function ClientManager() {
                 </div>
               </div>
               <div className="overflow-y-auto flex-1">
-                <form id="client-form" onSubmit={handleSubmit} className="p-8 space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
+                <form id="client-form" onSubmit={handleSubmit} className="p-6 space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
                     <div className="col-span-2">
-                      <label className="block text-sm font-medium text-black/60 mb-2">Nome Completo</label>
+                      <label className="block text-sm font-medium text-black/60 mb-1">Nome Completo</label>
                       <input
                         required
                         type="text"
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        className="w-full px-4 py-3 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all"
+                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-black/60 mb-2">CPF</label>
+                      <label className="block text-sm font-medium text-black/60 mb-1">CPF</label>
                       <input
                         type="text"
                         placeholder="000.000.000-00"
@@ -516,7 +540,7 @@ export default function ClientManager() {
                           if (errors.cpf) setErrors(prev => ({ ...prev, cpf: undefined }));
                         }}
                         className={cn(
-                          "w-full px-4 py-3 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border outline-none transition-all placeholder:text-black/40",
+                          "w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border outline-none transition-all placeholder:text-black/40",
                           errors.cpf ? "border-red-500 focus:ring-red-500/10" : "border-black/10 focus:ring-black/5"
                         )}
                       />
@@ -525,54 +549,78 @@ export default function ClientManager() {
                       )}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-black/60 mb-2">Data de Nascimento</label>
-                      <input
-                        type="date"
-                        value={formData.birthDate}
-                        onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
-                        className="w-full px-4 py-3 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all"
-                      />
+                      <label className="block text-sm font-medium text-black/60 mb-1">Data de Nascimento</label>
+                      <div className="relative">
+                        <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20 pointer-events-none" />
+                        <input
+                          type="date"
+                          value={formData.birthDate}
+                          onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+                          className="w-full pl-10 pr-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all text-sm"
+                        />
+                      </div>
                     </div>
                     <div className="col-span-2">
-                      <label className="block text-sm font-medium text-black/60 mb-2">Status de Crédito</label>
-                      <select
-                        value={formData.status}
-                        onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                        className="w-full px-4 py-3 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all"
-                      >
-                        <option value="">Selecione o Status...</option>
-                        <option value="Aprovado">Aprovado</option>
-                        <option value="Condicionado">Condicionado</option>
-                        <option value="Negado">Negado</option>
-                      </select>
+                      <label className="block text-sm font-medium text-black/60 mb-1">Status de Crédito</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {['Aprovado', 'Condicionado', 'Negado'].map((status) => (
+                          <button
+                            key={status}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, status: formData.status === status ? '' : status as any })}
+                            className={cn(
+                              "py-2 px-1 rounded-xl border font-bold text-[10px] uppercase tracking-wider transition-all",
+                              formData.status === status 
+                                ? (status === 'Aprovado' ? "bg-blue-500 text-white border-blue-500 shadow-lg shadow-blue-500/20" :
+                                   status === 'Condicionado' ? "bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-500/20" :
+                                   "bg-red-500 text-white border-red-500 shadow-lg shadow-red-500/20")
+                                : "bg-[#f5f5f0] text-black/40 border-black/10 hover:border-black/20"
+                            )}
+                          >
+                            {status}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="col-span-1">
+                      <label className="block text-sm font-medium text-black/60 mb-1">Data do Crédito</label>
+                      <div className="relative">
+                        <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20 pointer-events-none" />
+                        <input
+                          type="date"
+                          value={formData.statusDate}
+                          onChange={(e) => setFormData({ ...formData, statusDate: e.target.value })}
+                          className="w-full pl-10 pr-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all text-sm"
+                        />
+                      </div>
                     </div>
                     <div className="col-span-2">
-                      <label className="block text-sm font-medium text-black/60 mb-2">Email</label>
+                      <label className="block text-sm font-medium text-black/60 mb-1">Email</label>
                       <input
                         type="email"
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className="w-full px-4 py-3 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all"
+                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all"
                       />
                     </div>
                     <div className="col-span-2 md:col-span-1">
-                      <label className="block text-sm font-medium text-black/60 mb-2">Telefone Principal</label>
+                      <label className="block text-sm font-medium text-black/60 mb-1">Telefone Principal</label>
                       <input
                         type="tel"
                         placeholder="(00) 00000-0000"
                         value={formData.phone}
                         onChange={(e) => setFormData({ ...formData, phone: formatPhone(e.target.value) })}
-                        className="w-full px-4 py-3 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all placeholder:text-black/40"
+                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all placeholder:text-black/40"
                       />
                     </div>
                     <div className="col-span-2 md:col-span-1">
-                      <label className="block text-sm font-medium text-black/60 mb-2">Telefone Secundário</label>
+                      <label className="block text-sm font-medium text-black/60 mb-1">Telefone Secundário</label>
                       <input
                         type="tel"
                         placeholder="(00) 00000-0000"
                         value={formData.phone2}
                         onChange={(e) => setFormData({ ...formData, phone2: formatPhone(e.target.value) })}
-                        className="w-full px-4 py-3 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all placeholder:text-black/40"
+                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all placeholder:text-black/40"
                       />
                     </div>
                   </div>

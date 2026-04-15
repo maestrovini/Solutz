@@ -16,6 +16,7 @@ export interface Client {
   birthDate?: string;
   brokerId: string;
   status?: 'Aprovado' | 'Condicionado' | 'Negado';
+  statusDate?: string;
   createdAt: string;
 }
 
@@ -23,6 +24,7 @@ export interface Bank {
   id?: string;
   name: string;
   logoUrl?: string;
+  color?: string;
   processTypes: ('MCMV' | 'SBPE' | 'Pró-Cotista' | 'Home Equity')[];
 }
 
@@ -55,6 +57,7 @@ export interface Process {
   stageHistory?: StageHistory[];
   notifications?: Notification[];
   bankId?: string;
+  propertyId?: string;
   purchaseValue: number;
   financingValue?: number;
   financingType?: 'SBPE' | 'MCMV' | 'Pró-Cotista';
@@ -92,4 +95,21 @@ export interface Broker {
   birthDate?: string;
   agencyId?: string;
   createdAt: string;
+}
+
+export interface Property {
+  id?: string;
+  address: string;
+  number?: string;
+  complement?: string;
+  neighborhood?: string; // Bairro
+  city: string;
+  state: string;
+  zone?: string;
+  registrationNumber?: string; // Matrícula
+  additionalInfo?: string; // Informações
+  price?: number; // Valor
+  type: 'Casa' | 'Apartamento' | 'Terreno' | 'Comercial';
+  createdAt: string;
+  updatedAt: string;
 }

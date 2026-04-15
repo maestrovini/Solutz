@@ -265,7 +265,7 @@ export default function AgencyManager() {
                 )}
               >
               <div className="flex items-start justify-between">
-                <div className="min-w-0">
+                <div className="min-w-0 pr-14">
                   <h3 className="text-lg font-bold text-[#1a1a1a] leading-tight truncate">{agency.name}</h3>
                   {!isExpanded && (
                     <div className="flex flex-wrap gap-1.5 mt-1.5">
@@ -284,26 +284,15 @@ export default function AgencyManager() {
                   )}
                 </div>
                 
-                {isAdmin && (
-                  <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                    {agency.phone && (
-                      <button 
-                        onClick={() => handleWhatsApp(agency.phone)}
-                        className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                        title="Enviar WhatsApp"
-                      >
-                        <MessageCircle className="w-5 h-5" />
-                      </button>
-                    )}
-                    {agency.email && (
-                      <button 
-                        onClick={() => handleEmail(agency.email)}
-                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Enviar E-mail"
-                      >
-                        <Mail className="w-5 h-5" />
-                      </button>
-                    )}
+                {isAdmin && agency.phone && (
+                  <div className="absolute right-4 top-3" onClick={(e) => e.stopPropagation()}>
+                    <button 
+                      onClick={() => handleWhatsApp(agency.phone)}
+                      className="w-8 h-8 flex items-center justify-center text-[#1a1a1a] bg-black/5 hover:bg-black/10 rounded-lg border border-black/5 transition-all hover:scale-110 active:scale-95 shrink-0"
+                      title="Enviar WhatsApp"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                    </button>
                   </div>
                 )}
               </div>
@@ -372,18 +361,6 @@ export default function AgencyManager() {
                             <Edit2 className="w-5 h-5" />
                           </button>
                           <button 
-                            onClick={() => {
-                              setEditingAgency(agency);
-                              // Trigger submit logic
-                              const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
-                              handleSubmit(fakeEvent);
-                            }}
-                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors"
-                            title="Salvar"
-                          >
-                            <Save className="w-5 h-5" />
-                          </button>
-                          <button 
                             onClick={() => setDeleteConfirmId(agency.id!)}
                             className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
                             title="Excluir"
@@ -442,54 +419,54 @@ export default function AgencyManager() {
                 </div>
               </div>
               <div className="overflow-y-auto flex-1">
-                <form id="agency-form" onSubmit={handleSubmit} className="p-8 space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
+                <form id="agency-form" onSubmit={handleSubmit} className="p-6 space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
                     <div className="col-span-2">
-                      <label className="block text-sm font-medium text-black/60 mb-2">Nome da Imobiliária</label>
+                      <label className="block text-sm font-medium text-black/60 mb-1">Nome da Imobiliária</label>
                       <input
                         required
                         type="text"
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        className="w-full px-4 py-3 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all"
+                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all"
                       />
                     </div>
                     <div className="col-span-2">
-                      <label className="block text-sm font-medium text-black/60 mb-2">CNPJ</label>
+                      <label className="block text-sm font-medium text-black/60 mb-1">CNPJ</label>
                       <input
                         type="text"
                         placeholder="00.000.000/0000-00"
                         value={formData.cnpj}
                         onChange={(e) => setFormData({ ...formData, cnpj: formatCNPJ(e.target.value) })}
-                        className="w-full px-4 py-3 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all placeholder:text-black/40"
+                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all placeholder:text-black/40"
                       />
                     </div>
                     <div className="col-span-2">
-                      <label className="block text-sm font-medium text-black/60 mb-2">Email</label>
+                      <label className="block text-sm font-medium text-black/60 mb-1">Email</label>
                       <input
                         type="email"
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className="w-full px-4 py-3 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all"
+                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all"
                       />
                     </div>
                     <div className="col-span-2">
-                      <label className="block text-sm font-medium text-black/60 mb-2">Telefone</label>
+                      <label className="block text-sm font-medium text-black/60 mb-1">Telefone</label>
                       <input
                         type="tel"
                         placeholder="(00) 00000-0000"
                         value={formData.phone}
                         onChange={(e) => setFormData({ ...formData, phone: formatPhone(e.target.value) })}
-                        className="w-full px-4 py-3 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all placeholder:text-black/40"
+                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all placeholder:text-black/40"
                       />
                     </div>
                     <div className="col-span-2">
-                      <label className="block text-sm font-medium text-black/60 mb-2">Endereço</label>
+                      <label className="block text-sm font-medium text-black/60 mb-1">Endereço</label>
                       <input
                         type="text"
                         value={formData.address}
                         onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                        className="w-full px-4 py-3 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all"
+                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all"
                       />
                     </div>
                   </div>

@@ -1,6 +1,16 @@
 import { db, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where, OperationType, handleFirestoreError, onSnapshot } from './firebase';
 import { UserProfile, Client, Process, Bank, MarketData } from './types';
 
+const cleanData = (data: any) => {
+  const cleaned = { ...data };
+  Object.keys(cleaned).forEach(key => {
+    if (cleaned[key] === undefined) {
+      delete cleaned[key];
+    }
+  });
+  return cleaned;
+};
+
 export const api = {
   subscribeToCollection(collectionName: string, callback: (data: any[]) => void) {
     const q = collection(db, collectionName);
@@ -27,9 +37,10 @@ export const api = {
   },
   async create(collectionName: string, data: any) {
     try {
+      const cleanedData = cleanData(data);
       const docRef = doc(collection(db, collectionName));
       const id = docRef.id;
-      const newItem = { ...data, id };
+      const newItem = { ...cleanedData, id };
       await setDoc(docRef, newItem);
       return newItem;
     } catch (error) {
@@ -38,9 +49,10 @@ export const api = {
   },
   async update(collectionName: string, id: string, data: any) {
     try {
+      const cleanedData = cleanData(data);
       const docRef = doc(db, collectionName, id);
-      await updateDoc(docRef, data);
-      return { id, ...data };
+      await updateDoc(docRef, cleanedData);
+      return { id, ...cleanedData };
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `${collectionName}/${id}`);
     }

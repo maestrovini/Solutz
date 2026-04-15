@@ -23,6 +23,10 @@
         "phone": { "type": "string", "description": "Client phone" },
         "brokerId": { "type": "string", "description": "Broker ID" },
         "status": { "type": "string", "enum": ["Aprovado", "Condicionado", "Negado"], "description": "Client status" },
+        "statusDate": { "type": "string", "format": "date", "description": "Credit status date" },
+        "birthDate": { "type": "string", "format": "date", "description": "Birth date" },
+        "cpf": { "type": "string", "description": "CPF" },
+        "phone2": { "type": "string", "description": "Secondary phone" },
         "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
       },
       "required": ["name", "email"]
@@ -87,6 +91,28 @@
         "logoUrl": { "type": "string", "description": "Bank logo URL" }
       },
       "required": ["name"]
+    },
+    "Property": {
+      "title": "Property",
+      "description": "Property information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Property ID" },
+        "address": { "type": "string", "description": "Property address" },
+        "number": { "type": "string", "description": "Property number" },
+        "complement": { "type": "string", "description": "Property complement" },
+        "neighborhood": { "type": "string", "description": "Property neighborhood (Bairro)" },
+        "city": { "type": "string", "description": "Property city" },
+        "state": { "type": "string", "description": "Property state" },
+        "zone": { "type": "string", "description": "Property zone" },
+        "registrationNumber": { "type": "string", "description": "Property registration number (Matrícula)" },
+        "additionalInfo": { "type": "string", "description": "Additional information" },
+        "price": { "type": "number", "description": "Property price (Valor)" },
+        "type": { "type": "string", "enum": ["Casa", "Apartamento", "Terreno", "Comercial"], "description": "Property type" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp" }
+      },
+      "required": ["address", "city", "state", "type"]
     }
   },
   "firestore": {
@@ -113,6 +139,10 @@
     "/banks/{bankId}": {
       "schema": "Bank",
       "description": "Banks"
+    },
+    "/properties/{propertyId}": {
+      "schema": "Property",
+      "description": "Properties"
     }
   }
 }
