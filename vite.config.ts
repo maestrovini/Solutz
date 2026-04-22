@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
-    base: command === 'build' ? '/solutz/' : '/',
+    base: command === 'build' ? '/Solutz/' : '/',
     plugins: [react(), tailwindcss()],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
