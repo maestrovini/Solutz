@@ -14,7 +14,11 @@ export interface Client {
   phone2?: string;
   cpf?: string;
   birthDate?: string;
-  brokerId: string;
+  income?: number; // Renda Mensal
+  hasFGTS?: boolean;
+  maritalStatus?: 'Solteiro' | 'Casado' | 'Divorciado' | 'Viúvo' | 'União Estável';
+  brokerId?: string;
+  agencyId?: string;
   status?: 'Aprovado' | 'Condicionado' | 'Negado';
   statusDate?: string;
   createdAt: string;
@@ -25,6 +29,7 @@ export interface Bank {
   name: string;
   logoUrl?: string;
   color?: string;
+  simulatorUrl?: string;
   processTypes: ('MCMV' | 'SBPE' | 'Pró-Cotista' | 'Home Equity')[];
 }
 

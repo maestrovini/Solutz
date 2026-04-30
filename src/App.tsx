@@ -7,6 +7,7 @@ import BankManager from './components/BankManager';
 import AgencyManager from './components/AgencyManager';
 import BrokerManager from './components/BrokerManager';
 import PropertyManager from './components/PropertyManager';
+import SimulationManager from './components/SimulationManager';
 import UserManager from './components/UserManager';
 import { ReportsManager } from './components/ReportsManager';
 import { HeaderProvider } from './context/HeaderContext';
@@ -76,6 +77,8 @@ export default function App() {
             }} 
           />
         );
+      case 'simulations':
+        return <SimulationManager />;
       case 'users':
         return <UserManager />;
       case 'processes':

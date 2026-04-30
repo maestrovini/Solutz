@@ -16,11 +16,13 @@ export default function BankManager() {
   const [formData, setFormData] = useState<{
     name: string;
     logoUrl: string;
+    simulatorUrl: string;
     color: string;
     processTypes: ('MCMV' | 'SBPE' | 'Pró-Cotista' | 'Home Equity')[];
   }>({
     name: '',
     logoUrl: '',
+    simulatorUrl: '',
     color: '#000000',
     processTypes: [],
   });
@@ -43,7 +45,7 @@ export default function BankManager() {
         <button
           onClick={() => {
             setEditingBank(null);
-            setFormData({ name: '', logoUrl: '', color: '#000000', processTypes: [] });
+            setFormData({ name: '', logoUrl: '', simulatorUrl: '', color: '#000000', processTypes: [] });
             setIsModalOpen(true);
           }}
           className="p-2 bg-white text-black border border-white/10 rounded-lg hover:bg-white/80 transition-colors shadow-sm"
@@ -75,7 +77,7 @@ export default function BankManager() {
       }
       setIsModalOpen(false);
       setEditingBank(null);
-      setFormData({ name: '', logoUrl: '', color: '#000000', processTypes: [] });
+      setFormData({ name: '', logoUrl: '', simulatorUrl: '', color: '#000000', processTypes: [] });
     } catch (error) {
       console.error("Erro ao salvar banco:", error);
     }
@@ -109,6 +111,7 @@ export default function BankManager() {
             setFormData({ 
               name: bank.name, 
               logoUrl: bank.logoUrl || '',
+              simulatorUrl: bank.simulatorUrl || '',
               color: bank.color || '#000000',
               processTypes: bank.processTypes || []
             });
@@ -249,6 +252,16 @@ export default function BankManager() {
                     onChange={(e) => setFormData({ ...formData, logoUrl: e.target.value })}
                     className="w-full px-4 py-3 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all placeholder:text-black/40"
                     placeholder="https://exemplo.com/logo.png"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-black/60 mb-2">URL do Simulador do Banco</label>
+                  <input
+                    type="url"
+                    value={formData.simulatorUrl}
+                    onChange={(e) => setFormData({ ...formData, simulatorUrl: e.target.value })}
+                    className="w-full px-4 py-3 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all placeholder:text-black/40"
+                    placeholder="https://simulador.banco.com.br"
                   />
                 </div>
                 <button

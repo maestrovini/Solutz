@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
-import { Client, Process, Bank } from '../types';
-import { Plus, Search, Trash2, Edit2, X, UserPlus, Phone, Mail, MapPin, Calendar, FileText, Filter, AlertCircle, TrendingUp, TrendingDown, CheckCircle2, Clock, XCircle, MessageCircle, Save } from 'lucide-react';
+import { Client, Process, Bank, Broker, Agency } from '../types';
+import { Plus, Search, Trash2, Edit2, X, UserPlus, Phone, Mail, MapPin, Calendar, FileText, Filter, AlertCircle, TrendingUp, TrendingDown, CheckCircle2, Clock, XCircle, MessageCircle, Save, Building2, User as UserIcon, DollarSign, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
 import { useAuth } from '../context/AuthContext';
@@ -17,6 +17,8 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
   const [clients, setClients] = useState<Client[]>([]);
   const [processes, setProcesses] = useState<Process[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
+  const [brokers, setBrokers] = useState<Broker[]>([]);
+  const [agencies, setAgencies] = useState<Agency[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -46,6 +48,11 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
     phone2: '',
     cpf: '',
     birthDate: '',
+    income: 0,
+    hasFGTS: false,
+    maritalStatus: '' as 'Solteiro' | 'Casado' | 'Divorciado' | 'Viúvo' | 'União Estável' | '',
+    brokerId: '',
+    agencyId: '',
     status: '' as 'Aprovado' | 'Condicionado' | 'Negado' | '',
     statusDate: '',
   });
@@ -106,7 +113,7 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
           <button
             onClick={() => {
               setEditingClient(null);
-              setFormData({ name: '', email: '', phone: '', phone2: '', cpf: '', birthDate: '', status: '', statusDate: '' });
+              setFormData({ name: '', email: '', phone: '', phone2: '', cpf: '', birthDate: '', income: 0, hasFGTS: false, maritalStatus: '', brokerId: '', agencyId: '', status: '', statusDate: '' });
               setErrors({});
               setIsModalOpen(true);
             }}
@@ -130,10 +137,18 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
     const unsubscribeBanks = api.subscribeToCollection('banks', (data) => {
       setBanks(data as Bank[]);
     });
+    const unsubscribeBrokers = api.subscribeToCollection('brokers', (data) => {
+      setBrokers((data as Broker[]).sort((a, b) => a.name.localeCompare(b.name)));
+    });
+    const unsubscribeAgencies = api.subscribeToCollection('agencies', (data) => {
+      setAgencies((data as Agency[]).sort((a, b) => a.name.localeCompare(b.name)));
+    });
     return () => {
       unsubscribe();
       unsubscribeProcesses();
       unsubscribeBanks();
+      unsubscribeBrokers();
+      unsubscribeAgencies();
     };
   }, []);
 
@@ -156,7 +171,6 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
 
     const clientData = {
       ...formData,
-      brokerId: 'admin-1',
       createdAt: editingClient?.createdAt || new Date().toISOString(),
     };
 
@@ -168,7 +182,7 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
       }
       setIsModalOpen(false);
       setEditingClient(null);
-      setFormData({ name: '', email: '', phone: '', phone2: '', cpf: '', birthDate: '', status: '', statusDate: '' });
+      setFormData({ name: '', email: '', phone: '', phone2: '', cpf: '', birthDate: '', income: 0, hasFGTS: false, maritalStatus: '', brokerId: '', agencyId: '', status: '', statusDate: '' });
       setErrors({});
     } catch (error) {
       console.error("Erro ao salvar cliente:", error);
@@ -398,6 +412,36 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
                           <span>Nascimento: {new Date(client.birthDate).toLocaleDateString('pt-BR')}</span>
                         </div>
                       )}
+                      {client.income !== undefined && client.income > 0 && (
+                        <div className="flex items-center gap-3 text-sm text-[#1a1a1a] font-bold">
+                          <DollarSign className="w-4 h-4 shrink-0" />
+                          <span>Renda: {formatCurrency(client.income)}</span>
+                        </div>
+                      )}
+                      {client.maritalStatus && (
+                        <div className="flex items-center gap-3 text-sm text-[#1a1a1a] font-bold">
+                          <Users className="w-4 h-4 shrink-0" />
+                          <span>Estado Civil: {client.maritalStatus}</span>
+                        </div>
+                      )}
+                      {client.hasFGTS && (
+                        <div className="flex items-center gap-3 text-sm text-emerald-600 font-bold">
+                          <CheckCircle2 className="w-4 h-4 shrink-0" />
+                          <span>Possui FGTS</span>
+                        </div>
+                      )}
+                      {client.agencyId && (
+                        <div className="flex items-center gap-3 text-sm text-[#1a1a1a] font-bold">
+                          <Building2 className="w-4 h-4 shrink-0" />
+                          <span>Imobiliária: {agencies.find(a => a.id === client.agencyId)?.name || 'N/A'}</span>
+                        </div>
+                      )}
+                      {client.brokerId && (
+                        <div className="flex items-center gap-3 text-sm text-[#1a1a1a] font-bold">
+                          <UserIcon className="w-4 h-4 shrink-0" />
+                          <span>Corretor: {brokers.find(b => b.id === client.brokerId)?.name || 'N/A'}</span>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between text-sm font-bold">
                         <div className={cn(
                           "flex items-center gap-3",
@@ -445,6 +489,11 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
                                 phone2: client.phone2 || '',
                                 cpf: client.cpf || '',
                                 birthDate: client.birthDate || '',
+                                income: client.income || 0,
+                                hasFGTS: !!client.hasFGTS,
+                                maritalStatus: client.maritalStatus || '',
+                                brokerId: client.brokerId || '',
+                                agencyId: client.agencyId || '',
                                 status: client.status || '',
                                 statusDate: client.statusDate || '',
                               });
@@ -560,8 +609,76 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
                         />
                       </div>
                     </div>
+                    <div className="col-span-1">
+                      <label className="block text-sm font-medium text-black/60 mb-1">Imobiliária</label>
+                      <select
+                        value={formData.agencyId}
+                        onChange={(e) => setFormData({ ...formData, agencyId: e.target.value })}
+                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all text-sm"
+                      >
+                        <option value="">Selecione uma imobiliária</option>
+                        {agencies.map((agency) => (
+                          <option key={agency.id} value={agency.id}>{agency.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-span-1">
+                      <label className="block text-sm font-medium text-black/60 mb-1">Corretor</label>
+                      <select
+                        value={formData.brokerId}
+                        onChange={(e) => setFormData({ ...formData, brokerId: e.target.value })}
+                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all text-sm"
+                      >
+                        <option value="">Selecione um corretor</option>
+                        {brokers
+                          .filter(b => !formData.agencyId || b.agencyId === formData.agencyId)
+                          .map((broker) => (
+                            <option key={broker.id} value={broker.id}>{broker.name}</option>
+                          ))
+                        }
+                      </select>
+                    </div>
+                    <div className="col-span-2 md:col-span-1">
+                      <label className="block text-sm font-medium text-black/60 mb-1">Renda Mensal</label>
+                      <div className="relative">
+                        <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20 pointer-events-none" />
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData.income}
+                          onChange={(e) => setFormData({ ...formData, income: parseFloat(e.target.value) || 0 })}
+                          className="w-full pl-10 pr-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div className="col-span-2 md:col-span-1">
+                      <label className="block text-sm font-medium text-black/60 mb-1">Estado Civil</label>
+                      <select
+                        value={formData.maritalStatus}
+                        onChange={(e) => setFormData({ ...formData, maritalStatus: e.target.value as any })}
+                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all text-sm"
+                      >
+                        <option value="">Selecione...</option>
+                        <option value="Solteiro">Solteiro</option>
+                        <option value="Casado">Casado</option>
+                        <option value="Divorciado">Divorciado</option>
+                        <option value="Viúvo">Viúvo</option>
+                        <option value="União Estável">União Estável</option>
+                      </select>
+                    </div>
                     <div className="col-span-2">
-                      <label className="block text-sm font-medium text-black/60 mb-1">Status de Crédito</label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.hasFGTS}
+                          onChange={(e) => setFormData({ ...formData, hasFGTS: e.target.checked })}
+                          className="w-5 h-5 rounded border-black/10 text-black focus:ring-black/5"
+                        />
+                        <span className="text-sm font-medium text-black/60">Possui FGTS para entrada?</span>
+                      </label>
+                    </div>
+                    <div className="col-span-2">
+                       <label className="block text-sm font-medium text-black/60 mb-1">Status de Crédito</label>
                       <div className="grid grid-cols-3 gap-2">
                         {['Aprovado', 'Condicionado', 'Negado'].map((status) => (
                           <button
