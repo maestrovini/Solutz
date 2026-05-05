@@ -6,6 +6,12 @@ export interface UserProfile {
   agencyId?: string;
 }
 
+export interface ApprovedBank {
+  bankId: string;
+  approvedValue: number;
+  expirationDate: string;
+}
+
 export interface Client {
   id?: string;
   name: string;
@@ -19,8 +25,8 @@ export interface Client {
   maritalStatus?: 'Solteiro' | 'Casado' | 'Divorciado' | 'Viúvo' | 'União Estável';
   brokerId?: string;
   agencyId?: string;
-  status?: 'Aprovado' | 'Condicionado' | 'Negado';
-  statusDate?: string;
+  status?: 'Aprovado' | 'Condicionado' | 'Negado' | 'Vencido';
+  approvedBanks?: ApprovedBank[];
   createdAt: string;
 }
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
-import { Broker, Agency, Process } from '../types';
+import { Broker, Agency, Process, Client } from '../types';
 import { Plus, Search, Trash2, Edit2, X, User, Phone, Mail, FileText, Building2, Filter, TrendingUp, AlertCircle, Save, MessageCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
@@ -12,6 +12,7 @@ export default function BrokerManager() {
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [processes, setProcesses] = useState<Process[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -109,11 +110,15 @@ export default function BrokerManager() {
     const unsubProcesses = api.subscribeToCollection('processes', (data) => {
       setProcesses(data as Process[]);
     });
+    const unsubClients = api.subscribeToCollection('clients', (data) => {
+      setClients(data as Client[]);
+    });
 
     return () => {
       unsubBrokers();
       unsubAgencies();
       unsubProcesses();
+      unsubClients();
     };
   }, []);
 
@@ -228,6 +233,7 @@ export default function BrokerManager() {
             const brokerProcesses = processes.filter(p => 
               p.participants?.some(part => part.type === 'broker' && part.id === broker.id)
             );
+            const brokerClients = clients.filter(c => c.brokerId === broker.id);
             const totalFinancing = brokerProcesses.reduce((sum, p) => {
               if (p.type === 'Financiamento' || p.type === 'Home Equity') {
                 return sum + (p.financingValue || 0);
@@ -259,6 +265,9 @@ export default function BrokerManager() {
                       </div>
                       <div className="flex items-center gap-1 px-2 py-0.5 bg-black/5 text-black/60 text-[8px] font-bold uppercase tracking-wider rounded-full border border-black/5" title={`${brokerProcesses.length} ${brokerProcesses.length === 1 ? 'Processo' : 'Processos'}`}>
                         <span>{brokerProcesses.length} {brokerProcesses.length === 1 ? 'Processo' : 'Processos'}</span>
+                      </div>
+                      <div className="flex items-center gap-1 px-2 py-0.5 bg-black/5 text-black/60 text-[8px] font-bold uppercase tracking-wider rounded-full border border-black/5" title={`${brokerClients.length} ${brokerClients.length === 1 ? 'Cliente' : 'Clientes'}`}>
+                        <span>{brokerClients.length} {brokerClients.length === 1 ? 'Cliente' : 'Clientes'}</span>
                       </div>
                       {totalFinancing > 0 && (
                         <div className="flex items-center gap-1 px-2 py-0.5 bg-black/5 text-black/60 text-[8px] font-bold uppercase tracking-wider rounded-full border border-black/5">
@@ -312,6 +321,19 @@ export default function BrokerManager() {
                         <FileText className="w-4 h-4 shrink-0" />
                         <span>{brokerProcesses.length} {brokerProcesses.length === 1 ? 'Processo' : 'Processos'}</span>
                       </div>
+                      <div className="flex items-center gap-3 text-sm text-emerald-600 font-bold">
+                        <User className="w-4 h-4 shrink-0" />
+                        <span>{brokerClients.length} {brokerClients.length === 1 ? 'Cliente' : 'Clientes'}</span>
+                      </div>
+                      {brokerClients.length > 0 && (
+                        <div className="ml-7 pt-1 space-y-1">
+                          {brokerClients.map(client => (
+                            <div key={client.id} className="text-xs text-black/40 bg-black/5 px-2 py-1 rounded-lg truncate">
+                              {client.name}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       {totalFinancing > 0 && (
                         <div className="flex items-center gap-3 text-sm text-emerald-600 font-bold">
                           <TrendingUp className="w-4 h-4 shrink-0" />

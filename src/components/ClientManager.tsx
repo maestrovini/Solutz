@@ -53,8 +53,8 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
     maritalStatus: '' as 'Solteiro' | 'Casado' | 'Divorciado' | 'Viúvo' | 'União Estável' | '',
     brokerId: '',
     agencyId: '',
-    status: '' as 'Aprovado' | 'Condicionado' | 'Negado' | '',
-    statusDate: '',
+    status: '' as 'Aprovado' | 'Condicionado' | 'Negado' | 'Vencido' | '',
+    approvedBanks: [] as { bankId: string; approvedValue: number; expirationDate: string }[],
   });
 
   const formatCPF = (value: string) => {
@@ -64,6 +64,31 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
       .replace(/(\d{3})(\d)/, '$1.$2')
       .replace(/(\d{3})(\d{1,2})/, '$1-$2')
       .replace(/(-\d{2})\d+?$/, '$1');
+  };
+
+  const formatBirthDate = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 8);
+    if (!digits) return '';
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+  };
+
+  const formatCurrencyInput = (value: string | number) => {
+    if (value === undefined || value === null) return '';
+    const stringValue = typeof value === 'number' ? (value * 100).toFixed(0) : value.replace(/\D/g, '');
+    if (!stringValue) return '';
+    
+    const amount = (parseInt(stringValue, 10) / 100).toFixed(2);
+    const [int, dec] = amount.split('.');
+    const formattedInt = parseInt(int, 10).toLocaleString('pt-BR');
+    
+    return `R$ ${formattedInt},${dec}`;
+  };
+
+  const parseCurrencyInput = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+    return digits ? parseInt(digits, 10) / 100 : 0;
   };
 
   const formatPhone = (value: string) => {
@@ -113,7 +138,7 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
           <button
             onClick={() => {
               setEditingClient(null);
-              setFormData({ name: '', email: '', phone: '', phone2: '', cpf: '', birthDate: '', income: 0, hasFGTS: false, maritalStatus: '', brokerId: '', agencyId: '', status: '', statusDate: '' });
+              setFormData({ name: '', email: '', phone: '', phone2: '', cpf: '', birthDate: '', income: 0, hasFGTS: false, maritalStatus: '', brokerId: '', agencyId: '', status: '', approvedBanks: [] });
               setErrors({});
               setIsModalOpen(true);
             }}
@@ -152,6 +177,45 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isAdmin || clients.length === 0) return;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const checkExpirations = async () => {
+      for (const client of clients) {
+        if (client.approvedBanks && client.approvedBanks.length > 0) {
+          const validBanks = client.approvedBanks.filter(bank => {
+            if (!bank.expirationDate) return true;
+            const expDate = new Date(bank.expirationDate);
+            expDate.setHours(0, 0, 0, 0);
+            return expDate >= today;
+          });
+
+          if (validBanks.length !== client.approvedBanks.length) {
+            const updates: Partial<Client> = {
+              approvedBanks: validBanks
+            };
+
+            if (validBanks.length === 0 && client.status !== 'Vencido') {
+              (updates as any).status = 'Vencido';
+            }
+
+            // Only update if there's a real change to avoid unnecessary writes
+            try {
+              await api.update('clients', client.id!, updates);
+            } catch (error) {
+              console.error(`Error updating expired client ${client.id}:`, error);
+            }
+          }
+        }
+      }
+    };
+
+    checkExpirations();
+  }, [clients.length, isAdmin]); // Only run when count changes or on mount
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -169,8 +233,21 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
       return;
     }
 
+    const formattedBirthDate = formData.birthDate.includes('/') 
+      ? formData.birthDate.split('/').reverse().join('-')
+      : formData.birthDate;
+
+    const formattedApprovedBanks = formData.approvedBanks.map(bank => ({
+      ...bank,
+      expirationDate: bank.expirationDate.includes('/')
+        ? bank.expirationDate.split('/').reverse().join('-')
+        : bank.expirationDate
+    }));
+
     const clientData = {
       ...formData,
+      birthDate: formattedBirthDate,
+      approvedBanks: formattedApprovedBanks,
       createdAt: editingClient?.createdAt || new Date().toISOString(),
     };
 
@@ -182,7 +259,7 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
       }
       setIsModalOpen(false);
       setEditingClient(null);
-      setFormData({ name: '', email: '', phone: '', phone2: '', cpf: '', birthDate: '', income: 0, hasFGTS: false, maritalStatus: '', brokerId: '', agencyId: '', status: '', statusDate: '' });
+      setFormData({ name: '', email: '', phone: '', phone2: '', cpf: '', birthDate: '', income: 0, hasFGTS: false, maritalStatus: '', brokerId: '', agencyId: '', status: '', approvedBanks: [] });
       setErrors({});
     } catch (error) {
       console.error("Erro ao salvar cliente:", error);
@@ -250,6 +327,7 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
                   <option value="Aprovado">Aprovado</option>
                   <option value="Condicionado">Condicionado</option>
                   <option value="Negado">Negado</option>
+                  <option value="Vencido">Vencido</option>
                 </select>
               </div>
             </div>
@@ -266,6 +344,7 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
               'Aprovado': { bg: 'bg-green-50', text: 'text-green-600', icon: 'text-green-800', border: 'border-green-100', borderStrong: 'border-green-300', hex: '#10b981' },
               'Condicionado': { bg: 'bg-amber-50', text: 'text-amber-600', icon: 'text-amber-800', border: 'border-amber-100', borderStrong: 'border-amber-300', hex: '#f59e0b' },
               'Negado': { bg: 'bg-red-50', text: 'text-red-600', icon: 'text-red-800', border: 'border-red-100', borderStrong: 'border-red-300', hex: '#ef4444' },
+              'Vencido': { bg: 'bg-rose-50', text: 'text-rose-600', icon: 'text-rose-800', border: 'border-rose-100', borderStrong: 'border-rose-300', hex: '#f43f5e' },
               'Avaliar': { bg: 'bg-blue-50', text: 'text-blue-600', icon: 'text-blue-800', border: 'border-blue-100', borderStrong: 'border-blue-300', hex: '#3b82f6' }
             };
             const currentStatusStyle = statusColors[status as keyof typeof statusColors];
@@ -361,6 +440,38 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
                         ))}
                       </div>
                     )}
+
+                    {client.approvedBanks && client.approvedBanks.length > 0 && (
+                      <div className="flex gap-1">
+                        {client.approvedBanks.map((item, idx) => {
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          if (item.expirationDate) {
+                            const expDate = new Date(item.expirationDate);
+                            expDate.setHours(0, 0, 0, 0);
+                            if (expDate < today) return null;
+                          }
+
+                          const bank = banks.find(b => b.id === item.bankId);
+                          if (!bank?.logoUrl) return null;
+                          return (
+                            <div 
+                              key={idx}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg border border-black/10 bg-white shadow-sm overflow-hidden shrink-0"
+                              title={`Crédito Aprovado: ${bank.name}`}
+                            >
+                              <img 
+                                src={bank.logoUrl} 
+                                alt={bank.name} 
+                                className="w-full h-full object-cover" 
+                                referrerPolicy="no-referrer" 
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
                     {isAdmin && client.phone && (
                       <button 
                         onClick={() => handleWhatsApp(client.phone)}
@@ -409,7 +520,9 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
                       {client.birthDate && (
                         <div className="flex items-center gap-3 text-sm text-[#1a1a1a] font-bold">
                           <Calendar className="w-4 h-4 shrink-0" />
-                          <span>Nascimento: {new Date(client.birthDate).toLocaleDateString('pt-BR')}</span>
+                          <span>Nascimento: {client.birthDate.includes('-') 
+                            ? new Date(client.birthDate).toLocaleDateString('pt-BR') 
+                            : client.birthDate}</span>
                         </div>
                       )}
                       {client.income !== undefined && client.income > 0 && (
@@ -448,18 +561,53 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
                           client.status === 'Aprovado' && "text-green-600",
                           client.status === 'Condicionado' && "text-amber-600",
                           client.status === 'Negado' && "text-red-600",
+                          client.status === 'Vencido' && "text-rose-600",
                           !client.status && "text-blue-600"
                         )}>
                           {client.status === 'Aprovado' && <CheckCircle2 className="w-4 h-4 shrink-0" />}
                           {client.status === 'Condicionado' && <Clock className="w-4 h-4 shrink-0" />}
                           {client.status === 'Negado' && <XCircle className="w-4 h-4 shrink-0" />}
+                          {client.status === 'Vencido' && <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />}
                           {!client.status && <AlertCircle className="w-4 h-4 shrink-0" />}
                           <span>{client.status || 'Avaliar'}</span>
                         </div>
-                        {client.statusDate && (
-                          <span className="text-[#1a1a1a] font-bold">{new Date(client.statusDate).toLocaleDateString('pt-BR')}</span>
-                        )}
                       </div>
+                      
+                      {client.approvedBanks && client.approvedBanks.length > 0 && (
+                        <div className="space-y-2 pt-2 border-t border-black/5">
+                          <p className="text-[10px] font-bold text-black/40 uppercase tracking-widest">Bancos Aprovados</p>
+                          <div className="grid grid-cols-1 gap-2">
+                            {client.approvedBanks.map((item, idx) => {
+                              const today = new Date();
+                              today.setHours(0, 0, 0, 0);
+                              if (item.expirationDate) {
+                                const expDate = new Date(item.expirationDate);
+                                expDate.setHours(0, 0, 0, 0);
+                                if (expDate < today) return null;
+                              }
+                              
+                              const bank = banks.find(b => b.id === item.bankId);
+                              return (
+                                <div key={idx} className="flex items-center justify-between p-2 bg-[#f5f5f0] rounded-xl border border-black/5">
+                                  <div className="flex items-center gap-2">
+                                    {bank?.logoUrl ? (
+                                      <img src={bank.logoUrl} alt={bank.name} className="w-6 h-6 rounded border border-black/5 object-cover" referrerPolicy="no-referrer" />
+                                    ) : (
+                                      <Building2 className="w-4 h-4 text-black/20" />
+                                    )}
+                                    <span className="text-xs font-bold text-[#1a1a1a]">{bank?.name || 'Banco'}</span>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-[10px] font-bold text-emerald-600">{formatCurrency(item.approvedValue)}</p>
+                                    <p className="text-[8px] font-medium text-black/40">Vence: {item.expirationDate ? new Date(item.expirationDate).toLocaleDateString('pt-BR') : 'N/A'}</p>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex items-center gap-3 text-sm text-[#1a1a1a] font-bold">
                         <FileText className="w-4 h-4 shrink-0" />
                         <span>{allClientProcesses.length} {allClientProcesses.length === 1 ? 'Processo' : 'Processos'}</span>
@@ -495,7 +643,7 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
                                 brokerId: client.brokerId || '',
                                 agencyId: client.agencyId || '',
                                 status: client.status || '',
-                                statusDate: client.statusDate || '',
+                                approvedBanks: client.approvedBanks || [],
                               });
                               setErrors({});
                               setIsModalOpen(true);
@@ -574,7 +722,7 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
                         type="text"
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all"
+                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all h-[42px]"
                       />
                     </div>
                     <div>
@@ -589,7 +737,7 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
                           if (errors.cpf) setErrors(prev => ({ ...prev, cpf: undefined }));
                         }}
                         className={cn(
-                          "w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border outline-none transition-all placeholder:text-black/40",
+                          "w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border outline-none transition-all placeholder:text-black/40 h-[42px]",
                           errors.cpf ? "border-red-500 focus:ring-red-500/10" : "border-black/10 focus:ring-black/5"
                         )}
                       />
@@ -600,63 +748,34 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
                     <div>
                       <label className="block text-sm font-medium text-black/60 mb-1">Data de Nascimento</label>
                       <div className="relative">
-                        <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20 pointer-events-none" />
                         <input
-                          type="date"
-                          value={formData.birthDate}
-                          onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
-                          className="w-full pl-10 pr-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all text-sm"
+                          type="text"
+                          placeholder="00/00/0000"
+                          value={formData.birthDate.includes('-') 
+                            ? formData.birthDate.split('-').reverse().join('/') 
+                            : formData.birthDate}
+                          onChange={(e) => setFormData({ ...formData, birthDate: formatBirthDate(e.target.value) })}
+                          className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all text-sm h-[42px]"
                         />
                       </div>
                     </div>
                     <div className="col-span-1">
-                      <label className="block text-sm font-medium text-black/60 mb-1">Imobiliária</label>
-                      <select
-                        value={formData.agencyId}
-                        onChange={(e) => setFormData({ ...formData, agencyId: e.target.value })}
-                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all text-sm"
-                      >
-                        <option value="">Selecione uma imobiliária</option>
-                        {agencies.map((agency) => (
-                          <option key={agency.id} value={agency.id}>{agency.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="col-span-1">
-                      <label className="block text-sm font-medium text-black/60 mb-1">Corretor</label>
-                      <select
-                        value={formData.brokerId}
-                        onChange={(e) => setFormData({ ...formData, brokerId: e.target.value })}
-                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all text-sm"
-                      >
-                        <option value="">Selecione um corretor</option>
-                        {brokers
-                          .filter(b => !formData.agencyId || b.agencyId === formData.agencyId)
-                          .map((broker) => (
-                            <option key={broker.id} value={broker.id}>{broker.name}</option>
-                          ))
-                        }
-                      </select>
-                    </div>
-                    <div className="col-span-2 md:col-span-1">
                       <label className="block text-sm font-medium text-black/60 mb-1">Renda Mensal</label>
                       <div className="relative">
-                        <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20 pointer-events-none" />
                         <input
-                          type="number"
-                          step="0.01"
-                          value={formData.income}
-                          onChange={(e) => setFormData({ ...formData, income: parseFloat(e.target.value) || 0 })}
-                          className="w-full pl-10 pr-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all text-sm"
+                          type="text"
+                          value={formatCurrencyInput(formData.income)}
+                          onChange={(e) => setFormData({ ...formData, income: parseCurrencyInput(e.target.value) })}
+                          className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all text-sm h-[42px]"
                         />
                       </div>
                     </div>
-                    <div className="col-span-2 md:col-span-1">
+                    <div className="col-span-1">
                       <label className="block text-sm font-medium text-black/60 mb-1">Estado Civil</label>
                       <select
                         value={formData.maritalStatus}
                         onChange={(e) => setFormData({ ...formData, maritalStatus: e.target.value as any })}
-                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all text-sm"
+                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all text-sm h-[42px]"
                       >
                         <option value="">Selecione...</option>
                         <option value="Solteiro">Solteiro</option>
@@ -665,6 +784,35 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
                         <option value="Viúvo">Viúvo</option>
                         <option value="União Estável">União Estável</option>
                       </select>
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-black/60 mb-1">Email</label>
+                      <input
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all h-[42px]"
+                      />
+                    </div>
+                    <div className="col-span-1">
+                      <label className="block text-sm font-medium text-black/60 mb-1">Telefone Principal</label>
+                      <input
+                        type="tel"
+                        placeholder="(00) 00000-0000"
+                        value={formData.phone}
+                        onChange={(e) => setFormData({ ...formData, phone: formatPhone(e.target.value) })}
+                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all placeholder:text-black/40 h-[42px]"
+                      />
+                    </div>
+                    <div className="col-span-1">
+                      <label className="block text-sm font-medium text-black/60 mb-1">Telefone Secundário</label>
+                      <input
+                        type="tel"
+                        placeholder="(00) 00000-0000"
+                        value={formData.phone2}
+                        onChange={(e) => setFormData({ ...formData, phone2: formatPhone(e.target.value) })}
+                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all placeholder:text-black/40 h-[42px]"
+                      />
                     </div>
                     <div className="col-span-2">
                       <label className="flex items-center gap-2 cursor-pointer">
@@ -679,8 +827,8 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
                     </div>
                     <div className="col-span-2">
                        <label className="block text-sm font-medium text-black/60 mb-1">Status de Crédito</label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {['Aprovado', 'Condicionado', 'Negado'].map((status) => (
+                      <div className="grid grid-cols-4 gap-2">
+                        {['Aprovado', 'Condicionado', 'Negado', 'Vencido'].map((status) => (
                           <button
                             key={status}
                             type="button"
@@ -690,7 +838,8 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
                               formData.status === status 
                                 ? (status === 'Aprovado' ? "bg-blue-500 text-white border-blue-500 shadow-lg shadow-blue-500/20" :
                                    status === 'Condicionado' ? "bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-500/20" :
-                                   "bg-red-500 text-white border-red-500 shadow-lg shadow-red-500/20")
+                                   status === 'Negado' ? "bg-red-500 text-white border-red-500 shadow-lg shadow-red-500/20" :
+                                   "bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-500/20")
                                 : "bg-[#f5f5f0] text-black/40 border-black/10 hover:border-black/20"
                             )}
                           >
@@ -699,46 +848,130 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
                         ))}
                       </div>
                     </div>
-                    <div className="col-span-1">
-                      <label className="block text-sm font-medium text-black/60 mb-1">Data do Crédito</label>
-                      <div className="relative">
-                        <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20 pointer-events-none" />
-                        <input
-                          type="date"
-                          value={formData.statusDate}
-                          onChange={(e) => setFormData({ ...formData, statusDate: e.target.value })}
-                          className="w-full pl-10 pr-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all text-sm"
-                        />
+                    <div className="col-span-2 space-y-4 pt-4 border-t border-black/5">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-sm font-bold text-black border-l-4 border-black pl-3 uppercase tracking-wider">Bancos Aprovados</label>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({
+                            ...formData,
+                            approvedBanks: [...formData.approvedBanks, { bankId: '', approvedValue: 0, expirationDate: '' }]
+                          })}
+                          className="flex items-center gap-1 text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg hover:bg-emerald-100 transition-colors"
+                        >
+                          <Plus className="w-3 h-3" />
+                          Adicionar Banco
+                        </button>
+                      </div>
+
+                      <div className="space-y-3">
+                        {formData.approvedBanks.map((item, index) => (
+                          <div key={index} className="p-4 bg-[#f5f5f0] rounded-2xl border border-black/5 space-y-3 relative group/bank">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newBanks = [...formData.approvedBanks];
+                                newBanks.splice(index, 1);
+                                setFormData({ ...formData, approvedBanks: newBanks });
+                              }}
+                              className="absolute right-4 top-4 p-1 text-black/20 hover:text-red-500 transition-colors"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-[10px] font-bold text-black/40 uppercase tracking-widest mb-1">Banco</label>
+                                <select
+                                  value={item.bankId}
+                                  onChange={(e) => {
+                                    const newBanks = [...formData.approvedBanks];
+                                    newBanks[index].bankId = e.target.value;
+                                    setFormData({ ...formData, approvedBanks: newBanks });
+                                  }}
+                                  className="w-full px-3 py-2 bg-white text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none text-sm transition-all"
+                                >
+                                  <option value="">Selecione um banco</option>
+                                  {banks.map((bank) => (
+                                    <option key={bank.id} value={bank.id}>{bank.name}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="block text-[10px] font-bold text-black/40 uppercase tracking-widest mb-1">Valor Aprovado</label>
+                                  <div className="relative">
+                                    <input
+                                      type="text"
+                                      value={formatCurrencyInput(item.approvedValue)}
+                                      onChange={(e) => {
+                                        const newBanks = [...formData.approvedBanks];
+                                        newBanks[index].approvedValue = parseCurrencyInput(e.target.value);
+                                        setFormData({ ...formData, approvedBanks: newBanks });
+                                      }}
+                                      className="w-full px-3 py-2 bg-white text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none text-sm transition-all"
+                                    />
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-bold text-black/40 uppercase tracking-widest mb-1">Vencimento</label>
+                                  <div className="relative">
+                                    <input
+                                      type="text"
+                                      placeholder="00/00/0000"
+                                      value={item.expirationDate.includes('-') 
+                                        ? item.expirationDate.split('-').reverse().join('/') 
+                                        : item.expirationDate}
+                                      onChange={(e) => {
+                                        const newBanks = [...formData.approvedBanks];
+                                        newBanks[index].expirationDate = formatBirthDate(e.target.value);
+                                        setFormData({ ...formData, approvedBanks: newBanks });
+                                      }}
+                                      className="w-full px-3 py-2 bg-white text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none text-xs transition-all"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        {formData.approvedBanks.length === 0 && (
+                          <div className="py-8 border-2 border-dashed border-black/5 rounded-[24px] flex flex-col items-center justify-center text-black/20 space-y-2">
+                            <Building2 className="w-8 h-8 opacity-20" />
+                            <p className="text-xs font-bold uppercase tracking-widest leading-none">Nenhum banco aprovado</p>
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium text-black/60 mb-1">Email</label>
-                      <input
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all"
-                      />
+
+                    <div className="col-span-1">
+                      <label className="block text-sm font-medium text-black/60 mb-1">Imobiliária</label>
+                      <select
+                        value={formData.agencyId}
+                        onChange={(e) => setFormData({ ...formData, agencyId: e.target.value })}
+                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all text-sm h-[42px]"
+                      >
+                        <option value="">Selecione uma imobiliária</option>
+                        {agencies.map((agency) => (
+                          <option key={agency.id} value={agency.id}>{agency.name}</option>
+                        ))}
+                      </select>
                     </div>
-                    <div className="col-span-2 md:col-span-1">
-                      <label className="block text-sm font-medium text-black/60 mb-1">Telefone Principal</label>
-                      <input
-                        type="tel"
-                        placeholder="(00) 00000-0000"
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: formatPhone(e.target.value) })}
-                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all placeholder:text-black/40"
-                      />
-                    </div>
-                    <div className="col-span-2 md:col-span-1">
-                      <label className="block text-sm font-medium text-black/60 mb-1">Telefone Secundário</label>
-                      <input
-                        type="tel"
-                        placeholder="(00) 00000-0000"
-                        value={formData.phone2}
-                        onChange={(e) => setFormData({ ...formData, phone2: formatPhone(e.target.value) })}
-                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all placeholder:text-black/40"
-                      />
+                    <div className="col-span-1">
+                      <label className="block text-sm font-medium text-black/60 mb-1">Corretor</label>
+                      <select
+                        value={formData.brokerId}
+                        onChange={(e) => setFormData({ ...formData, brokerId: e.target.value })}
+                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all text-sm h-[42px]"
+                      >
+                        <option value="">Selecione um corretor</option>
+                        {brokers
+                          .filter(b => !formData.agencyId || b.agencyId === formData.agencyId)
+                          .map((broker) => (
+                            <option key={broker.id} value={broker.id}>{broker.name}</option>
+                          ))
+                        }
+                      </select>
                     </div>
                   </div>
                   {/* Form actions removed and replaced by icons in header */}
