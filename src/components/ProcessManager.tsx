@@ -11,10 +11,12 @@ import { hexToRgba, getContrastColor } from '../utils/colors';
 
 interface ProcessManagerProps {
   initialSelectedProcessId?: string | null;
+  initialNewProcessClientId?: string | null;
   onCloseDetail?: () => void;
+  onOpenClient?: (id: string) => void;
 }
 
-export default function ProcessManager({ initialSelectedProcessId, onCloseDetail }: ProcessManagerProps) {
+export default function ProcessManager({ initialSelectedProcessId, initialNewProcessClientId, onCloseDetail, onOpenClient }: ProcessManagerProps) {
   const { isAdmin } = useAuth();
   const [processes, setProcesses] = useState<Process[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -93,6 +95,26 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
     setFormData({ ...formData, [field]: numericValue });
   };
 
+  useEffect(() => {
+    if (initialNewProcessClientId) {
+      setEditingProcess(null);
+      setFormData({
+        clientId: initialNewProcessClientId,
+        participants: [{ id: initialNewProcessClientId, type: 'buyer', name: getClientName(initialNewProcessClientId) }],
+        type: 'Financiamento',
+        status: 'Em andamento',
+        stage: 'Aprovado',
+        bankId: '',
+        propertyId: '',
+        purchaseValue: 0,
+        financingValue: 0,
+        financingType: 'SBPE',
+        value: 0,
+        notes: '',
+      });
+      setIsModalOpen(true);
+    }
+  }, [initialNewProcessClientId, clients]); // Depend on clients to ensure getClientName works
   useEffect(() => {
     if (initialSelectedProcessId && processes.length > 0) {
       const process = processes.find(p => p.id === initialSelectedProcessId);
@@ -653,7 +675,8 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
             <motion.div
               layout
               key={process.id}
-              className="bg-white p-4 rounded-[24px] shadow-sm border hover:shadow-md transition-all relative"
+              onClick={() => openDetailModal(process)}
+              className="bg-white p-4 rounded-[24px] shadow-sm border hover:shadow-md transition-all relative cursor-pointer"
               style={{ 
                 borderColor: hexToRgba(bankColor, 0.3)
               }}
@@ -664,13 +687,12 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
                     <p className="text-[9px] font-bold uppercase tracking-wider text-black/40">Compradores</p>
                     <div className="flex flex-col gap-1">
                       {buyers.length > 0 ? buyers.map((p, i) => (
-                        <button 
-                          key={i}
-                          onClick={() => openDetailModal(process)}
-                          className="text-sm font-semibold text-[#1a1a1a] hover:text-black/60 transition-colors text-left"
-                        >
-                          {getParticipantName(p)}
-                        </button>
+                          <div 
+                            key={i}
+                            className="text-sm font-semibold text-[#1a1a1a]"
+                          >
+                            {getParticipantName(p)}
+                          </div>
                       )) : <span className="text-sm text-black/20">-</span>}
                     </div>
                   </div>
@@ -925,7 +947,12 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
                 </div>
 
                 <div className="flex-1">
-                  <h2 className="text-2xl font-bold text-[#1a1a1a]">
+                  <h2 
+                    onClick={() => {
+                      if (selectedProcessForDetail.clientId) onOpenClient?.(selectedProcessForDetail.clientId);
+                    }}
+                    className="text-2xl font-bold text-[#1a1a1a] hover:text-black/60 transition-colors cursor-pointer"
+                  >
                     {clients.find(c => c.id === selectedProcessForDetail.clientId)?.name}
                   </h2>
                 </div>
@@ -940,7 +967,9 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
                           {selectedProcessForDetail.participants?.filter(p => p.type === 'buyer').map((p, i) => (
                             <button 
                               key={i} 
-                              onClick={() => setSelectedEntityForDetail({ type: 'client', id: p.id })}
+                              onClick={() => {
+                                if (p.id) onOpenClient?.(p.id);
+                              }}
                               className="text-sm text-[#1a1a1a] font-medium hover:text-black/60 transition-colors block text-left"
                             >
                               {getParticipantName(p)}
@@ -954,7 +983,9 @@ export default function ProcessManager({ initialSelectedProcessId, onCloseDetail
                           {selectedProcessForDetail.participants?.filter(p => p.type === 'seller').map((p, i) => (
                             <button 
                               key={i} 
-                              onClick={() => setSelectedEntityForDetail({ type: 'client', id: p.id })}
+                              onClick={() => {
+                                if (p.id) onOpenClient?.(p.id);
+                              }}
                               className="text-sm text-[#1a1a1a] font-medium hover:text-black/60 transition-colors block text-left"
                             >
                               {getParticipantName(p)}

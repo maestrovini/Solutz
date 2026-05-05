@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { Client, Process, Bank, Broker, Agency } from '../types';
-import { Plus, Search, Trash2, Edit2, X, UserPlus, Phone, Mail, MapPin, Calendar, FileText, Filter, AlertCircle, TrendingUp, TrendingDown, CheckCircle2, Clock, XCircle, MessageCircle, Save, Building2, User as UserIcon, DollarSign, Users } from 'lucide-react';
+import { Plus, Search, Trash2, Edit2, X, UserPlus, Phone, Mail, MapPin, Calendar, FileText, Filter, AlertCircle, TrendingUp, TrendingDown, CheckCircle2, Clock, XCircle, MessageCircle, Save, Building2, User as UserIcon, DollarSign, Users, FilePlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
 import { useAuth } from '../context/AuthContext';
@@ -10,9 +10,12 @@ import { hexToRgba } from '../utils/colors';
 
 interface ClientManagerProps {
   onOpenProcess?: (id: string) => void;
+  onCreateProcessForClient?: (clientId: string) => void;
+  initialSelectedClientId?: string | null;
+  onCloseDetail?: () => void;
 }
 
-export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
+export default function ClientManager({ onOpenProcess, onCreateProcessForClient, initialSelectedClientId, onCloseDetail }: ClientManagerProps) {
   const { isAdmin } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [processes, setProcesses] = useState<Process[]>([]);
@@ -153,6 +156,12 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
   }, [isSearchOpen, searchTerm, isFilterOpen, isAdmin]);
 
   useEffect(() => {
+    if (initialSelectedClientId) {
+      setExpandedClientId(initialSelectedClientId);
+    }
+  }, [initialSelectedClientId]);
+
+  useEffect(() => {
     const unsubscribe = api.subscribeToCollection('clients', (data) => {
       setClients((data as Client[]).sort((a, b) => a.name.localeCompare(b.name)));
     });
@@ -277,8 +286,10 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
   };
 
   const filteredClients = clients.filter(c => {
-    const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         c.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const name = c.name || '';
+    const email = c.email || '';
+    const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = !statusFilter || c.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -358,14 +369,14 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
             );
             
             const buyerTotal = buyerProcesses.reduce((sum, p) => {
-              if (p.type === 'Financiamento' || p.type === 'Home Equity') {
+              if (p?.type === 'Financiamento' || p?.type === 'Home Equity') {
                 return sum + (p.financingValue || 0);
               }
               return sum;
             }, 0);
             
             const sellerTotal = sellerProcesses.reduce((sum, p) => {
-              if (p.type === 'Financiamento' || p.type === 'Home Equity') {
+              if (p?.type === 'Financiamento' || p?.type === 'Home Equity') {
                 return sum + (p.financingValue || 0);
               }
               return sum;
@@ -376,13 +387,14 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
               p.participants?.some(part => part.id === client.id)
             );
 
-            const activeProcesses = allClientProcesses.filter(p => p.stage !== 'Finalizado');
-            const activeBankInfo = activeProcesses
-              .map(p => ({
-                id: p.id,
-                logoUrl: banks.find(b => b.id === p.bankId)?.logoUrl
-              }))
-              .filter((info, index, self) => info.logoUrl && self.findIndex(i => i.logoUrl === info.logoUrl) === index);
+            const activeProcesses = allClientProcesses.filter(p => 
+              p.stage !== 'Finalizado' && 
+              p.status !== 'Finalizado' && 
+              p.status !== 'Cancelado'
+            );
+            
+            const hasActiveProcess = activeProcesses.length > 0;
+            const mainProcessId = hasActiveProcess ? activeProcesses[0].id : null;
             
             return (
               <motion.div
@@ -392,55 +404,26 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 0.2 }}
                 key={client.id}
-                onClick={() => setExpandedClientId(isExpanded ? null : client.id!)}
+                onClick={() => {
+                  const newId = isExpanded ? null : client.id!;
+                  setExpandedClientId(newId);
+                  if (!newId) onCloseDetail?.();
+                }}
                 className={cn(
-                  "bg-white p-3 rounded-[24px] shadow-sm border hover:shadow-md transition-all relative group cursor-pointer overflow-hidden",
+                  "bg-white p-3 rounded-[24px] shadow-sm border border-black/10 hover:shadow-md transition-all relative group cursor-pointer overflow-hidden",
                   isExpanded ? "ring-2 ring-black/5" : ""
                 )}
-                style={{
-                  borderColor: hexToRgba(currentStatusStyle.hex, 0.2)
-                }}
               >
-                <div className="flex items-center justify-between">
-                  <div className="min-w-0 pr-14">
-                    <h3 className="text-lg font-bold text-[#1a1a1a] leading-tight truncate">{client.name}</h3>
-                    {!isExpanded && (
-                      <div className="flex flex-wrap gap-1.5 mt-1.5">
-                        <div 
-                          className={cn(
-                            "flex items-center gap-1 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider rounded-full border",
-                            currentStatusStyle.bg,
-                            currentStatusStyle.text,
-                            currentStatusStyle.border
-                          )}
-                          title={`Status: ${status}`}
-                        >
-                          <span>{status}</span>
-                        </div>
-                      </div>
-                    )}
+                <div className="flex flex-col min-h-[64px] justify-center">
+                  <div className="min-w-0 mb-1">
+                    <h3 
+                      className="text-base font-bold text-[#1a1a1a] leading-tight truncate"
+                    >
+                      {client.name}
+                    </h3>
                   </div>
                 
-                  <div className="absolute right-4 top-3 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                    {activeBankInfo.length > 0 && (
-                      <div className="flex gap-1">
-                        {activeBankInfo.map((info, idx) => (
-                          <div 
-                            key={idx} 
-                            onClick={() => info.id && onOpenProcess?.(info.id)}
-                            className={cn(
-                              "w-8 h-8 flex items-center justify-center rounded-lg border shadow-sm shrink-0 cursor-pointer hover:scale-110 transition-transform active:scale-95",
-                              currentStatusStyle.bg,
-                              currentStatusStyle.borderStrong
-                            )}
-                            title="Ver Processo"
-                          >
-                            <FileText className={cn("w-4 h-4", currentStatusStyle.icon)} />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
+                  <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                     {client.approvedBanks && client.approvedBanks.length > 0 && (
                       <div className="flex gap-1">
                         {client.approvedBanks.map((item, idx) => {
@@ -472,17 +455,38 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
                       </div>
                     )}
 
+                    {hasActiveProcess && (
+                      <div 
+                        onClick={() => mainProcessId && onOpenProcess?.(mainProcessId)}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-zinc-700 border border-black shadow-sm shrink-0 cursor-pointer hover:scale-110 transition-transform active:scale-95"
+                        title="Ver Contrato / Processo"
+                      >
+                        <FileText className="w-4 h-4 text-white" />
+                      </div>
+                    )}
+
+                    <div 
+                      className={cn(
+                        "w-8 h-8 flex items-center justify-center rounded-lg shadow-sm shrink-0 transition-all border",
+                        currentStatusStyle.bg,
+                        currentStatusStyle.borderStrong
+                      )}
+                      title={`Status de Crédito: ${status}`}
+                    >
+                      {status === 'Aprovado' && <CheckCircle2 className={cn("w-5 h-5", currentStatusStyle.icon)} />}
+                      {status === 'Condicionado' && <Clock className={cn("w-5 h-5", currentStatusStyle.icon)} />}
+                      {status === 'Negado' && <XCircle className={cn("w-5 h-5", currentStatusStyle.icon)} />}
+                      {status === 'Vencido' && <AlertCircle className={cn("w-5 h-5", currentStatusStyle.icon)} />}
+                      {status === 'Avaliar' && <Clock className={cn("w-5 h-5", currentStatusStyle.icon)} />}
+                    </div>
+
                     {isAdmin && client.phone && (
                       <button 
                         onClick={() => handleWhatsApp(client.phone)}
-                        className={cn(
-                          "w-8 h-8 flex items-center justify-center rounded-lg border transition-all hover:scale-110 active:scale-95 shrink-0",
-                          currentStatusStyle.bg,
-                          currentStatusStyle.borderStrong
-                        )}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-zinc-700 border border-black shadow-sm transition-all hover:scale-110 active:scale-95 shrink-0"
                         title="Enviar WhatsApp"
                       >
-                        <MessageCircle className={cn("w-4 h-4", currentStatusStyle.icon)} />
+                        <MessageCircle className="w-4 h-4 text-white" />
                       </button>
                     )}
                   </div>
@@ -627,6 +631,15 @@ export default function ClientManager({ onOpenProcess }: ClientManagerProps) {
                       
                       {isAdmin && (
                         <div className="pt-4 flex justify-end gap-2 border-t border-black/5" onClick={(e) => e.stopPropagation()}>
+                          <button 
+                            onClick={() => {
+                              if (client.id) onCreateProcessForClient?.(client.id);
+                            }}
+                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors"
+                            title="Novo Processo"
+                          >
+                            <FilePlus className="w-5 h-5" />
+                          </button>
                           <button 
                             onClick={() => {
                               setEditingClient(client);

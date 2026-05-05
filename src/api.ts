@@ -35,6 +35,18 @@ export const api = {
       handleFirestoreError(error, OperationType.LIST, 'all');
     }
   },
+  async getById(collectionName: string, id: string) {
+    try {
+      const docRef = doc(db, collectionName, id);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return { id: docSnap.id, ...docSnap.data() };
+      }
+      return null;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, `${collectionName}/${id}`);
+    }
+  },
   async create(collectionName: string, data: any) {
     try {
       const cleanedData = cleanData(data);

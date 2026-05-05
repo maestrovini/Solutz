@@ -7,7 +7,11 @@ import { useHeader } from '../context/HeaderContext';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/cn';
 
-export default function BrokerManager() {
+interface BrokerManagerProps {
+  onOpenClient?: (id: string) => void;
+}
+
+export default function BrokerManager({ onOpenClient }: BrokerManagerProps) {
   const { isAdmin } = useAuth();
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
@@ -328,7 +332,14 @@ export default function BrokerManager() {
                       {brokerClients.length > 0 && (
                         <div className="ml-7 pt-1 space-y-1">
                           {brokerClients.map(client => (
-                            <div key={client.id} className="text-xs text-black/40 bg-black/5 px-2 py-1 rounded-lg truncate">
+                            <div 
+                              key={client.id} 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (client.id) onOpenClient?.(client.id);
+                              }}
+                              className="text-xs text-black/60 bg-black/5 px-2 py-1 rounded-lg truncate hover:bg-black/10 transition-colors cursor-pointer"
+                            >
                               {client.name}
                             </div>
                           ))}

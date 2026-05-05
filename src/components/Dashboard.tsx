@@ -9,9 +9,10 @@ import { cn } from '../utils/cn';
 
 interface DashboardProps {
   onOpenProcess?: (id: string) => void;
+  onOpenClient?: (id: string) => void;
 }
 
-export default function Dashboard({ onOpenProcess }: DashboardProps) {
+export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProps) {
   const [clients, setClients] = useState<Client[]>([]);
   const [processes, setProcesses] = useState<Process[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
@@ -62,7 +63,7 @@ export default function Dashboard({ onOpenProcess }: DashboardProps) {
         const [y, m, d] = c.birthDate.split('-');
         return (parseInt(m) - 1) === currentMonth;
       })
-      .map(c => ({ name: c.name, date: c.birthDate!, type: 'Cliente' as const }));
+      .map(c => ({ id: c.id, name: c.name, date: c.birthDate!, type: 'Cliente' as const }));
 
     const brokerBirthdays = brokers
       .filter(b => {
@@ -70,7 +71,7 @@ export default function Dashboard({ onOpenProcess }: DashboardProps) {
         const [y, m, d] = b.birthDate.split('-');
         return (parseInt(m) - 1) === currentMonth;
       })
-      .map(b => ({ name: b.name, date: b.birthDate!, type: 'Corretor' as const }));
+      .map(b => ({ id: b.id, name: b.name, date: b.birthDate!, type: 'Corretor' as const }));
 
     return [...clientBirthdays, ...brokerBirthdays].sort((a, b) => {
       const dayA = parseInt(a.date.split('-')[2]);
@@ -83,9 +84,9 @@ export default function Dashboard({ onOpenProcess }: DashboardProps) {
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const categorized: {
-      hoje: { processId: string, notificationId: string, clientName: string, reason: string, date: string }[],
-      futuras: { processId: string, notificationId: string, clientName: string, reason: string, date: string }[],
-      pendentes: { processId: string, notificationId: string, clientName: string, reason: string, date: string }[]
+      hoje: { processId: string, notificationId: string, clientId?: string, clientName: string, reason: string, date: string }[],
+      futuras: { processId: string, notificationId: string, clientId?: string, clientName: string, reason: string, date: string }[],
+      pendentes: { processId: string, notificationId: string, clientId?: string, clientName: string, reason: string, date: string }[]
     } = { hoje: [], futuras: [], pendentes: [] };
 
     processes.forEach(p => {
@@ -99,6 +100,7 @@ export default function Dashboard({ onOpenProcess }: DashboardProps) {
             const notification = {
               processId: p.id!,
               notificationId: n.id,
+              clientId: p.clientId,
               clientName,
               reason: n.reason,
               date: n.date
@@ -192,16 +194,21 @@ export default function Dashboard({ onOpenProcess }: DashboardProps) {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <button 
-                          onClick={() => onOpenProcess?.(n.processId)}
-                          className="flex items-center gap-2 text-left hover:opacity-70 transition-opacity mb-1 w-full"
+                        <div 
+                          className="flex items-center gap-2 text-left mb-1 w-full"
                         >
                           <div className={cn(
                             "w-6 h-6 rounded-md flex items-center justify-center shrink-0 transition-colors",
                             isToday ? "bg-amber-100 group-hover:bg-amber-200" :
                             isPending ? "bg-red-100 group-hover:bg-red-200" :
                             "bg-green-100 group-hover:bg-green-200"
-                          )}>
+                          )}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (n.processId) onOpenProcess?.(n.processId);
+                          }}
+                          title="Ver Processo"
+                          >
                             <AlertCircle className={cn(
                               "w-3 h-3",
                               isToday ? "text-amber-600" :
@@ -209,13 +216,21 @@ export default function Dashboard({ onOpenProcess }: DashboardProps) {
                               "text-green-600"
                             )} />
                           </div>
-                          <p className={cn(
-                            "text-xs font-bold truncate",
-                            isToday ? "text-amber-900" :
-                            isPending ? "text-red-900" :
-                            "text-green-900"
-                          )}>{n.clientName}</p>
-                        </button>
+                          <p 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (n.clientId) onOpenClient?.(n.clientId);
+                            }}
+                            className={cn(
+                              "text-xs font-bold truncate hover:opacity-70 transition-opacity cursor-pointer",
+                              isToday ? "text-amber-900" :
+                              isPending ? "text-red-900" :
+                              "text-green-900"
+                            )}
+                          >
+                            {n.clientName}
+                          </p>
+                        </div>
                         <p className={cn(
                           "text-[11px] leading-tight line-clamp-2",
                           isToday ? "text-amber-800/70" :
@@ -309,18 +324,23 @@ export default function Dashboard({ onOpenProcess }: DashboardProps) {
 
         {birthdays.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            {birthdays.map((b, i) => {
-              const day = parseInt(b.date.split('-')[2]);
-              const isToday = day === new Date().getDate();
+              {birthdays.map((b, i) => {
+                const day = parseInt(b.date.split('-')[2]);
+                const isToday = day === new Date().getDate();
 
-              return (
-                <motion.div
-                  key={`${b.name}-${b.date}`}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: i * 0.05 }}
-                  className={cn(
-                    "p-3 rounded-xl border flex items-center gap-3 transition-all",
+                return (
+                  <motion.div
+                    key={`${b.name}-${b.date}`}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: i * 0.05 }}
+                    onClick={() => {
+                      if (b.type === 'Cliente' && b.id) {
+                        onOpenClient?.(b.id);
+                      }
+                    }}
+                    className={cn(
+                      "p-3 rounded-xl border flex items-center gap-3 transition-all cursor-pointer",
                     isToday 
                       ? "bg-pink-50 border-pink-200 shadow-md ring-2 ring-pink-500/20" 
                       : "bg-[#f5f5f0]/50 border-black/5 hover:border-black/10"

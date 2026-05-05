@@ -10,6 +10,7 @@ import PropertyManager from './components/PropertyManager';
 import SimulationManager from './components/SimulationManager';
 import UserManager from './components/UserManager';
 import { ReportsManager } from './components/ReportsManager';
+import ClientModal from './components/ClientModal';
 import { HeaderProvider } from './context/HeaderContext';
 import { AuthProvider } from './context/AuthContext';
 import { api } from './api';
@@ -18,6 +19,9 @@ import { Process, Client, Bank, Agency, Broker, Property } from './types';
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedProcessId, setSelectedProcessId] = useState<string | null>(null);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [newProcessClientId, setNewProcessClientId] = useState<string | null>(null);
+  const [isClientModalOpen, setIsClientModalOpen] = useState(false);
   
   const [processes, setProcesses] = useState<Process[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -44,6 +48,21 @@ export default function App() {
     };
   }, []);
 
+  const handleOpenClient = (id: string) => {
+    setSelectedClientId(id);
+    setActiveTab('clients');
+  };
+
+  const handleOpenClientModal = (id: string) => {
+    setSelectedClientId(id);
+    setIsClientModalOpen(true);
+  };
+
+  const handleCreateProcessForClient = (clientId: string) => {
+    setNewProcessClientId(clientId);
+    setActiveTab('processes');
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
@@ -53,21 +72,29 @@ export default function App() {
               setSelectedProcessId(id);
               setActiveTab('processes');
             }} 
+            onOpenClient={handleOpenClientModal}
           />
         );
       case 'clients':
         return (
           <ClientManager 
+            initialSelectedClientId={selectedClientId}
+            onCloseDetail={() => setSelectedClientId(null)}
             onOpenProcess={(id) => {
               setSelectedProcessId(id);
               setActiveTab('processes');
             }} 
+            onCreateProcessForClient={handleCreateProcessForClient}
           />
         );
       case 'agencies':
         return <AgencyManager />;
       case 'brokers':
-        return <BrokerManager />;
+        return (
+          <BrokerManager 
+            onOpenClient={handleOpenClientModal}
+          />
+        );
       case 'properties':
         return (
           <PropertyManager 
@@ -85,7 +112,12 @@ export default function App() {
         return (
           <ProcessManager 
             initialSelectedProcessId={selectedProcessId} 
-            onCloseDetail={() => setSelectedProcessId(null)} 
+            initialNewProcessClientId={newProcessClientId}
+            onCloseDetail={() => {
+              setSelectedProcessId(null);
+              setNewProcessClientId(null);
+            }} 
+            onOpenClient={handleOpenClientModal}
           />
         );
       case 'banks':
@@ -111,6 +143,15 @@ export default function App() {
         <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
           {renderContent()}
         </Layout>
+        <ClientModal 
+          isOpen={isClientModalOpen}
+          clientId={selectedClientId}
+          onCreateProcessForClient={handleCreateProcessForClient}
+          onClose={() => {
+            setIsClientModalOpen(false);
+            setSelectedClientId(null);
+          }}
+        />
       </HeaderProvider>
     </AuthProvider>
   );
