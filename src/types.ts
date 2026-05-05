@@ -73,6 +73,7 @@ export interface Process {
   financingValue?: number;
   financingType?: 'SBPE' | 'MCMV' | 'Pró-Cotista';
   value: number;
+  agency?: string;
   brokerId: string;
   notes?: string;
   updatedAt: string;

@@ -46,6 +46,7 @@
         "purchaseValue": { "type": "number", "description": "Purchase value" },
         "financingValue": { "type": "number", "description": "Financing value" },
         "value": { "type": "number", "description": "Process value" },
+        "agency": { "type": "string", "description": "Bank agency" },
         "brokerId": { "type": "string", "description": "Broker ID" },
         "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
       },

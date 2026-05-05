@@ -67,6 +67,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     financingValue: 0,
     financingType: 'SBPE' as Process['financingType'],
     value: 0,
+    agency: '',
     notes: '',
   });
 
@@ -110,6 +111,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
         financingValue: 0,
         financingType: 'SBPE',
         value: 0,
+        agency: '',
         notes: '',
       });
       setIsModalOpen(true);
@@ -191,6 +193,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                 financingValue: 0,
                 financingType: 'SBPE',
                 value: 0,
+                agency: '',
                 notes: '',
               });
               setIsModalOpen(true);
@@ -356,7 +359,8 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
         purchaseValue: 0,
         financingValue: 0,
         financingType: 'SBPE',
-        value: 0, 
+        value: 0,
+        agency: '',
         notes: '' 
       });
     } catch (error) {
@@ -661,6 +665,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
               financingValue: process.financingValue || 0,
               financingType: process.financingType || 'SBPE',
               value: process.value,
+              agency: process.agency || '',
               notes: process.notes || '',
             });
             setSelectedProcessForDetail(null);
@@ -873,6 +878,11 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                         {selectedProcessForDetail.type}
                         {selectedProcessForDetail.financingType && ` - ${selectedProcessForDetail.financingType}`}
                       </p>
+                      {selectedProcessForDetail.agency && (
+                        <p className="text-[9px] font-bold text-emerald-600 uppercase mt-0.5">
+                          Agência: {selectedProcessForDetail.agency}
+                        </p>
+                      )}
                       <p className="text-[10px] font-medium text-black/40 uppercase tracking-widest mt-0.5">
                         {selectedProcessForDetail.stage}
                       </p>
@@ -921,6 +931,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                               financingValue: process.financingValue || 0,
                               financingType: process.financingType || 'SBPE',
                               value: process.value,
+                              agency: process.agency || '',
                               notes: process.notes || '',
                             });
                             setSelectedProcessForDetail(null);
@@ -1909,6 +1920,16 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                         })
                         .map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                     </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-black/60 mb-1">Agência</label>
+                    <input
+                      type="text"
+                      placeholder="Nome ou número da agência"
+                      value={formData.agency}
+                      onChange={(e) => setFormData({ ...formData, agency: e.target.value })}
+                      className="w-full px-4 py-2 text-sm rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] focus:ring-2 focus:ring-black/5 outline-none"
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-black/60 mb-1">Observações</label>
