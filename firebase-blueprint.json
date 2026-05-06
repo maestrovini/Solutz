@@ -103,6 +103,7 @@
         "number": { "type": "string", "description": "Property number" },
         "complement": { "type": "string", "description": "Property complement" },
         "neighborhood": { "type": "string", "description": "Property neighborhood (Bairro)" },
+        "cep": { "type": "string", "description": "Property CEP (Postal Code)" },
         "city": { "type": "string", "description": "Property city" },
         "state": { "type": "string", "description": "Property state" },
         "zone": { "type": "string", "description": "Property zone" },

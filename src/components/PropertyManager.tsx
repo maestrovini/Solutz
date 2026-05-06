@@ -7,6 +7,8 @@ import { useHeader } from '../context/HeaderContext';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/cn';
 
+import PropertyModal from './PropertyModal';
+
 interface IBGEState {
   id: number;
   sigla: string;
@@ -35,24 +37,6 @@ export default function PropertyManager({ onOpenProcess }: PropertyManagerProps)
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [expandedPropertyId, setExpandedPropertyId] = useState<string | null>(null);
-
-  const [states, setStates] = useState<IBGEState[]>([]);
-  const [cities, setCities] = useState<IBGECity[]>([]);
-  const [loadingCities, setLoadingCities] = useState(false);
-
-  const [formData, setFormData] = useState({
-    address: '',
-    number: '',
-    complement: '',
-    neighborhood: '',
-    city: '',
-    state: '',
-    zone: '',
-    registrationNumber: '',
-    additionalInfo: '',
-    price: '',
-    type: 'Casa' as Property['type'],
-  });
 
   useEffect(() => {
     setTitle('Imóveis');
@@ -86,19 +70,6 @@ export default function PropertyManager({ onOpenProcess }: PropertyManagerProps)
           <button
             onClick={() => {
               setEditingProperty(null);
-              setFormData({
-                address: '',
-                number: '',
-                complement: '',
-                neighborhood: '',
-                city: '',
-                state: '',
-                zone: '',
-                registrationNumber: '',
-                additionalInfo: '',
-                price: '',
-                type: 'Casa',
-              });
               setIsModalOpen(true);
             }}
             className="p-2 bg-white text-black border border-white/10 rounded-lg hover:bg-white/80 transition-colors shadow-sm"
@@ -120,58 +91,11 @@ export default function PropertyManager({ onOpenProcess }: PropertyManagerProps)
       setProcesses(data as Process[]);
     });
 
-    fetch('https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome')
-      .then(res => res.json())
-      .then(data => setStates(data))
-      .catch(err => console.error("Erro ao buscar estados:", err));
-
     return () => {
       unsubProperties();
       unsubProcesses();
     };
   }, []);
-
-  useEffect(() => {
-    if (formData.state) {
-      setLoadingCities(true);
-      fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${formData.state}/municipios?orderBy=nome`)
-        .then(res => res.json())
-        .then(data => {
-          setCities(data);
-          setLoadingCities(false);
-        })
-        .catch(err => {
-          console.error("Erro ao buscar cidades:", err);
-          setLoadingCities(false);
-        });
-    } else {
-      setCities([]);
-    }
-  }, [formData.state]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isAdmin) return;
-
-    const propertyData = {
-      ...formData,
-      price: formData.price !== '' ? parseFloat(formData.price) : undefined,
-      createdAt: editingProperty?.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    try {
-      if (editingProperty?.id) {
-        await api.update('properties', editingProperty.id, propertyData);
-      } else {
-        await api.create('properties', propertyData);
-      }
-      setIsModalOpen(false);
-      setEditingProperty(null);
-    } catch (error) {
-      console.error("Erro ao salvar imóvel:", error);
-    }
-  };
 
   const handleDelete = async (id: string) => {
     if (!isAdmin) return;
@@ -194,6 +118,16 @@ export default function PropertyManager({ onOpenProcess }: PropertyManagerProps)
 
   return (
     <div className="space-y-6">
+      <PropertyModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        property={editingProperty}
+        onSuccess={() => {
+          setIsModalOpen(false);
+          setEditingProperty(null);
+        }}
+      />
+
       <AnimatePresence>
         {isSearchOpen && (
           <motion.div
@@ -268,7 +202,7 @@ export default function PropertyManager({ onOpenProcess }: PropertyManagerProps)
                       {property.address}{property.number ? `, ${property.number}` : ''}{property.complement ? ` - ${property.complement}` : ''}
                     </h3>
                     <div className="text-[10px] font-bold text-black/30 uppercase tracking-wider mt-1 flex flex-wrap gap-x-2">
-                      <span>{property.neighborhood ? `${property.neighborhood}, ` : ''}{property.city} - {property.state}</span>
+                       <span>{property.neighborhood ? `${property.neighborhood}, ` : ''}{property.cep ? `${property.cep}, ` : ''}{property.city} - {property.state}</span>
                     </div>
                   </div>
 
@@ -350,19 +284,6 @@ export default function PropertyManager({ onOpenProcess }: PropertyManagerProps)
                             <button 
                               onClick={() => {
                                 setEditingProperty(property);
-                                setFormData({
-                                  address: property.address,
-                                  number: property.number || '',
-                                  complement: property.complement || '',
-                                  neighborhood: property.neighborhood || '',
-                                  city: property.city,
-                                  state: property.state,
-                                  zone: property.zone || '',
-                                  registrationNumber: property.registrationNumber || '',
-                                  additionalInfo: property.additionalInfo || '',
-                                  price: property.price?.toString() || '',
-                                  type: property.type,
-                                });
                                 setIsModalOpen(true);
                               }}
                               className="p-2 text-black/60 hover:bg-black/5 rounded-xl transition-colors"
@@ -389,205 +310,36 @@ export default function PropertyManager({ onOpenProcess }: PropertyManagerProps)
         </AnimatePresence>
       </div>
 
-      {/* Modal */}
-      <AnimatePresence>
-        {isModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white w-full max-w-lg max-h-[90vh] rounded-[32px] shadow-2xl border border-black/10 overflow-hidden flex flex-col"
-            >
-              <div className="p-8 border-b border-black/5 flex items-center justify-between shrink-0">
-                <h2 className="text-2xl font-sans font-bold text-[#1a1a1a]">{editingProperty ? 'Editar Imóvel' : 'Novo Imóvel'}</h2>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="submit"
-                    form="property-form"
-                    className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-full transition-all"
-                    title="Salvar"
-                  >
-                    <Save className="w-5 h-5" />
-                  </button>
-                  <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-black/5 text-black/40 rounded-full transition-colors">
-                    <X />
-                  </button>
-                </div>
-              </div>
-              <div className="overflow-y-auto flex-1">
-                <form id="property-form" onSubmit={handleSubmit} className="p-6 space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-black/60 mb-1">Matrícula</label>
-                      <input
-                        type="number"
-                        value={formData.registrationNumber}
-                        onChange={(e) => setFormData({ ...formData, registrationNumber: e.target.value })}
-                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all"
-                        placeholder="Nº da Matrícula"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-black/60 mb-1">Zona</label>
-                      <input
-                        type="number"
-                        value={formData.zone}
-                        onChange={(e) => setFormData({ ...formData, zone: e.target.value })}
-                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all"
-                        placeholder="Nº da Zona"
-                      />
-                    </div>
-
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium text-black/60 mb-1">Tipo de Imóvel</label>
-                      <select
-                        value={formData.type}
-                        onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
-                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all appearance-none cursor-pointer"
-                      >
-                        <option value="Casa">Casa</option>
-                        <option value="Apartamento">Apartamento</option>
-                        <option value="Terreno">Terreno</option>
-                        <option value="Comercial">Comercial</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-black/60 mb-1">Estado</label>
-                      <select
-                        required
-                        value={formData.state}
-                        onChange={(e) => setFormData({ ...formData, state: e.target.value, city: '' })}
-                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all appearance-none cursor-pointer"
-                      >
-                        <option value="">Selecione</option>
-                        {states.map(s => (
-                          <option key={s.id} value={s.sigla}>{s.nome}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-black/60 mb-1">Cidade</label>
-                      <select
-                        required
-                        disabled={!formData.state || loadingCities}
-                        value={formData.city}
-                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all appearance-none cursor-pointer disabled:opacity-50"
-                      >
-                        <option value="">{loadingCities ? 'Carregando...' : 'Selecione'}</option>
-                        {cities.map(c => (
-                          <option key={c.id} value={c.nome}>{c.nome}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium text-black/60 mb-1">Endereço</label>
-                      <input
-                        required
-                        type="text"
-                        value={formData.address}
-                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all"
-                        placeholder="Rua, Avenida, etc."
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-black/60 mb-1">Número</label>
-                      <input
-                        type="text"
-                        value={formData.number}
-                        onChange={(e) => setFormData({ ...formData, number: e.target.value })}
-                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all"
-                        placeholder="Nº"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-black/60 mb-1">Complemento</label>
-                      <input
-                        type="text"
-                        value={formData.complement}
-                        onChange={(e) => setFormData({ ...formData, complement: e.target.value })}
-                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all"
-                        placeholder="Apto, Bloco, etc."
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-black/60 mb-1">Bairro</label>
-                      <input
-                        type="text"
-                        value={formData.neighborhood}
-                        onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
-                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all"
-                        placeholder="Bairro"
-                      />
-                    </div>
-
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium text-black/60 mb-1">Valor</label>
-                      <input
-                        type="number"
-                        value={formData.price}
-                        onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all"
-                        placeholder="R$ 0,00"
-                      />
-                    </div>
-
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium text-black/60 mb-1">Informações</label>
-                      <textarea
-                        value={formData.additionalInfo}
-                        onChange={(e) => setFormData({ ...formData, additionalInfo: e.target.value })}
-                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all min-h-[100px] resize-none"
-                        placeholder="Informações gerais sobre o imóvel..."
-                      />
-                    </div>
-                  </div>
-                </form>
-              </div>
-            </motion.div>
-          </div>
-        )}
-
-        {deleteConfirmId && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white w-full max-w-sm rounded-[32px] shadow-2xl p-8 text-center border border-black/10"
-            >
-              <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-100">
-                <AlertCircle className="w-8 h-8" />
-              </div>
-              <h3 className="text-xl font-bold mb-2 text-[#1a1a1a]">Excluir Imóvel?</h3>
-              <p className="text-black/60 mb-6">Esta ação não pode ser desfeita.</p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setDeleteConfirmId(null)}
-                  className="flex-1 px-6 py-3 rounded-full font-bold border border-black/10 text-black/60 hover:bg-black/5 transition-all"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={() => handleDelete(deleteConfirmId)}
-                  className="flex-1 px-6 py-3 rounded-full font-bold bg-red-500 text-white hover:bg-red-600 transition-all shadow-lg shadow-red-500/20"
-                >
-                  Excluir
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="bg-white w-full max-w-sm rounded-[32px] shadow-2xl p-8 text-center border border-black/10"
+          >
+            <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-100">
+              <AlertCircle className="w-8 h-8" />
+            </div>
+            <h3 className="text-xl font-bold mb-2 text-[#1a1a1a]">Excluir Imóvel?</h3>
+            <p className="text-black/60 mb-6">Esta ação não pode ser desfeita.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirmId(null)}
+                className="flex-1 px-6 py-3 rounded-full font-bold border border-black/10 text-black/60 hover:bg-black/5 transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => handleDelete(deleteConfirmId)}
+                className="flex-1 px-6 py-3 rounded-full font-bold bg-red-500 text-white hover:bg-red-600 transition-all shadow-lg shadow-red-500/20"
+              >
+                Excluir
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

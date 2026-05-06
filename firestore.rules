@@ -87,6 +87,7 @@ service cloud.firestore {
              data.state is string && data.state.size() == 2 &&
              data.type in ['Casa', 'Apartamento', 'Terreno', 'Comercial'] &&
              (!('neighborhood' in data) || (data.neighborhood is string)) &&
+             (!('cep' in data) || (data.cep is string)) &&
              (!('price' in data) || (data.price is number));
     }
 

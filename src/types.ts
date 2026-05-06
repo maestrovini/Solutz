@@ -115,6 +115,7 @@ export interface Property {
   number?: string;
   complement?: string;
   neighborhood?: string; // Bairro
+  cep?: string; // CEP
   city: string;
   state: string;
   zone?: string;

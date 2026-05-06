@@ -11,24 +11,23 @@ import { hexToRgba } from '../utils/colors';
 interface ClientManagerProps {
   onOpenProcess?: (id: string) => void;
   onCreateProcessForClient?: (clientId: string) => void;
+  onOpenClientModal?: (id?: string, isEdit?: boolean) => void;
   initialSelectedClientId?: string | null;
   onCloseDetail?: () => void;
 }
 
-export default function ClientManager({ onOpenProcess, onCreateProcessForClient, initialSelectedClientId, onCloseDetail }: ClientManagerProps) {
+export default function ClientManager({ onOpenProcess, onCreateProcessForClient, onOpenClientModal, initialSelectedClientId, onCloseDetail }: ClientManagerProps) {
   const { isAdmin } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [processes, setProcesses] = useState<Process[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const { setTitle, setActions } = useHeader();
-  const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [expandedClientId, setExpandedClientId] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ cpf?: string }>({});
@@ -42,71 +41,6 @@ export default function ClientManager({ onOpenProcess, onCreateProcessForClient,
 
   const handleEmail = (email: string) => {
     window.location.href = `mailto:${email}`;
-  };
-
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    phone2: '',
-    cpf: '',
-    birthDate: '',
-    income: 0,
-    hasFGTS: false,
-    maritalStatus: '' as 'Solteiro' | 'Casado' | 'Divorciado' | 'Viúvo' | 'União Estável' | '',
-    brokerId: '',
-    agencyId: '',
-    status: '' as 'Aprovado' | 'Condicionado' | 'Negado' | 'Vencido' | '',
-    approvedBanks: [] as { bankId: string; approvedValue: number; expirationDate: string }[],
-  });
-
-  const formatCPF = (value: string) => {
-    return value
-      .replace(/\D/g, '')
-      .replace(/(\d{3})(\d)/, '$1.$2')
-      .replace(/(\d{3})(\d)/, '$1.$2')
-      .replace(/(\d{3})(\d{1,2})/, '$1-$2')
-      .replace(/(-\d{2})\d+?$/, '$1');
-  };
-
-  const formatBirthDate = (value: string) => {
-    const digits = value.replace(/\D/g, '').slice(0, 8);
-    if (!digits) return '';
-    if (digits.length <= 2) return digits;
-    if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
-  };
-
-  const formatCurrencyInput = (value: string | number) => {
-    if (value === undefined || value === null) return '';
-    const stringValue = typeof value === 'number' ? (value * 100).toFixed(0) : value.replace(/\D/g, '');
-    if (!stringValue) return '';
-    
-    const amount = (parseInt(stringValue, 10) / 100).toFixed(2);
-    const [int, dec] = amount.split('.');
-    const formattedInt = parseInt(int, 10).toLocaleString('pt-BR');
-    
-    return `R$ ${formattedInt},${dec}`;
-  };
-
-  const parseCurrencyInput = (value: string) => {
-    const digits = value.replace(/\D/g, '');
-    return digits ? parseInt(digits, 10) / 100 : 0;
-  };
-
-  const formatPhone = (value: string) => {
-    const numbers = value.replace(/\D/g, '');
-    if (numbers.length <= 10) {
-      return numbers
-        .replace(/(\d{2})(\d)/, '($1) $2')
-        .replace(/(\d{4})(\d)/, '$1-$2')
-        .replace(/(-\d{4})\d+?$/, '$1');
-    } else {
-      return numbers
-        .replace(/(\d{2})(\d)/, '($1) $2')
-        .replace(/(\d{5})(\d)/, '$1-$2')
-        .replace(/(-\d{4})\d+?$/, '$1');
-    }
   };
 
   useEffect(() => {
@@ -139,12 +73,7 @@ export default function ClientManager({ onOpenProcess, onCreateProcessForClient,
         </button>
         {isAdmin && (
           <button
-            onClick={() => {
-              setEditingClient(null);
-              setFormData({ name: '', email: '', phone: '', phone2: '', cpf: '', birthDate: '', income: 0, hasFGTS: false, maritalStatus: '', brokerId: '', agencyId: '', status: '', approvedBanks: [] });
-              setErrors({});
-              setIsModalOpen(true);
-            }}
+            onClick={() => onOpenClientModal?.()}
             className="p-2 bg-white text-black border border-white/10 rounded-lg hover:bg-white/80 transition-colors shadow-sm"
             title="Novo Cliente"
           >
@@ -230,49 +159,6 @@ export default function ClientManager({ onOpenProcess, onCreateProcessForClient,
       style: 'currency',
       currency: 'BRL',
     }).format(value);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isAdmin) return;
-
-    // CPF Validation
-    if (formData.cpf && !/^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(formData.cpf)) {
-      setErrors(prev => ({ ...prev, cpf: 'Formato de CPF inválido (000.000.000-00)' }));
-      return;
-    }
-
-    const formattedBirthDate = formData.birthDate.includes('/') 
-      ? formData.birthDate.split('/').reverse().join('-')
-      : formData.birthDate;
-
-    const formattedApprovedBanks = formData.approvedBanks.map(bank => ({
-      ...bank,
-      expirationDate: bank.expirationDate.includes('/')
-        ? bank.expirationDate.split('/').reverse().join('-')
-        : bank.expirationDate
-    }));
-
-    const clientData = {
-      ...formData,
-      birthDate: formattedBirthDate,
-      approvedBanks: formattedApprovedBanks,
-      createdAt: editingClient?.createdAt || new Date().toISOString(),
-    };
-
-    try {
-      if (editingClient?.id) {
-        await api.update('clients', editingClient.id, clientData);
-      } else {
-        await api.create('clients', clientData);
-      }
-      setIsModalOpen(false);
-      setEditingClient(null);
-      setFormData({ name: '', email: '', phone: '', phone2: '', cpf: '', birthDate: '', income: 0, hasFGTS: false, maritalStatus: '', brokerId: '', agencyId: '', status: '', approvedBanks: [] });
-      setErrors({});
-    } catch (error) {
-      console.error("Erro ao salvar cliente:", error);
-    }
   };
 
   const handleDelete = async (id: string) => {
@@ -642,24 +528,7 @@ export default function ClientManager({ onOpenProcess, onCreateProcessForClient,
                           </button>
                           <button 
                             onClick={() => {
-                              setEditingClient(client);
-                              setFormData({
-                                name: client.name,
-                                email: client.email,
-                                phone: client.phone,
-                                phone2: client.phone2 || '',
-                                cpf: client.cpf || '',
-                                birthDate: client.birthDate || '',
-                                income: client.income || 0,
-                                hasFGTS: !!client.hasFGTS,
-                                maritalStatus: client.maritalStatus || '',
-                                brokerId: client.brokerId || '',
-                                agencyId: client.agencyId || '',
-                                status: client.status || '',
-                                approvedBanks: client.approvedBanks || [],
-                              });
-                              setErrors({});
-                              setIsModalOpen(true);
+                              if (client.id) onOpenClientModal?.(client.id, true);
                             }}
                             className="p-2 text-black/60 hover:bg-black/5 rounded-xl transition-colors"
                             title="Editar"
@@ -685,314 +554,7 @@ export default function ClientManager({ onOpenProcess, onCreateProcessForClient,
         </AnimatePresence>
       </div>
 
-      {/* Modal */}
       <AnimatePresence>
-        {isModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white w-full max-w-lg max-h-[90vh] rounded-[32px] shadow-2xl border border-black/10 overflow-hidden flex flex-col"
-            >
-              <div className="p-8 border-b border-black/5 flex items-center justify-between shrink-0">
-                <h2 className="text-2xl font-sans font-bold text-[#1a1a1a]">{editingClient ? 'Editar Cliente' : 'Novo Cliente'}</h2>
-                <div className="flex items-center gap-2">
-                  {editingClient && isAdmin && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (editingClient.id) {
-                          setDeleteConfirmId(editingClient.id);
-                        }
-                      }}
-                      className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-all"
-                      title="Excluir"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  )}
-                  <button
-                    type="submit"
-                    form="client-form"
-                    className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-full transition-all"
-                    title="Salvar"
-                  >
-                    <Save className="w-5 h-5" />
-                  </button>
-                  <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-black/5 text-black/40 rounded-full transition-colors">
-                    <X />
-                  </button>
-                </div>
-              </div>
-              <div className="overflow-y-auto flex-1">
-                <form id="client-form" onSubmit={handleSubmit} className="p-6 space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium text-black/60 mb-1">Nome Completo</label>
-                      <input
-                        required
-                        type="text"
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all h-[42px]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-black/60 mb-1">CPF</label>
-                      <input
-                        type="text"
-                        placeholder="000.000.000-00"
-                        value={formData.cpf}
-                        onChange={(e) => {
-                          const formatted = formatCPF(e.target.value);
-                          setFormData({ ...formData, cpf: formatted });
-                          if (errors.cpf) setErrors(prev => ({ ...prev, cpf: undefined }));
-                        }}
-                        className={cn(
-                          "w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border outline-none transition-all placeholder:text-black/40 h-[42px]",
-                          errors.cpf ? "border-red-500 focus:ring-red-500/10" : "border-black/10 focus:ring-black/5"
-                        )}
-                      />
-                      {errors.cpf && (
-                        <p className="mt-1 text-xs text-red-500">{errors.cpf}</p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-black/60 mb-1">Data de Nascimento</label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          placeholder="00/00/0000"
-                          value={formData.birthDate.includes('-') 
-                            ? formData.birthDate.split('-').reverse().join('/') 
-                            : formData.birthDate}
-                          onChange={(e) => setFormData({ ...formData, birthDate: formatBirthDate(e.target.value) })}
-                          className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all text-sm h-[42px]"
-                        />
-                      </div>
-                    </div>
-                    <div className="col-span-1">
-                      <label className="block text-sm font-medium text-black/60 mb-1">Renda Mensal</label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={formatCurrencyInput(formData.income)}
-                          onChange={(e) => setFormData({ ...formData, income: parseCurrencyInput(e.target.value) })}
-                          className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all text-sm h-[42px]"
-                        />
-                      </div>
-                    </div>
-                    <div className="col-span-1">
-                      <label className="block text-sm font-medium text-black/60 mb-1">Estado Civil</label>
-                      <select
-                        value={formData.maritalStatus}
-                        onChange={(e) => setFormData({ ...formData, maritalStatus: e.target.value as any })}
-                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all text-sm h-[42px]"
-                      >
-                        <option value="">Selecione...</option>
-                        <option value="Solteiro">Solteiro</option>
-                        <option value="Casado">Casado</option>
-                        <option value="Divorciado">Divorciado</option>
-                        <option value="Viúvo">Viúvo</option>
-                        <option value="União Estável">União Estável</option>
-                      </select>
-                    </div>
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium text-black/60 mb-1">Email</label>
-                      <input
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all h-[42px]"
-                      />
-                    </div>
-                    <div className="col-span-1">
-                      <label className="block text-sm font-medium text-black/60 mb-1">Telefone Principal</label>
-                      <input
-                        type="tel"
-                        placeholder="(00) 00000-0000"
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: formatPhone(e.target.value) })}
-                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all placeholder:text-black/40 h-[42px]"
-                      />
-                    </div>
-                    <div className="col-span-1">
-                      <label className="block text-sm font-medium text-black/60 mb-1">Telefone Secundário</label>
-                      <input
-                        type="tel"
-                        placeholder="(00) 00000-0000"
-                        value={formData.phone2}
-                        onChange={(e) => setFormData({ ...formData, phone2: formatPhone(e.target.value) })}
-                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all placeholder:text-black/40 h-[42px]"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={formData.hasFGTS}
-                          onChange={(e) => setFormData({ ...formData, hasFGTS: e.target.checked })}
-                          className="w-5 h-5 rounded border-black/10 text-black focus:ring-black/5"
-                        />
-                        <span className="text-sm font-medium text-black/60">Possui FGTS para entrada?</span>
-                      </label>
-                    </div>
-                    <div className="col-span-2">
-                       <label className="block text-sm font-medium text-black/60 mb-1">Status de Crédito</label>
-                      <div className="grid grid-cols-4 gap-2">
-                        {['Aprovado', 'Condicionado', 'Negado', 'Vencido'].map((status) => (
-                          <button
-                            key={status}
-                            type="button"
-                            onClick={() => setFormData({ ...formData, status: formData.status === status ? '' : status as any })}
-                            className={cn(
-                              "py-2 px-1 rounded-xl border font-bold text-[10px] uppercase tracking-wider transition-all",
-                              formData.status === status 
-                                ? (status === 'Aprovado' ? "bg-blue-500 text-white border-blue-500 shadow-lg shadow-blue-500/20" :
-                                   status === 'Condicionado' ? "bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-500/20" :
-                                   status === 'Negado' ? "bg-red-500 text-white border-red-500 shadow-lg shadow-red-500/20" :
-                                   "bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-500/20")
-                                : "bg-[#f5f5f0] text-black/40 border-black/10 hover:border-black/20"
-                            )}
-                          >
-                            {status}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="col-span-2 space-y-4 pt-4 border-t border-black/5">
-                      <div className="flex items-center justify-between">
-                        <label className="block text-sm font-bold text-black border-l-4 border-black pl-3 uppercase tracking-wider">Bancos Aprovados</label>
-                        <button
-                          type="button"
-                          onClick={() => setFormData({
-                            ...formData,
-                            approvedBanks: [...formData.approvedBanks, { bankId: '', approvedValue: 0, expirationDate: '' }]
-                          })}
-                          className="flex items-center gap-1 text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg hover:bg-emerald-100 transition-colors"
-                        >
-                          <Plus className="w-3 h-3" />
-                          Adicionar Banco
-                        </button>
-                      </div>
-
-                      <div className="space-y-3">
-                        {formData.approvedBanks.map((item, index) => (
-                          <div key={index} className="p-4 bg-[#f5f5f0] rounded-2xl border border-black/5 space-y-3 relative group/bank">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const newBanks = [...formData.approvedBanks];
-                                newBanks.splice(index, 1);
-                                setFormData({ ...formData, approvedBanks: newBanks });
-                              }}
-                              className="absolute right-4 top-4 p-1 text-black/20 hover:text-red-500 transition-colors"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              <div>
-                                <label className="block text-[10px] font-bold text-black/40 uppercase tracking-widest mb-1">Banco</label>
-                                <select
-                                  value={item.bankId}
-                                  onChange={(e) => {
-                                    const newBanks = [...formData.approvedBanks];
-                                    newBanks[index].bankId = e.target.value;
-                                    setFormData({ ...formData, approvedBanks: newBanks });
-                                  }}
-                                  className="w-full px-3 py-2 bg-white text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none text-sm transition-all"
-                                >
-                                  <option value="">Selecione um banco</option>
-                                  {banks.map((bank) => (
-                                    <option key={bank.id} value={bank.id}>{bank.name}</option>
-                                  ))}
-                                </select>
-                              </div>
-                              <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                  <label className="block text-[10px] font-bold text-black/40 uppercase tracking-widest mb-1">Valor Aprovado</label>
-                                  <div className="relative">
-                                    <input
-                                      type="text"
-                                      value={formatCurrencyInput(item.approvedValue)}
-                                      onChange={(e) => {
-                                        const newBanks = [...formData.approvedBanks];
-                                        newBanks[index].approvedValue = parseCurrencyInput(e.target.value);
-                                        setFormData({ ...formData, approvedBanks: newBanks });
-                                      }}
-                                      className="w-full px-3 py-2 bg-white text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none text-sm transition-all"
-                                    />
-                                  </div>
-                                </div>
-                                <div>
-                                  <label className="block text-[10px] font-bold text-black/40 uppercase tracking-widest mb-1">Vencimento</label>
-                                  <div className="relative">
-                                    <input
-                                      type="text"
-                                      placeholder="00/00/0000"
-                                      value={item.expirationDate.includes('-') 
-                                        ? item.expirationDate.split('-').reverse().join('/') 
-                                        : item.expirationDate}
-                                      onChange={(e) => {
-                                        const newBanks = [...formData.approvedBanks];
-                                        newBanks[index].expirationDate = formatBirthDate(e.target.value);
-                                        setFormData({ ...formData, approvedBanks: newBanks });
-                                      }}
-                                      className="w-full px-3 py-2 bg-white text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none text-xs transition-all"
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                        {formData.approvedBanks.length === 0 && (
-                          <div className="py-8 border-2 border-dashed border-black/5 rounded-[24px] flex flex-col items-center justify-center text-black/20 space-y-2">
-                            <Building2 className="w-8 h-8 opacity-20" />
-                            <p className="text-xs font-bold uppercase tracking-widest leading-none">Nenhum banco aprovado</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="col-span-1">
-                      <label className="block text-sm font-medium text-black/60 mb-1">Imobiliária</label>
-                      <select
-                        value={formData.agencyId}
-                        onChange={(e) => setFormData({ ...formData, agencyId: e.target.value })}
-                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all text-sm h-[42px]"
-                      >
-                        <option value="">Selecione uma imobiliária</option>
-                        {agencies.map((agency) => (
-                          <option key={agency.id} value={agency.id}>{agency.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="col-span-1">
-                      <label className="block text-sm font-medium text-black/60 mb-1">Corretor</label>
-                      <select
-                        value={formData.brokerId}
-                        onChange={(e) => setFormData({ ...formData, brokerId: e.target.value })}
-                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all text-sm h-[42px]"
-                      >
-                        <option value="">Selecione um corretor</option>
-                        {brokers
-                          .filter(b => !formData.agencyId || b.agencyId === formData.agencyId)
-                          .map((broker) => (
-                            <option key={broker.id} value={broker.id}>{broker.name}</option>
-                          ))
-                        }
-                      </select>
-                    </div>
-                  </div>
-                  {/* Form actions removed and replaced by icons in header */}
-                </form>
-              </div>
-            </motion.div>
-          </div>
-        )}
         {deleteConfirmId && (
           <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <motion.div
@@ -1016,7 +578,6 @@ export default function ClientManager({ onOpenProcess, onCreateProcessForClient,
                 <button
                   onClick={() => {
                     handleDelete(deleteConfirmId);
-                    setIsModalOpen(false);
                   }}
                   className="flex-1 px-6 py-3 rounded-full font-bold bg-red-500 text-white hover:bg-red-600 transition-all"
                 >

@@ -8,15 +8,17 @@ import { useHeader } from '../context/HeaderContext';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/cn';
 import { hexToRgba, getContrastColor } from '../utils/colors';
+import PropertyModal from './PropertyModal';
 
 interface ProcessManagerProps {
   initialSelectedProcessId?: string | null;
   initialNewProcessClientId?: string | null;
+  initialNewProcessRole?: 'buyer' | 'seller' | null;
   onCloseDetail?: () => void;
   onOpenClient?: (id: string) => void;
 }
 
-export default function ProcessManager({ initialSelectedProcessId, initialNewProcessClientId, onCloseDetail, onOpenClient }: ProcessManagerProps) {
+export default function ProcessManager({ initialSelectedProcessId, initialNewProcessClientId, initialNewProcessRole, onCloseDetail, onOpenClient }: ProcessManagerProps) {
   const { isAdmin } = useAuth();
   const [processes, setProcesses] = useState<Process[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -25,6 +27,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPropertyModalOpen, setIsPropertyModalOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [editingProcess, setEditingProcess] = useState<Process | null>(null);
   const [selectedProcessForDetail, setSelectedProcessForDetail] = useState<Process | null>(null);
@@ -97,11 +100,16 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
   };
 
   useEffect(() => {
-    if (initialNewProcessClientId) {
+    if (initialNewProcessClientId && clients.length > 0) {
       setEditingProcess(null);
+      const clientName = getClientName(initialNewProcessClientId);
       setFormData({
         clientId: initialNewProcessClientId,
-        participants: [{ id: initialNewProcessClientId, type: 'buyer', name: getClientName(initialNewProcessClientId) }],
+        participants: [{ 
+          id: initialNewProcessClientId, 
+          type: initialNewProcessRole || 'buyer', 
+          name: clientName 
+        }],
         type: 'Financiamento',
         status: 'Em andamento',
         stage: 'Aprovado',
@@ -116,7 +124,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
       });
       setIsModalOpen(true);
     }
-  }, [initialNewProcessClientId, clients]); // Depend on clients to ensure getClientName works
+  }, [initialNewProcessClientId, initialNewProcessRole, clients]);
   useEffect(() => {
     if (initialSelectedProcessId && processes.length > 0) {
       const process = processes.find(p => p.id === initialSelectedProcessId);
@@ -348,6 +356,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
       }
       setIsModalOpen(false);
       setEditingProcess(null);
+      onCloseDetail?.();
       setFormData({ 
         clientId: '', 
         participants: [], 
@@ -1633,7 +1642,13 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                   >
                     <Save className="w-5 h-5" />
                   </button>
-                  <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-black/5 rounded-full text-black/40">
+                  <button 
+                    onClick={() => {
+                      setIsModalOpen(false);
+                      onCloseDetail?.();
+                    }} 
+                    className="p-2 hover:bg-black/5 rounded-full text-black/40"
+                  >
                     <X />
                   </button>
                 </div>
@@ -1823,7 +1838,18 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-black/60 mb-1">Imóvel</label>
+                    <label className="block text-sm font-medium text-black/60 mb-1 flex items-center justify-between">
+                      Imóvel
+                      <button
+                        type="button"
+                        onClick={() => setIsPropertyModalOpen(true)}
+                        className="flex items-center gap-1 text-black/40 hover:text-black transition-colors"
+                        title="Cadastrar Novo Imóvel"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">Novo Imóvel</span>
+                      </button>
+                    </label>
                     <select
                       value={formData.propertyId}
                       onChange={(e) => setFormData({ ...formData, propertyId: e.target.value })}
@@ -1977,6 +2003,19 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isPropertyModalOpen && (
+          <PropertyModal
+            isOpen={isPropertyModalOpen}
+            onClose={() => setIsPropertyModalOpen(false)}
+            onSuccess={(property) => {
+              setFormData(prev => ({ ...prev, propertyId: property.id! }));
+              setIsPropertyModalOpen(false);
+            }}
+          />
         )}
       </AnimatePresence>
     </div>

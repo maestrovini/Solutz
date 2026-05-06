@@ -21,7 +21,9 @@ export default function App() {
   const [selectedProcessId, setSelectedProcessId] = useState<string | null>(null);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [newProcessClientId, setNewProcessClientId] = useState<string | null>(null);
+  const [newProcessRole, setNewProcessRole] = useState<'buyer' | 'seller' | null>(null);
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
+  const [isClientModalEdit, setIsClientModalEdit] = useState(false);
   
   const [processes, setProcesses] = useState<Process[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -53,13 +55,15 @@ export default function App() {
     setActiveTab('clients');
   };
 
-  const handleOpenClientModal = (id: string) => {
+  const handleOpenClientModal = (id: string, isEdit: boolean = false) => {
     setSelectedClientId(id);
+    setIsClientModalEdit(isEdit);
     setIsClientModalOpen(true);
   };
 
-  const handleCreateProcessForClient = (clientId: string) => {
+  const handleCreateProcessForClient = (clientId: string, role?: 'buyer' | 'seller') => {
     setNewProcessClientId(clientId);
+    setNewProcessRole(role || null);
     setActiveTab('processes');
   };
 
@@ -84,6 +88,7 @@ export default function App() {
               setSelectedProcessId(id);
               setActiveTab('processes');
             }} 
+            onOpenClientModal={handleOpenClientModal}
             onCreateProcessForClient={handleCreateProcessForClient}
           />
         );
@@ -113,9 +118,11 @@ export default function App() {
           <ProcessManager 
             initialSelectedProcessId={selectedProcessId} 
             initialNewProcessClientId={newProcessClientId}
+            initialNewProcessRole={newProcessRole}
             onCloseDetail={() => {
               setSelectedProcessId(null);
               setNewProcessClientId(null);
+              setNewProcessRole(null);
             }} 
             onOpenClient={handleOpenClientModal}
           />
@@ -146,10 +153,12 @@ export default function App() {
         <ClientModal 
           isOpen={isClientModalOpen}
           clientId={selectedClientId}
+          initialIsEditing={isClientModalEdit}
           onCreateProcessForClient={handleCreateProcessForClient}
           onClose={() => {
             setIsClientModalOpen(false);
             setSelectedClientId(null);
+            setIsClientModalEdit(false);
           }}
         />
       </HeaderProvider>
