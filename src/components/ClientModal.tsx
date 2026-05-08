@@ -11,17 +11,19 @@ interface ClientModalProps {
   clientId?: string | null;
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: (client: Client) => void;
   onCreateProcessForClient?: (clientId: string, role?: 'buyer' | 'seller') => void;
   initialIsEditing?: boolean;
 }
 
-export default function ClientModal({ clientId, isOpen, onClose, onCreateProcessForClient, initialIsEditing }: ClientModalProps) {
+export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCreateProcessForClient, initialIsEditing }: ClientModalProps) {
   const { isAdmin } = useAuth();
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [showSuccessOptions, setShowSuccessOptions] = useState(false);
   const [newClientId, setNewClientId] = useState<string | null>(null);
   const [successStep, setSuccessStep] = useState<'initial' | 'role' | 'link_process'>('initial');
+  const [createdAt, setCreatedAt] = useState<string>('');
   const [selectedAction, setSelectedAction] = useState<'create' | 'link' | null>(null);
   const [selectedRole, setSelectedRole] = useState<'buyer' | 'seller' | null>(null);
   const [searchProcess, setSearchProcess] = useState('');
@@ -29,7 +31,8 @@ export default function ClientModal({ clientId, isOpen, onClose, onCreateProcess
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [processes, setProcesses] = useState<Process[]>([]);
-  const [errors, setErrors] = useState<{ cpf?: string }>({});
+  const [allClients, setAllClients] = useState<Client[]>([]);
+  const [errors, setErrors] = useState<{ cpf?: string; general?: string }>({});
 
   const [formData, setFormData] = useState({
     name: '',
@@ -77,6 +80,7 @@ export default function ClientModal({ clientId, isOpen, onClose, onCreateProcess
     const unsubBrokers = api.subscribeToCollection('brokers', (data) => setBrokers(data as Broker[]));
     const unsubAgencies = api.subscribeToCollection('agencies', (data) => setAgencies(data as Agency[]));
     const unsubProcesses = api.subscribeToCollection('processes', (data) => setProcesses(data as Process[]));
+    const unsubClients = api.subscribeToCollection('clients', (data) => setAllClients(data as Client[]));
     
     if (clientId) {
       setLoading(true);
@@ -84,6 +88,7 @@ export default function ClientModal({ clientId, isOpen, onClose, onCreateProcess
       api.getById('clients', clientId).then((data) => {
         if (data) {
           const client = data as Client;
+          setCreatedAt(client.createdAt || '');
           setFormData({
             name: client.name || '',
             email: client.email || '',
@@ -114,6 +119,7 @@ export default function ClientModal({ clientId, isOpen, onClose, onCreateProcess
       unsubBrokers();
       unsubAgencies();
       unsubProcesses();
+      unsubClients();
     };
   }, [clientId, isOpen]);
 
@@ -222,9 +228,29 @@ export default function ClientModal({ clientId, isOpen, onClose, onCreateProcess
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) return;
+    setErrors({});
 
     if (formData.cpf && !/^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(formData.cpf)) {
       setErrors({ cpf: 'Formato de CPF inválido' });
+      return;
+    }
+
+    // Check for duplicates
+    const isDuplicate = allClients.some(c => {
+      if (clientId && c.id === clientId) return false;
+      const normalizedName = c.name.trim().toLowerCase();
+      const currentNormalizedName = formData.name.trim().toLowerCase();
+      const normalizedCPF = c.cpf?.replace(/\D/g, '');
+      const currentNormalizedCPF = formData.cpf?.replace(/\D/g, '');
+      
+      const nameMatch = normalizedName === currentNormalizedName;
+      const cpfMatch = normalizedCPF && currentNormalizedCPF && normalizedCPF === currentNormalizedCPF;
+      
+      return nameMatch || cpfMatch;
+    });
+
+    if (isDuplicate) {
+      setErrors({ general: 'Já existe um cliente cadastrado com este nome ou CPF.' });
       return;
     }
 
@@ -250,11 +276,15 @@ export default function ClientModal({ clientId, isOpen, onClose, onCreateProcess
 
       if (clientId) {
         await api.update('clients', clientId, clientData);
+        const updatedClient = { ...clientData, id: clientId, createdAt } as Client;
+        onSuccess?.(updatedClient);
         setNewClientId(clientId);
         setShowSuccessOptions(true);
         setIsEditing(false);
       } else {
-        const result = await api.create('clients', { ...clientData, createdAt: new Date().toISOString() });
+        const fullClientData = { ...clientData, createdAt: new Date().toISOString() };
+        const result = await api.create('clients', fullClientData);
+        onSuccess?.(result as Client);
         setNewClientId(result.id);
         setShowSuccessOptions(true);
         setIsEditing(false);
@@ -369,10 +399,11 @@ export default function ClientModal({ clientId, isOpen, onClose, onCreateProcess
               <button
                 type="submit"
                 form="client-modal-form"
-                className="h-11 bg-black text-white rounded-2xl hover:bg-black/80 transition-all shadow-sm flex items-center gap-2 px-6 text-sm font-bold"
+                disabled={loading}
+                className="h-11 bg-black text-white rounded-2xl hover:bg-black/80 transition-all shadow-sm flex items-center gap-2 px-6 text-sm font-bold disabled:opacity-50"
               >
                 <Save className="w-4 h-4" />
-                Salvar
+                {loading ? 'Salvando...' : 'Salvar'}
               </button>
             )}
             {isEditing && clientId && (
@@ -601,6 +632,12 @@ export default function ClientModal({ clientId, isOpen, onClose, onCreateProcess
             </div>
           ) : isEditing ? (
             <form id="client-modal-form" onSubmit={handleSubmit} className="p-8 space-y-8">
+              {errors.general && (
+                <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 text-sm font-bold">
+                  <AlertCircle className="w-5 h-5 shrink-0" />
+                  {errors.general}
+                </div>
+              )}
               {/* Form sections... */}
 
               <section className="space-y-4">

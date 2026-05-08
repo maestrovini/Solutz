@@ -272,11 +272,14 @@ export default function AgencyManager() {
                       <div className="flex items-center gap-1 px-2 py-0.5 bg-black/5 text-black/60 text-[8px] font-bold uppercase tracking-wider rounded-full border border-black/5" title={`${brokers.filter(b => b.agencyId === agency.id).length} ${brokers.filter(b => b.agencyId === agency.id).length === 1 ? 'Corretor' : 'Corretores'}`}>
                         <span>{brokers.filter(b => b.agencyId === agency.id).length} {brokers.filter(b => b.agencyId === agency.id).length === 1 ? 'Corretor' : 'Corretores'}</span>
                       </div>
-                      <div className="flex items-center gap-1 px-2 py-0.5 bg-black/5 text-black/60 text-[8px] font-bold uppercase tracking-wider rounded-full border border-black/5" title={`${agencyProcesses.length} ${agencyProcesses.length === 1 ? 'Processo' : 'Processos'}`}>
+                      <div className={cn(
+                        "flex items-center gap-1 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider rounded-full border",
+                        agencyProcesses.length > 0 ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-black/5 text-black/60 border-black/5"
+                      )} title={`${agencyProcesses.length} ${agencyProcesses.length === 1 ? 'Processo' : 'Processos'}`}>
                         <span>{agencyProcesses.length} {agencyProcesses.length === 1 ? 'Processo' : 'Processos'}</span>
                       </div>
                       {totalFinancing > 0 && (
-                        <div className="flex items-center gap-1 px-2 py-0.5 bg-black/5 text-black/60 text-[8px] font-bold uppercase tracking-wider rounded-full border border-black/5">
+                        <div className="flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[8px] font-bold uppercase tracking-wider rounded-full border border-emerald-200">
                           <span>Total: {formatCurrency(totalFinancing)}</span>
                         </div>
                       )}

@@ -281,6 +281,15 @@ export default function ClientManager({ onOpenProcess, onCreateProcessForClient,
             
             const hasActiveProcess = activeProcesses.length > 0;
             const mainProcessId = hasActiveProcess ? activeProcesses[0].id : null;
+
+            const isCreditApproved = status === 'Aprovado' || (client.approvedBanks && client.approvedBanks.some(item => {
+              if (!item.expirationDate) return true;
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              const expDate = new Date(item.expirationDate);
+              expDate.setHours(0, 0, 0, 0);
+              return expDate >= today;
+            }));
             
             return (
               <motion.div
@@ -296,85 +305,70 @@ export default function ClientManager({ onOpenProcess, onCreateProcessForClient,
                   if (!newId) onCloseDetail?.();
                 }}
                 className={cn(
-                  "bg-white p-3 rounded-[24px] shadow-sm border border-black/10 hover:shadow-md transition-all relative group cursor-pointer overflow-hidden",
+                  "px-4 py-2 rounded-[24px] shadow-sm border transition-all relative group cursor-pointer overflow-hidden",
+                  isCreditApproved ? "bg-emerald-50 border-emerald-300 shadow-emerald-50" : "bg-white border-black/10",
                   isExpanded ? "ring-2 ring-black/5" : ""
                 )}
               >
-                <div className="flex flex-col min-h-[64px] justify-center">
-                  <div className="min-w-0 mb-1">
-                    <h3 
-                      className="text-base font-bold text-[#1a1a1a] leading-tight truncate"
-                    >
-                      {client.name}
-                    </h3>
-                  </div>
-                
-                  <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                    {client.approvedBanks && client.approvedBanks.length > 0 && (
-                      <div className="flex gap-1">
-                        {client.approvedBanks.map((item, idx) => {
-                          const today = new Date();
-                          today.setHours(0, 0, 0, 0);
-                          if (item.expirationDate) {
-                            const expDate = new Date(item.expirationDate);
-                            expDate.setHours(0, 0, 0, 0);
-                            if (expDate < today) return null;
-                          }
-
-                          const bank = banks.find(b => b.id === item.bankId);
-                          if (!bank?.logoUrl) return null;
-                          return (
-                            <div 
-                              key={idx}
-                              className="w-8 h-8 flex items-center justify-center rounded-lg border border-black/10 bg-white shadow-sm overflow-hidden shrink-0"
-                              title={`Crédito Aprovado: ${bank.name}`}
-                            >
-                              <img 
-                                src={bank.logoUrl} 
-                                alt={bank.name} 
-                                className="w-full h-full object-cover" 
-                                referrerPolicy="no-referrer" 
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {hasActiveProcess && (
-                      <div 
-                        onClick={() => mainProcessId && onOpenProcess?.(mainProcessId)}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-zinc-700 border border-black shadow-sm shrink-0 cursor-pointer hover:scale-110 transition-transform active:scale-95"
-                        title="Ver Contrato / Processo"
-                      >
-                        <FileText className="w-4 h-4 text-white" />
-                      </div>
-                    )}
-
-                    <div 
-                      className={cn(
-                        "w-8 h-8 flex items-center justify-center rounded-lg shadow-sm shrink-0 transition-all border",
-                        currentStatusStyle.bg,
-                        currentStatusStyle.borderStrong
-                      )}
-                      title={`Status de Crédito: ${status}`}
-                    >
-                      {status === 'Aprovado' && <CheckCircle2 className={cn("w-5 h-5", currentStatusStyle.icon)} />}
-                      {status === 'Condicionado' && <Clock className={cn("w-5 h-5", currentStatusStyle.icon)} />}
-                      {status === 'Negado' && <XCircle className={cn("w-5 h-5", currentStatusStyle.icon)} />}
-                      {status === 'Vencido' && <AlertCircle className={cn("w-5 h-5", currentStatusStyle.icon)} />}
-                      {status === 'Avaliar' && <Clock className={cn("w-5 h-5", currentStatusStyle.icon)} />}
+                <div className="flex flex-col min-h-[44px] justify-center">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-base font-bold text-[#1a1a1a] leading-tight truncate">
+                        {client.name}
+                      </h3>
                     </div>
+                    <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      {client.phone && (
+                        <button 
+                          onClick={() => handleWhatsApp(client.phone!)}
+                          className="w-6 h-6 flex items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm hover:scale-110 active:scale-95 transition-all"
+                          title="WhatsApp"
+                        >
+                          <MessageCircle className="w-3 h-3" />
+                        </button>
+                      )}
+                      {hasActiveProcess && mainProcessId && (
+                        <button 
+                          onClick={() => onOpenProcess?.(mainProcessId)}
+                          className="w-6 h-6 flex items-center justify-center rounded-full bg-zinc-800 text-white shadow-sm hover:scale-110 active:scale-95 transition-all"
+                          title="Ver Processo"
+                        >
+                          <FileText className="w-3 h-3" />
+                        </button>
+                      )}
+                      
+                      {/* Bank Icons */}
+                      {client.approvedBanks && client.approvedBanks.length > 0 && (
+                        <div className="flex -space-x-1 ml-1">
+                          {client.approvedBanks.map((item, idx) => {
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            if (item.expirationDate) {
+                              const expDate = new Date(item.expirationDate);
+                              expDate.setHours(0, 0, 0, 0);
+                              if (expDate < today) return null;
+                            }
 
-                    {isAdmin && client.phone && (
-                      <button 
-                        onClick={() => handleWhatsApp(client.phone)}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-zinc-700 border border-black shadow-sm transition-all hover:scale-110 active:scale-95 shrink-0"
-                        title="Enviar WhatsApp"
-                      >
-                        <MessageCircle className="w-4 h-4 text-white" />
-                      </button>
-                    )}
+                            const bank = banks.find(b => b.id === item.bankId);
+                            if (!bank?.logoUrl) return null;
+                            return (
+                              <div 
+                                key={idx}
+                                className="w-6 h-6 rounded-full border border-white bg-white overflow-hidden shadow-sm"
+                                title={`Crédito Aprovado: ${bank.name}`}
+                              >
+                                <img 
+                                  src={bank.logoUrl} 
+                                  alt={bank.name} 
+                                  className="w-full h-full object-cover" 
+                                  referrerPolicy="no-referrer" 
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 

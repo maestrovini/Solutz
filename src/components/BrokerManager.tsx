@@ -267,14 +267,17 @@ export default function BrokerManager({ onOpenClient }: BrokerManagerProps) {
                       <div className="flex items-center gap-1 px-2 py-0.5 bg-black/5 text-black/60 text-[8px] font-bold uppercase tracking-wider rounded-full border border-black/5" title={broker.agencyId ? `Imobiliária: ${getAgencyName(broker.agencyId)}` : 'Corretor Autônomo'}>
                         <span>{broker.agencyId ? getAgencyName(broker.agencyId) : 'Autônomo'}</span>
                       </div>
-                      <div className="flex items-center gap-1 px-2 py-0.5 bg-black/5 text-black/60 text-[8px] font-bold uppercase tracking-wider rounded-full border border-black/5" title={`${brokerProcesses.length} ${brokerProcesses.length === 1 ? 'Processo' : 'Processos'}`}>
+                      <div className={cn(
+                        "flex items-center gap-1 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider rounded-full border",
+                        brokerProcesses.length > 0 ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-black/5 text-black/60 border-black/5"
+                      )} title={`${brokerProcesses.length} ${brokerProcesses.length === 1 ? 'Processo' : 'Processos'}`}>
                         <span>{brokerProcesses.length} {brokerProcesses.length === 1 ? 'Processo' : 'Processos'}</span>
                       </div>
                       <div className="flex items-center gap-1 px-2 py-0.5 bg-black/5 text-black/60 text-[8px] font-bold uppercase tracking-wider rounded-full border border-black/5" title={`${brokerClients.length} ${brokerClients.length === 1 ? 'Cliente' : 'Clientes'}`}>
                         <span>{brokerClients.length} {brokerClients.length === 1 ? 'Cliente' : 'Clientes'}</span>
                       </div>
                       {totalFinancing > 0 && (
-                        <div className="flex items-center gap-1 px-2 py-0.5 bg-black/5 text-black/60 text-[8px] font-bold uppercase tracking-wider rounded-full border border-black/5">
+                        <div className="flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[8px] font-bold uppercase tracking-wider rounded-full border border-emerald-200">
                           <span>Total: {formatCurrency(totalFinancing)}</span>
                         </div>
                       )}

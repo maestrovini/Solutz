@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/cn';
 import { hexToRgba, getContrastColor } from '../utils/colors';
 import PropertyModal from './PropertyModal';
+import ClientModal from './ClientModal';
 
 interface ProcessManagerProps {
   initialSelectedProcessId?: string | null;
@@ -28,6 +29,8 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
   const [properties, setProperties] = useState<Property[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPropertyModalOpen, setIsPropertyModalOpen] = useState(false);
+  const [isClientModalOpen, setIsClientModalOpen] = useState(false);
+  const [currentClientRole, setCurrentClientRole] = useState<'buyer' | 'seller'>('buyer');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [editingProcess, setEditingProcess] = useState<Process | null>(null);
   const [selectedProcessForDetail, setSelectedProcessForDetail] = useState<Process | null>(null);
@@ -1661,7 +1664,21 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                     <div className="flex flex-col gap-4">
                       {/* Compradores */}
                       <div className="space-y-2">
-                        <label className="block text-sm font-medium text-black/60">Compradores</label>
+                        <label className="block text-sm font-medium text-black/60 flex items-center justify-between">
+                          Compradores
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCurrentClientRole('buyer');
+                              setIsClientModalOpen(true);
+                            }}
+                            className="flex items-center gap-1 text-black/40 hover:text-black transition-colors"
+                            title="Cadastrar Novo Comprador"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Novo</span>
+                          </button>
+                        </label>
                         <div className="relative">
                           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black/40" />
                           <input
@@ -1703,8 +1720,22 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                       </div>
 
                       {/* Vendedores */}
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-black/60">Vendedores</label>
+                      <div className="space-y-2 text-[#1a1a1a]">
+                        <label className="block text-sm font-medium text-black/60 flex items-center justify-between">
+                          Vendedores
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCurrentClientRole('seller');
+                              setIsClientModalOpen(true);
+                            }}
+                            className="flex items-center gap-1 text-black/40 hover:text-black transition-colors"
+                            title="Cadastrar Novo Vendedor"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Novo</span>
+                          </button>
+                        </label>
                         <div className="relative">
                           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black/40" />
                           <input
@@ -2014,6 +2045,19 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
             onSuccess={(property) => {
               setFormData(prev => ({ ...prev, propertyId: property.id! }));
               setIsPropertyModalOpen(false);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isClientModalOpen && (
+          <ClientModal
+            isOpen={isClientModalOpen}
+            onClose={() => setIsClientModalOpen(false)}
+            onSuccess={(client) => {
+              addParticipant(currentClientRole, client.id!, client.name);
+              setIsClientModalOpen(false);
             }}
           />
         )}
