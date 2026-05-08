@@ -89,6 +89,7 @@
         "creci": { "type": "string", "description": "Broker CRECI" },
         "email": { "type": "string", "format": "email", "description": "Broker email" },
         "phone": { "type": "string", "description": "Broker phone" },
+        "birthDate": { "type": "string", "format": "date", "description": "Broker birth date" },
         "agencyId": { "type": "string", "description": "Agency ID" },
         "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
       },

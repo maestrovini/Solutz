@@ -266,7 +266,7 @@ export default function AgencyManager() {
               >
               <div className="flex items-start justify-between">
                 <div className="min-w-0 pr-14">
-                  <h3 className="text-lg font-bold text-[#1a1a1a] leading-tight truncate">{agency.name}</h3>
+                  <h3 className="text-base font-bold text-[#1a1a1a] leading-tight truncate">{agency.name}</h3>
                   {!isExpanded && (
                     <div className="flex flex-wrap gap-1.5 mt-1.5">
                       <div className="flex items-center gap-1 px-2 py-0.5 bg-black/5 text-black/60 text-[8px] font-bold uppercase tracking-wider rounded-full border border-black/5" title={`${brokers.filter(b => b.agencyId === agency.id).length} ${brokers.filter(b => b.agencyId === agency.id).length === 1 ? 'Corretor' : 'Corretores'}`}>
@@ -333,6 +333,17 @@ export default function AgencyManager() {
                         <Users className="w-4 h-4 shrink-0" />
                         <span>{brokers.filter(b => b.agencyId === agency.id).length} {brokers.filter(b => b.agencyId === agency.id).length === 1 ? 'Corretor' : 'Corretores'}</span>
                       </div>
+                      {brokers.filter(b => b.agencyId === agency.id).length > 0 && (
+                        <div className="pl-7 flex flex-wrap gap-x-3 gap-y-1">
+                          {brokers
+                            .filter(b => b.agencyId === agency.id)
+                            .sort((a, b) => a.name.localeCompare(b.name))
+                            .map(b => (
+                              <span key={b.id} className="text-[10px] text-black/50 font-medium">• {b.name}</span>
+                            ))
+                          }
+                        </div>
+                      )}
                       <div className="flex items-center gap-3 text-sm text-emerald-600 font-bold">
                         <FileText className="w-4 h-4 shrink-0" />
                         <span>{agencyProcesses.length} {agencyProcesses.length === 1 ? 'Processo' : 'Processos'}</span>

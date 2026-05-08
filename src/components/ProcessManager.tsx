@@ -79,13 +79,13 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
   });
 
   const stages = {
-    'Aquisição à vista com FGTS': ['Aprovado', 'Vistoria', 'Análise', 'Contrato', 'ITBI', 'Registro', 'Finalizado'],
-    'Despachante': ['Aprovado', 'Vistoria', 'Análise', 'Contrato', 'ITBI', 'Registro', 'Finalizado'],
-    'Financiamento': ['Aprovado', 'Vistoria', 'Análise', 'Contrato', 'ITBI', 'Registro', 'Finalizado'],
-    'Home Equity': ['Aprovado', 'Vistoria', 'Análise', 'Contrato', 'ITBI', 'Registro', 'Finalizado']
+    'Aquisição à vista com FGTS': ['Aprovado', 'Vistoria', 'Análise', 'Recursos', 'Contrato', 'ITBI', 'Registro', 'Finalizado'],
+    'Despachante': ['Aprovado', 'Vistoria', 'Análise', 'Recursos', 'Contrato', 'ITBI', 'Registro', 'Finalizado'],
+    'Financiamento': ['Aprovado', 'Vistoria', 'Análise', 'Recursos', 'Contrato', 'ITBI', 'Registro', 'Finalizado'],
+    'Home Equity': ['Aprovado', 'Vistoria', 'Análise', 'Recursos', 'Contrato', 'ITBI', 'Registro', 'Finalizado']
   };
 
-  const allStages = ['Aprovado', 'Vistoria', 'Análise', 'Contrato', 'ITBI', 'Registro', 'Finalizado'];
+  const allStages = ['Aprovado', 'Vistoria', 'Análise', 'Recursos', 'Contrato', 'ITBI', 'Registro', 'Finalizado'];
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -435,12 +435,13 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
   };
 
   const stageConfig: Record<string, { color: string, percent: number }> = {
-    'Aprovado': { color: '#ffedd5', percent: 14 },
-    'Vistoria': { color: '#fed7aa', percent: 28 },
-    'Análise': { color: '#fdba74', percent: 42 },
-    'Contrato': { color: '#fb923c', percent: 56 },
-    'ITBI': { color: '#f97316', percent: 70 },
-    'Registro': { color: '#ea580c', percent: 85 },
+    'Aprovado': { color: '#ffedd5', percent: 12.5 },
+    'Vistoria': { color: '#fed7aa', percent: 25 },
+    'Análise': { color: '#fdba74', percent: 37.5 },
+    'Recursos': { color: '#fbbf24', percent: 50 },
+    'Contrato': { color: '#fb923c', percent: 62.5 },
+    'ITBI': { color: '#f97316', percent: 75 },
+    'Registro': { color: '#ea580c', percent: 87.5 },
     'Finalizado': { color: '#c2410c', percent: 100 },
   };
 
@@ -528,13 +529,14 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
   return (
     <div className="space-y-6">
       {/* Stage Filter Bar */}
-      <div className="grid grid-cols-7 gap-1 bg-white p-1 rounded-xl border border-black/5 shadow-sm">
+      <div className="grid grid-cols-8 gap-1 bg-white p-1 rounded-xl border border-black/5 shadow-sm">
         {allStages.map((s, idx) => {
           const isSelected = filters.stage === s;
           const colors = [
             "bg-orange-100 text-orange-800",
             "bg-orange-200 text-orange-900",
             "bg-orange-300 text-orange-900",
+            "bg-amber-400 text-white",
             "bg-orange-400 text-white",
             "bg-orange-500 text-white",
             "bg-orange-600 text-white",
@@ -630,7 +632,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                   className="w-full px-4 py-2 text-sm rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] focus:ring-2 focus:ring-black/5 outline-none"
                 >
                   <option value="">Todas as Etapas</option>
-                  {['Aprovado', 'Vistoria', 'Análise', 'Contrato', 'ITBI', 'Registro', 'Finalizado'].map(s => (
+                  {['Aprovado', 'Vistoria', 'Análise', 'Recursos', 'Contrato', 'ITBI', 'Registro', 'Finalizado'].map(s => (
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
@@ -837,7 +839,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                 </div>
 
                 {/* Segmented Progress Bar */}
-                <div className="grid grid-cols-7 gap-1">
+                <div className="grid grid-cols-8 gap-1">
                   {allStages.map((s, idx) => {
                     const isCurrent = s === process.stage;
                     const stageIdx = allStages.indexOf(s);
@@ -846,7 +848,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                     
                     const bank = banks.find(b => b.id === process.bankId);
                     const baseColor = bank?.color || '#f97316'; // Default to orange-500
-                    const opacities = [0.15, 0.3, 0.45, 0.6, 0.75, 0.85, 1];
+                    const opacities = [0.15, 0.25, 0.35, 0.5, 0.65, 0.75, 0.85, 1];
                     const opacity = opacities[idx] || 1;
                     
                     const bgColor = hexToRgba(baseColor, opacity);
@@ -1211,7 +1213,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                                         const idx = allStages.indexOf(stageName);
                                         const bank = banks.find(b => b.id === selectedProcessForDetail.bankId);
                                         const baseColor = bank?.color || '#f97316';
-                                        const opacities = [0.15, 0.3, 0.45, 0.6, 0.8, 1];
+                                        const opacities = [0.15, 0.25, 0.35, 0.5, 0.65, 0.75, 0.85, 1];
                                         return hexToRgba(baseColor, opacities[idx] || 1);
                                       })()
                                     }}

@@ -84,7 +84,7 @@ export default function PropertyManager({ onOpenProcess }: PropertyManagerProps)
 
   useEffect(() => {
     const unsubProperties = api.subscribeToCollection('properties', (data) => {
-      setProperties((data as Property[]).sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+      setProperties((data as Property[]).sort((a, b) => a.address.localeCompare(b.address)));
     });
 
     const unsubProcesses = api.subscribeToCollection('processes', (data) => {
@@ -198,7 +198,7 @@ export default function PropertyManager({ onOpenProcess }: PropertyManagerProps)
               >
                 <div className="space-y-3">
                   <div className="min-w-0">
-                    <h3 className="text-lg font-bold text-[#1a1a1a] leading-tight truncate">
+                    <h3 className="text-base font-bold text-[#1a1a1a] leading-tight truncate">
                       {property.address}{property.number ? `, ${property.number}` : ''}{property.complement ? ` - ${property.complement}` : ''}
                     </h3>
                     <div className="text-[10px] font-bold text-black/30 uppercase tracking-wider mt-1 flex flex-wrap gap-x-2">

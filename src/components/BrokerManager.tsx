@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { Broker, Agency, Process, Client } from '../types';
-import { Plus, Search, Trash2, Edit2, X, User, Phone, Mail, FileText, Building2, Filter, TrendingUp, AlertCircle, Save, MessageCircle } from 'lucide-react';
+import { Plus, Search, Trash2, Edit2, X, User, Phone, Mail, FileText, Building2, Filter, TrendingUp, AlertCircle, Save, MessageCircle, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
 import { useAuth } from '../context/AuthContext';
@@ -31,6 +31,7 @@ export default function BrokerManager({ onOpenClient }: BrokerManagerProps) {
     creci: '',
     email: '',
     phone: '',
+    birthDate: '',
     agencyId: '',
   });
 
@@ -57,6 +58,14 @@ export default function BrokerManager({ onOpenClient }: BrokerManagerProps) {
         .replace(/(\d{5})(\d)/, '$1-$2')
         .replace(/(-\d{4})\d+?$/, '$1');
     }
+  };
+
+  const formatBirthDate = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 8);
+    if (!digits) return '';
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
   };
 
   useEffect(() => {
@@ -91,7 +100,7 @@ export default function BrokerManager({ onOpenClient }: BrokerManagerProps) {
           <button
             onClick={() => {
               setEditingBroker(null);
-              setFormData({ name: '', creci: '', email: '', phone: '', agencyId: '' });
+              setFormData({ name: '', creci: '', email: '', phone: '', birthDate: '', agencyId: '' });
               setIsModalOpen(true);
             }}
             className="p-2 bg-white text-black border border-white/10 rounded-lg hover:bg-white/80 transition-colors shadow-sm"
@@ -149,7 +158,7 @@ export default function BrokerManager({ onOpenClient }: BrokerManagerProps) {
       }
       setIsModalOpen(false);
       setEditingBroker(null);
-      setFormData({ name: '', creci: '', email: '', phone: '', agencyId: '' });
+      setFormData({ name: '', creci: '', email: '', phone: '', birthDate: '', agencyId: '' });
     } catch (error) {
       console.error("Erro ao salvar corretor:", error);
     }
@@ -261,7 +270,7 @@ export default function BrokerManager({ onOpenClient }: BrokerManagerProps) {
               >
               <div className="flex items-start justify-between">
                 <div className="min-w-0 pr-14">
-                  <h3 className="text-lg font-bold text-[#1a1a1a] leading-tight truncate">{broker.name}</h3>
+                  <h3 className="text-base font-bold text-[#1a1a1a] leading-tight truncate">{broker.name}</h3>
                   {!isExpanded && (
                     <div className="flex flex-wrap gap-1.5 mt-1.5">
                       <div className="flex items-center gap-1 px-2 py-0.5 bg-black/5 text-black/60 text-[8px] font-bold uppercase tracking-wider rounded-full border border-black/5" title={broker.agencyId ? `Imobiliária: ${getAgencyName(broker.agencyId)}` : 'Corretor Autônomo'}>
@@ -315,6 +324,12 @@ export default function BrokerManager({ onOpenClient }: BrokerManagerProps) {
                         <Phone className="w-4 h-4 shrink-0" />
                         <span>{broker.phone}</span>
                       </div>
+                      {broker.birthDate && (
+                        <div className="flex items-center gap-3 text-sm text-black/60">
+                          <Calendar className="w-4 h-4 shrink-0" />
+                          <span>Nascimento: {broker.birthDate}</span>
+                        </div>
+                      )}
                       <div className="flex items-center gap-3 text-sm text-black/60">
                         <FileText className="w-4 h-4 shrink-0" />
                         <span>CRECI: {broker.creci}</span>
@@ -365,6 +380,7 @@ export default function BrokerManager({ onOpenClient }: BrokerManagerProps) {
                                 creci: broker.creci,
                                 email: broker.email,
                                 phone: broker.phone,
+                                birthDate: broker.birthDate || '',
                                 agencyId: broker.agencyId || '',
                               });
                               setIsModalOpen(true);
@@ -470,6 +486,16 @@ export default function BrokerManager({ onOpenClient }: BrokerManagerProps) {
                         placeholder="(00) 00000-0000"
                         value={formData.phone}
                         onChange={(e) => setFormData({ ...formData, phone: formatPhone(e.target.value) })}
+                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all placeholder:text-black/40"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-black/60 mb-1">Data de Nascimento</label>
+                      <input
+                        type="text"
+                        placeholder="00/00/0000"
+                        value={formData.birthDate}
+                        onChange={(e) => setFormData({ ...formData, birthDate: formatBirthDate(e.target.value) })}
                         className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all placeholder:text-black/40"
                       />
                     </div>
