@@ -8,7 +8,7 @@ export const resolveParticipantName = (
 ): string => {
   if (!p) return 'N/A';
   
-  if (p.type === 'buyer' || p.type === 'seller') {
+  if (p.type === 'buyer' || p.type === 'seller' || p.type === 'proxy') {
     const client = clients.find(c => c.id === p.id);
     return client ? client.name : p.name;
   }

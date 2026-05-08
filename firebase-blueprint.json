@@ -26,6 +26,7 @@
         "statusDate": { "type": "string", "format": "date", "description": "Credit status date" },
         "birthDate": { "type": "string", "format": "date", "description": "Birth date" },
         "cpf": { "type": "string", "description": "CPF" },
+        "pis": { "type": "string", "description": "PIS" },
         "phone2": { "type": "string", "description": "Secondary phone" },
         "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
       },
@@ -38,7 +39,19 @@
       "properties": {
         "id": { "type": "string", "description": "Process ID" },
         "clientId": { "type": "string", "description": "Client ID" },
-        "participants": { "type": "array", "description": "List of participants" },
+        "participants": { 
+          "type": "array", 
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "type": { "type": "string", "enum": ["buyer", "seller", "broker", "agency", "proxy"] },
+              "name": { "type": "string" },
+              "representsIds": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "description": "List of participants" 
+        },
         "type": { "type": "string", "description": "Process type" },
         "status": { "type": "string", "description": "Process status" },
         "stage": { "type": "string", "description": "Process stage" },

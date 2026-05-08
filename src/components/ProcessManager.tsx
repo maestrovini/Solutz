@@ -59,7 +59,8 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     buyer: '',
     seller: '',
     broker: '',
-    agency: ''
+    agency: '',
+    proxy: ''
   });
   const [formData, setFormData] = useState({
     clientId: '',
@@ -78,13 +79,13 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
   });
 
   const stages = {
-    'Aquisição à vista com FGTS': ['Aprovado', 'Vistoria', 'Análise', 'Contrato', 'Registro', 'Finalizado'],
-    'Despachante': ['Aprovado', 'Vistoria', 'Análise', 'Contrato', 'Registro', 'Finalizado'],
-    'Financiamento': ['Aprovado', 'Vistoria', 'Análise', 'Contrato', 'Registro', 'Finalizado'],
-    'Home Equity': ['Aprovado', 'Vistoria', 'Análise', 'Contrato', 'Registro', 'Finalizado']
+    'Aquisição à vista com FGTS': ['Aprovado', 'Vistoria', 'Análise', 'Contrato', 'ITBI', 'Registro', 'Finalizado'],
+    'Despachante': ['Aprovado', 'Vistoria', 'Análise', 'Contrato', 'ITBI', 'Registro', 'Finalizado'],
+    'Financiamento': ['Aprovado', 'Vistoria', 'Análise', 'Contrato', 'ITBI', 'Registro', 'Finalizado'],
+    'Home Equity': ['Aprovado', 'Vistoria', 'Análise', 'Contrato', 'ITBI', 'Registro', 'Finalizado']
   };
 
-  const allStages = ['Aprovado', 'Vistoria', 'Análise', 'Contrato', 'Registro', 'Finalizado'];
+  const allStages = ['Aprovado', 'Vistoria', 'Análise', 'Contrato', 'ITBI', 'Registro', 'Finalizado'];
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -316,10 +317,26 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
       date: new Date().toISOString()
     };
 
+    let updatedNotifications = process.notifications || [];
+    if (newStage === 'Vistoria') {
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 6);
+      
+      const newNotification: Notification = {
+        id: Math.random().toString(36).substr(2, 9),
+        date: dueDate.toISOString().split('T')[0],
+        reason: 'Vistoria',
+        createdAt: new Date().toISOString(),
+        completed: false
+      };
+      updatedNotifications = [...updatedNotifications, newNotification];
+    }
+
     const updatedProcess: Process = {
       ...process,
       stage: newStage,
       stageHistory: [...(process.stageHistory || []), historyEntry],
+      notifications: updatedNotifications,
       updatedAt: new Date().toISOString()
     };
 
@@ -338,15 +355,32 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
 
     const now = new Date().toISOString();
     let stageHistory = editingProcess?.stageHistory || [];
+    let notifications = editingProcess?.notifications || [];
     
     // Record history if it's a new process or the stage has changed or history is empty
     if (!editingProcess || editingProcess.stage !== formData.stage || stageHistory.length === 0) {
       stageHistory = [...stageHistory, { stage: formData.stage, date: now }];
+
+      // Auto notification for Vistoria
+      if (formData.stage === 'Vistoria') {
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + 6);
+        
+        const newNotification: Notification = {
+          id: Math.random().toString(36).substr(2, 9),
+          date: dueDate.toISOString().split('T')[0],
+          reason: 'Vistoria',
+          createdAt: now,
+          completed: false
+        };
+        notifications = [...notifications, newNotification];
+      }
     }
 
     const processData = {
       ...formData,
       stageHistory,
+      notifications,
       brokerId: 'admin-1',
       updatedAt: now,
     };
@@ -401,12 +435,13 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
   };
 
   const stageConfig: Record<string, { color: string, percent: number }> = {
-    'Aprovado': { color: '#ffedd5', percent: 15 },
-    'Vistoria': { color: '#fed7aa', percent: 30 },
-    'Análise': { color: '#fdba74', percent: 45 },
-    'Contrato': { color: '#fb923c', percent: 60 },
-    'Registro': { color: '#f97316', percent: 80 },
-    'Finalizado': { color: '#ea580c', percent: 100 },
+    'Aprovado': { color: '#ffedd5', percent: 14 },
+    'Vistoria': { color: '#fed7aa', percent: 28 },
+    'Análise': { color: '#fdba74', percent: 42 },
+    'Contrato': { color: '#fb923c', percent: 56 },
+    'ITBI': { color: '#f97316', percent: 70 },
+    'Registro': { color: '#ea580c', percent: 85 },
+    'Finalizado': { color: '#c2410c', percent: 100 },
   };
 
   const getClientName = (id: string) => clients.find(c => c.id === id)?.name || 'Cliente Desconhecido';
@@ -493,7 +528,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
   return (
     <div className="space-y-6">
       {/* Stage Filter Bar */}
-      <div className="grid grid-cols-6 gap-1 bg-white p-1 rounded-xl border border-black/5 shadow-sm">
+      <div className="grid grid-cols-7 gap-1 bg-white p-1 rounded-xl border border-black/5 shadow-sm">
         {allStages.map((s, idx) => {
           const isSelected = filters.stage === s;
           const colors = [
@@ -503,6 +538,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
             "bg-orange-400 text-white",
             "bg-orange-500 text-white",
             "bg-orange-600 text-white",
+            "bg-orange-700 text-white",
           ];
           return (
             <button
@@ -511,11 +547,11 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
               className={cn(
                 "h-10 flex items-center justify-center rounded-lg transition-all border",
                 isSelected 
-                  ? `${colors[idx]} border-transparent shadow-md scale-[1.02]` 
+                  ? `${colors[idx] || "bg-orange-600 text-white"} border-transparent shadow-md scale-[1.02]` 
                   : "text-black/40 border-transparent hover:bg-black/5"
               )}
             >
-              <span className="text-[9px] font-bold uppercase tracking-wider px-1">{s}</span>
+              <span className="text-[7.5px] font-bold uppercase tracking-tighter px-0.5">{s}</span>
             </button>
           );
         })}
@@ -594,7 +630,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                   className="w-full px-4 py-2 text-sm rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] focus:ring-2 focus:ring-black/5 outline-none"
                 >
                   <option value="">Todas as Etapas</option>
-                  {['Aprovado', 'Vistoria', 'Análise', 'Contrato', 'Registro', 'Finalizado'].map(s => (
+                  {['Aprovado', 'Vistoria', 'Análise', 'Contrato', 'ITBI', 'Registro', 'Finalizado'].map(s => (
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
@@ -801,7 +837,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                 </div>
 
                 {/* Segmented Progress Bar */}
-                <div className="grid grid-cols-6 gap-1">
+                <div className="grid grid-cols-7 gap-1">
                   {allStages.map((s, idx) => {
                     const isCurrent = s === process.stage;
                     const stageIdx = allStages.indexOf(s);
@@ -810,8 +846,8 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                     
                     const bank = banks.find(b => b.id === process.bankId);
                     const baseColor = bank?.color || '#f97316'; // Default to orange-500
-                    const opacities = [0.15, 0.3, 0.45, 0.6, 0.8, 1];
-                    const opacity = opacities[idx];
+                    const opacities = [0.15, 0.3, 0.45, 0.6, 0.75, 0.85, 1];
+                    const opacity = opacities[idx] || 1;
                     
                     const bgColor = hexToRgba(baseColor, opacity);
                     const textColor = opacity > 0.5 ? getContrastColor(baseColor) : 'rgba(0, 0, 0, 0.6)';
@@ -832,7 +868,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                           boxShadow: isCurrent ? `0 0 0 2px ${hexToRgba(baseColor, 0.2)}` : undefined
                         }}
                       >
-                        <span className="text-[8px] font-bold uppercase truncate px-1">{s}</span>
+                        <span className="text-[6.5px] font-bold uppercase truncate px-0.5 tracking-tighter">{s}</span>
                       </div>
                     );
                   })}
@@ -1017,6 +1053,34 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                         </div>
                       </div>
                     </div>
+
+                    {selectedProcessForDetail.participants?.some(p => p.type === 'proxy') && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Procuradores</p>
+                        <div className="space-y-2">
+                          {selectedProcessForDetail.participants?.filter(p => p.type === 'proxy').map((p, i) => (
+                            <div key={i} className="text-sm">
+                              <button 
+                                onClick={() => {
+                                  if (p.id) onOpenClient?.(p.id);
+                                }}
+                                className="text-[#1a1a1a] font-medium hover:text-black/60 transition-colors"
+                              >
+                                {getParticipantName(p)}
+                              </button>
+                              {p.representsIds && p.representsIds.length > 0 && (
+                                <span className="text-[10px] text-black/40 italic ml-2">
+                                  (Procurador de: {p.representsIds.map(rid => {
+                                    const rep = selectedProcessForDetail.participants?.find(part => part.id === rid);
+                                    return rep ? getParticipantName(rep) : 'N/A';
+                                  }).join(', ')})
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {selectedProcessForDetail.propertyId && (() => {
                       const property = properties.find(p => p.id === selectedProcessForDetail.propertyId);
@@ -1771,6 +1835,110 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                             <div key={idx} className="flex items-center gap-2 bg-purple-50 px-3 py-1 rounded-full text-xs text-purple-600 border border-purple-100">
                                 {getParticipantName(p)}
                                 <button type="button" onClick={() => removeParticipant(p.id, p.type)} className="hover:text-purple-800"><X className="w-3 h-3" /></button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Procuradores */}
+                      <div className="space-y-2 text-[#1a1a1a]">
+                        <label className="block text-sm font-medium text-black/60 flex items-center justify-between">
+                          Procuradores
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCurrentClientRole('buyer'); // Actually doesn't matter much as we'll set type proxy
+                              setIsClientModalOpen(true);
+                            }}
+                            className="flex items-center gap-1 text-black/40 hover:text-black transition-colors"
+                            title="Cadastrar Novo Procurador"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Novo</span>
+                          </button>
+                        </label>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black/40" />
+                          <input
+                            type="text"
+                            placeholder="Buscar procurador..."
+                            value={participantSearch.proxy}
+                            onChange={(e) => setParticipantSearch({ ...participantSearch, proxy: e.target.value })}
+                            className="w-full pl-10 pr-4 py-2 text-sm rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] outline-none focus:ring-2 focus:ring-black/5"
+                          />
+                        </div>
+                        {participantSearch.proxy && (
+                          <div className="absolute z-10 mt-1 w-full bg-white rounded-xl shadow-xl border border-black/10 max-h-48 overflow-y-auto p-2">
+                            {clients
+                              .filter(c => c.name.toLowerCase().includes(participantSearch.proxy.toLowerCase()))
+                              .map(c => (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  onClick={() => {
+                                    addParticipant('proxy', c.id!, c.name);
+                                    setParticipantSearch({ ...participantSearch, proxy: '' });
+                                  }}
+                                  className="w-full text-left text-xs p-2 hover:bg-black/5 rounded-lg transition-colors flex items-center justify-between group text-black/60"
+                                >
+                                  <span>{c.name}</span>
+                                  <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100" />
+                                </button>
+                              ))}
+                          </div>
+                        )}
+                        <div className="space-y-3">
+                          {formData.participants.filter(p => p.type === 'proxy').map((p, idx) => (
+                            <div key={idx} className="bg-emerald-50/50 p-3 rounded-2xl border border-emerald-100 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2 text-emerald-700">
+                                  <span className="text-xs font-bold">{getParticipantName(p)}</span>
+                                  <span className="text-[9px] font-bold uppercase tracking-wider bg-emerald-100 px-1.5 py-0.5 rounded-md">Procurador</span>
+                                </div>
+                                <button type="button" onClick={() => removeParticipant(p.id, p.type)} className="text-emerald-400 hover:text-emerald-600"><X className="w-4 h-4" /></button>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-[9px] font-bold uppercase tracking-wider text-black/40">Vinculado a:</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {formData.participants.filter(op => op.type === 'buyer' || op.type === 'seller').map(op => {
+                                    const isLinked = p.representsIds?.includes(op.id);
+                                    return (
+                                      <button
+                                        key={op.id}
+                                        type="button"
+                                        onClick={() => {
+                                          const currentRepresents = p.representsIds || [];
+                                          const newRepresents = isLinked 
+                                            ? currentRepresents.filter(rid => rid !== op.id)
+                                            : [...currentRepresents, op.id];
+                                          
+                                          setFormData({
+                                            ...formData,
+                                            participants: formData.participants.map(part => 
+                                              part.id === p.id && part.type === 'proxy' 
+                                                ? { ...part, representsIds: newRepresents }
+                                                : part
+                                            )
+                                          });
+                                        }}
+                                        className={cn(
+                                          "px-2 py-0.5 rounded-md text-[10px] font-medium transition-all border",
+                                          isLinked 
+                                            ? op.type === 'buyer' 
+                                              ? "bg-blue-100 text-blue-700 border-blue-200" 
+                                              : "bg-purple-100 text-purple-700 border-purple-200"
+                                            : "bg-white text-black/40 border-black/5 hover:bg-black/5"
+                                        )}
+                                      >
+                                        {getParticipantName(op)}
+                                      </button>
+                                    );
+                                  })}
+                                  {formData.participants.filter(op => op.type === 'buyer' || op.type === 'seller').length === 0 && (
+                                    <p className="text-[10px] text-black/20 italic">Adicione compradores ou vendedores primeiro</p>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           ))}
                         </div>

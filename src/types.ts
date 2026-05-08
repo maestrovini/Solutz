@@ -19,6 +19,7 @@ export interface Client {
   phone: string;
   phone2?: string;
   cpf?: string;
+  pis?: string;
   birthDate?: string;
   income?: number; // Renda Mensal
   hasFGTS?: boolean;
@@ -41,8 +42,9 @@ export interface Bank {
 
 export interface Participant {
   id: string;
-  type: 'buyer' | 'seller' | 'broker' | 'agency';
+  type: 'buyer' | 'seller' | 'broker' | 'agency' | 'proxy';
   name: string;
+  representsIds?: string[];
 }
 
 export interface StageHistory {

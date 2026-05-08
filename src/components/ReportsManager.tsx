@@ -134,15 +134,16 @@ export const ReportsManager: React.FC<ReportsManagerProps> = ({
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
   };
 
-  const stages = ['Aprovado', 'Vistoria', 'Análise', 'Contrato', 'Registro', 'Finalizado'];
+  const stages = ['Aprovado', 'Vistoria', 'Análise', 'Contrato', 'ITBI', 'Registro', 'Finalizado'];
   
   const stageConfig: Record<string, { color: string }> = {
     'Aprovado': { color: '#dcfce7' },
     'Vistoria': { color: '#bbf7d0' },
     'Análise': { color: '#86efac' },
     'Contrato': { color: '#4ade80' },
-    'Registro': { color: '#22c55e' },
-    'Finalizado': { color: '#16a34a' },
+    'ITBI': { color: '#22c55e' },
+    'Registro': { color: '#16a34a' },
+    'Finalizado': { color: '#15803d' },
   };
 
   const getStageStats = (stage: string) => {
@@ -475,6 +476,7 @@ export const ReportsManager: React.FC<ReportsManagerProps> = ({
                         "bg-green-400 text-white",
                         "bg-green-500 text-white",
                         "bg-green-600 text-white",
+                        "bg-green-700 text-white",
                       ];
                       return (
                         <div key={stage} className="flex flex-col space-y-1.5">

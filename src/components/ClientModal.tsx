@@ -40,6 +40,7 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
     phone: '',
     phone2: '',
     cpf: '',
+    pis: '',
     birthDate: '',
     income: 0,
     hasFGTS: false,
@@ -64,6 +65,7 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
         phone: '',
         phone2: '',
         cpf: '',
+        pis: '',
         birthDate: '',
         income: 0,
         hasFGTS: false,
@@ -95,6 +97,7 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
             phone: client.phone || '',
             phone2: client.phone2 || '',
             cpf: client.cpf || '',
+            pis: client.pis || '',
             birthDate: client.birthDate || '',
             income: client.income || 0,
             hasFGTS: !!client.hasFGTS,
@@ -147,6 +150,16 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
       .replace(/(\d{3})(\d)/, '$1.$2')
       .replace(/(\d{3})(\d{1,2})/, '$1-$2')
       .replace(/(-\d{2})\d+?$/, '$1');
+  };
+
+  const formatPIS = (value: string) => {
+    return value
+      .replace(/\D/g, '')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{5})/, '$1.$2')
+      .replace(/(\d{3})(\d{5})(\d{2})/, '$1.$2.$3')
+      .replace(/(\d{3})(\d{5})(\d{2})(\d{1})/, '$1.$2.$3-$4')
+      .slice(0, 14);
   };
 
   const formatBirthDate = (value: string) => {
@@ -672,6 +685,19 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
                           "w-full pl-11 pr-4 py-3 bg-black/5 text-[#1a1a1a] rounded-2xl border outline-none transition-all font-medium",
                           errors.cpf ? "border-red-500 bg-red-50" : "border-transparent focus:bg-white focus:border-black/10"
                         )}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-black/40 uppercase tracking-widest mb-1.5 ml-1">PIS</label>
+                    <div className="relative">
+                      <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20" />
+                      <input
+                        type="text"
+                        placeholder="000.00000.00-0"
+                        value={formData.pis}
+                        onChange={(e) => setFormData({ ...formData, pis: formatPIS(e.target.value) })}
+                        className="w-full pl-11 pr-4 py-3 bg-black/5 text-[#1a1a1a] rounded-2xl border border-transparent focus:bg-white focus:border-black/10 outline-none transition-all font-medium"
                       />
                     </div>
                   </div>
