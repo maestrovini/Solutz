@@ -79,13 +79,13 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
   });
 
   const stages = {
-    'Aquisição à vista com FGTS': ['Aprovado', 'Vistoria', 'Análise', 'Recursos', 'Contrato', 'ITBI', 'Registro', 'Finalizado'],
-    'Despachante': ['Aprovado', 'Vistoria', 'Análise', 'Recursos', 'Contrato', 'ITBI', 'Registro', 'Finalizado'],
-    'Financiamento': ['Aprovado', 'Vistoria', 'Análise', 'Recursos', 'Contrato', 'ITBI', 'Registro', 'Finalizado'],
-    'Home Equity': ['Aprovado', 'Vistoria', 'Análise', 'Recursos', 'Contrato', 'ITBI', 'Registro', 'Finalizado']
+    'Aquisição à vista com FGTS': ['Aprovado', 'Vistoria', 'Documentos', 'Conformidade', 'Recursos', 'Contrato', 'ITBI', 'Registro', 'Finalizado'],
+    'Despachante': ['Aprovado', 'Vistoria', 'Documentos', 'Conformidade', 'Recursos', 'Contrato', 'ITBI', 'Registro', 'Finalizado'],
+    'Financiamento': ['Aprovado', 'Vistoria', 'Documentos', 'Conformidade', 'Recursos', 'Contrato', 'ITBI', 'Registro', 'Finalizado'],
+    'Home Equity': ['Aprovado', 'Vistoria', 'Documentos', 'Conformidade', 'Recursos', 'Contrato', 'ITBI', 'Registro', 'Finalizado']
   };
 
-  const allStages = ['Aprovado', 'Vistoria', 'Análise', 'Recursos', 'Contrato', 'ITBI', 'Registro', 'Finalizado'];
+  const allStages = ['Aprovado', 'Vistoria', 'Documentos', 'Conformidade', 'Recursos', 'Contrato', 'ITBI', 'Registro', 'Finalizado'];
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -435,13 +435,14 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
   };
 
   const stageConfig: Record<string, { color: string, percent: number }> = {
-    'Aprovado': { color: '#ffedd5', percent: 12.5 },
-    'Vistoria': { color: '#fed7aa', percent: 25 },
-    'Análise': { color: '#fdba74', percent: 37.5 },
-    'Recursos': { color: '#fbbf24', percent: 50 },
-    'Contrato': { color: '#fb923c', percent: 62.5 },
-    'ITBI': { color: '#f97316', percent: 75 },
-    'Registro': { color: '#ea580c', percent: 87.5 },
+    'Aprovado': { color: '#ffedd5', percent: 11.1 },
+    'Vistoria': { color: '#fed7aa', percent: 22.2 },
+    'Documentos': { color: '#fcd34d', percent: 33.3 },
+    'Conformidade': { color: '#fdba74', percent: 44.4 },
+    'Recursos': { color: '#fbbf24', percent: 55.5 },
+    'Contrato': { color: '#fb923c', percent: 66.6 },
+    'ITBI': { color: '#f97316', percent: 77.7 },
+    'Registro': { color: '#ea580c', percent: 88.8 },
     'Finalizado': { color: '#c2410c', percent: 100 },
   };
 
@@ -529,31 +530,25 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
   return (
     <div className="space-y-6">
       {/* Stage Filter Bar */}
-      <div className="grid grid-cols-8 gap-1 bg-white p-1 rounded-xl border border-black/5 shadow-sm">
-        {allStages.map((s, idx) => {
+      <div className="grid grid-cols-9 gap-1 bg-white p-1 rounded-xl border border-black/5 shadow-sm">
+        {allStages.map((s) => {
           const isSelected = filters.stage === s;
-          const colors = [
-            "bg-orange-100 text-orange-800",
-            "bg-orange-200 text-orange-900",
-            "bg-orange-300 text-orange-900",
-            "bg-amber-400 text-white",
-            "bg-orange-400 text-white",
-            "bg-orange-500 text-white",
-            "bg-orange-600 text-white",
-            "bg-orange-700 text-white",
-          ];
+          
           return (
             <button
               key={s}
+              type="button"
               onClick={() => setFilters({ ...filters, stage: isSelected ? '' : s })}
               className={cn(
-                "h-10 flex items-center justify-center rounded-lg transition-all border",
+                "h-5 flex items-center justify-start rounded-md transition-all border px-1.5 outline-none truncate",
                 isSelected 
-                  ? `${colors[idx] || "bg-orange-600 text-white"} border-transparent shadow-md scale-[1.02]` 
-                  : "text-black/40 border-transparent hover:bg-black/5"
+                  ? "bg-black text-white border-transparent shadow-sm ring-1 ring-black/10 ring-offset-1 scale-[1.02] z-10" 
+                  : "bg-[#f3f4f6] text-black/30 border-transparent hover:bg-black/5"
               )}
             >
-              <span className="text-[7.5px] font-bold uppercase tracking-tighter px-0.5">{s}</span>
+              <span className="text-[6.5px] font-bold uppercase tracking-tighter transition-colors">
+                {s}
+              </span>
             </button>
           );
         })}
@@ -632,7 +627,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                   className="w-full px-4 py-2 text-sm rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] focus:ring-2 focus:ring-black/5 outline-none"
                 >
                   <option value="">Todas as Etapas</option>
-                  {['Aprovado', 'Vistoria', 'Análise', 'Recursos', 'Contrato', 'ITBI', 'Registro', 'Finalizado'].map(s => (
+                  {['Aprovado', 'Vistoria', 'Documentos', 'Conformidade', 'Recursos', 'Contrato', 'ITBI', 'Registro', 'Finalizado'].map(s => (
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
@@ -839,7 +834,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                 </div>
 
                 {/* Segmented Progress Bar */}
-                <div className="grid grid-cols-8 gap-1">
+                <div className="grid grid-cols-9 gap-1">
                   {allStages.map((s, idx) => {
                     const isCurrent = s === process.stage;
                     const stageIdx = allStages.indexOf(s);
@@ -848,7 +843,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                     
                     const bank = banks.find(b => b.id === process.bankId);
                     const baseColor = bank?.color || '#f97316'; // Default to orange-500
-                    const opacities = [0.15, 0.25, 0.35, 0.5, 0.65, 0.75, 0.85, 1];
+                    const opacities = [0.15, 0.2, 0.3, 0.4, 0.5, 0.65, 0.75, 0.85, 1];
                     const opacity = opacities[idx] || 1;
                     
                     const bgColor = hexToRgba(baseColor, opacity);
@@ -859,7 +854,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                       <div 
                         key={s}
                         className={cn(
-                          "h-5 flex items-center justify-center rounded-md transition-all border",
+                          "h-5 flex items-center justify-start rounded-md transition-all border px-1.5",
                           (isCurrent || isPast) ? "" : "text-black/20 border-black/5 bg-[#f5f5f0]/50",
                           isCurrent && "shadow-sm ring-1"
                         )}
@@ -870,7 +865,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                           boxShadow: isCurrent ? `0 0 0 2px ${hexToRgba(baseColor, 0.2)}` : undefined
                         }}
                       >
-                        <span className="text-[6.5px] font-bold uppercase truncate px-0.5 tracking-tighter">{s}</span>
+                        <span className="text-[6.5px] font-bold uppercase truncate tracking-tighter">{s}</span>
                       </div>
                     );
                   })}
@@ -1213,7 +1208,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                                         const idx = allStages.indexOf(stageName);
                                         const bank = banks.find(b => b.id === selectedProcessForDetail.bankId);
                                         const baseColor = bank?.color || '#f97316';
-                                        const opacities = [0.15, 0.25, 0.35, 0.5, 0.65, 0.75, 0.85, 1];
+                                        const opacities = [0.15, 0.2, 0.3, 0.4, 0.5, 0.65, 0.75, 0.85, 1];
                                         return hexToRgba(baseColor, opacities[idx] || 1);
                                       })()
                                     }}
@@ -1754,27 +1749,27 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                             onChange={(e) => setParticipantSearch({ ...participantSearch, buyer: e.target.value })}
                             className="w-full pl-10 pr-4 py-2 text-sm rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] outline-none focus:ring-2 focus:ring-black/5"
                           />
+                          {participantSearch.buyer && (
+                            <div className="absolute top-full left-0 z-10 mt-1 w-full bg-white rounded-xl shadow-xl border border-black/10 max-h-48 overflow-y-auto p-2">
+                              {clients
+                                .filter(c => c.name.toLowerCase().includes(participantSearch.buyer.toLowerCase()))
+                                .map(c => (
+                                  <button
+                                    key={c.id}
+                                    type="button"
+                                    onClick={() => {
+                                      addParticipant('buyer', c.id!, c.name);
+                                      setParticipantSearch({ ...participantSearch, buyer: '' });
+                                    }}
+                                    className="w-full text-left text-xs p-2 hover:bg-black/5 rounded-lg transition-colors flex items-center justify-between group text-black/60"
+                                  >
+                                    <span>{c.name}</span>
+                                    <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100" />
+                                  </button>
+                                ))}
+                            </div>
+                          )}
                         </div>
-                        {participantSearch.buyer && (
-                          <div className="absolute z-10 mt-1 w-full bg-white rounded-xl shadow-xl border border-black/10 max-h-48 overflow-y-auto p-2">
-                            {clients
-                              .filter(c => c.name.toLowerCase().includes(participantSearch.buyer.toLowerCase()))
-                              .map(c => (
-                                <button
-                                  key={c.id}
-                                  type="button"
-                                  onClick={() => {
-                                    addParticipant('buyer', c.id!, c.name);
-                                    setParticipantSearch({ ...participantSearch, buyer: '' });
-                                  }}
-                                  className="w-full text-left text-xs p-2 hover:bg-black/5 rounded-lg transition-colors flex items-center justify-between group text-black/60"
-                                >
-                                  <span>{c.name}</span>
-                                  <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100" />
-                                </button>
-                              ))}
-                          </div>
-                        )}
                         <div className="flex flex-wrap gap-2 transition-all">
                           {formData.participants.filter(p => p.type === 'buyer').map((p, idx) => (
                             <div key={idx} className="flex items-center gap-2 bg-blue-50 px-3 py-1 rounded-full text-xs text-blue-600 border border-blue-100">
@@ -1811,27 +1806,27 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                             onChange={(e) => setParticipantSearch({ ...participantSearch, seller: e.target.value })}
                             className="w-full pl-10 pr-4 py-2 text-sm rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] outline-none focus:ring-2 focus:ring-black/5"
                           />
+                          {participantSearch.seller && (
+                            <div className="absolute top-full left-0 z-10 mt-1 w-full bg-white rounded-xl shadow-xl border border-black/10 max-h-48 overflow-y-auto p-2">
+                              {clients
+                                .filter(c => c.name.toLowerCase().includes(participantSearch.seller.toLowerCase()))
+                                .map(c => (
+                                  <button
+                                    key={c.id}
+                                    type="button"
+                                    onClick={() => {
+                                      addParticipant('seller', c.id!, c.name);
+                                      setParticipantSearch({ ...participantSearch, seller: '' });
+                                    }}
+                                    className="w-full text-left text-xs p-2 hover:bg-black/5 rounded-lg transition-colors flex items-center justify-between group text-black/60"
+                                  >
+                                    <span>{c.name}</span>
+                                    <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100" />
+                                  </button>
+                                ))}
+                            </div>
+                          )}
                         </div>
-                        {participantSearch.seller && (
-                          <div className="absolute z-10 mt-1 w-full bg-white rounded-xl shadow-xl border border-black/10 max-h-48 overflow-y-auto p-2">
-                            {clients
-                              .filter(c => c.name.toLowerCase().includes(participantSearch.seller.toLowerCase()))
-                              .map(c => (
-                                <button
-                                  key={c.id}
-                                  type="button"
-                                  onClick={() => {
-                                    addParticipant('seller', c.id!, c.name);
-                                    setParticipantSearch({ ...participantSearch, seller: '' });
-                                  }}
-                                  className="w-full text-left text-xs p-2 hover:bg-black/5 rounded-lg transition-colors flex items-center justify-between group text-black/60"
-                                >
-                                  <span>{c.name}</span>
-                                  <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100" />
-                                </button>
-                              ))}
-                          </div>
-                        )}
                         <div className="flex flex-wrap gap-2">
                           {formData.participants.filter(p => p.type === 'seller').map((p, idx) => (
                             <div key={idx} className="flex items-center gap-2 bg-purple-50 px-3 py-1 rounded-full text-xs text-purple-600 border border-purple-100">
@@ -1868,27 +1863,27 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                             onChange={(e) => setParticipantSearch({ ...participantSearch, proxy: e.target.value })}
                             className="w-full pl-10 pr-4 py-2 text-sm rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] outline-none focus:ring-2 focus:ring-black/5"
                           />
+                          {participantSearch.proxy && (
+                            <div className="absolute top-full left-0 z-10 mt-1 w-full bg-white rounded-xl shadow-xl border border-black/10 max-h-48 overflow-y-auto p-2">
+                              {clients
+                                .filter(c => c.name.toLowerCase().includes(participantSearch.proxy.toLowerCase()))
+                                .map(c => (
+                                  <button
+                                    key={c.id}
+                                    type="button"
+                                    onClick={() => {
+                                      addParticipant('proxy', c.id!, c.name);
+                                      setParticipantSearch({ ...participantSearch, proxy: '' });
+                                    }}
+                                    className="w-full text-left text-xs p-2 hover:bg-black/5 rounded-lg transition-colors flex items-center justify-between group text-black/60"
+                                  >
+                                    <span>{c.name}</span>
+                                    <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100" />
+                                  </button>
+                                ))}
+                            </div>
+                          )}
                         </div>
-                        {participantSearch.proxy && (
-                          <div className="absolute z-10 mt-1 w-full bg-white rounded-xl shadow-xl border border-black/10 max-h-48 overflow-y-auto p-2">
-                            {clients
-                              .filter(c => c.name.toLowerCase().includes(participantSearch.proxy.toLowerCase()))
-                              .map(c => (
-                                <button
-                                  key={c.id}
-                                  type="button"
-                                  onClick={() => {
-                                    addParticipant('proxy', c.id!, c.name);
-                                    setParticipantSearch({ ...participantSearch, proxy: '' });
-                                  }}
-                                  className="w-full text-left text-xs p-2 hover:bg-black/5 rounded-lg transition-colors flex items-center justify-between group text-black/60"
-                                >
-                                  <span>{c.name}</span>
-                                  <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100" />
-                                </button>
-                              ))}
-                          </div>
-                        )}
                         <div className="space-y-3">
                           {formData.participants.filter(p => p.type === 'proxy').map((p, idx) => (
                             <div key={idx} className="bg-emerald-50/50 p-3 rounded-2xl border border-emerald-100 space-y-2">
@@ -1958,27 +1953,27 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                             onChange={(e) => setParticipantSearch({ ...participantSearch, broker: e.target.value })}
                             className="w-full pl-10 pr-4 py-2 text-sm rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] outline-none focus:ring-2 focus:ring-black/5"
                           />
+                          {participantSearch.broker && (
+                            <div className="absolute top-full left-0 z-10 mt-1 w-full bg-white rounded-xl shadow-xl border border-black/10 max-h-48 overflow-y-auto p-2">
+                              {brokers
+                                .filter(b => b.name.toLowerCase().includes(participantSearch.broker.toLowerCase()))
+                                .map(b => (
+                                  <button
+                                    key={b.id}
+                                    type="button"
+                                    onClick={() => {
+                                      addParticipant('broker', b.id!, b.name);
+                                      setParticipantSearch({ ...participantSearch, broker: '' });
+                                    }}
+                                    className="w-full text-left text-xs p-2 hover:bg-black/5 rounded-lg transition-colors flex items-center justify-between group text-black/60"
+                                  >
+                                    {b.name}
+                                    <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100" />
+                                  </button>
+                                ))}
+                            </div>
+                          )}
                         </div>
-                        {participantSearch.broker && (
-                          <div className="absolute z-10 mt-1 w-full bg-white rounded-xl shadow-xl border border-black/10 max-h-48 overflow-y-auto p-2">
-                            {brokers
-                              .filter(b => b.name.toLowerCase().includes(participantSearch.broker.toLowerCase()))
-                              .map(b => (
-                                <button
-                                  key={b.id}
-                                  type="button"
-                                  onClick={() => {
-                                    addParticipant('broker', b.id!, b.name);
-                                    setParticipantSearch({ ...participantSearch, broker: '' });
-                                  }}
-                                  className="w-full text-left text-xs p-2 hover:bg-black/5 rounded-lg transition-colors flex items-center justify-between group text-black/60"
-                                >
-                                  {b.name}
-                                  <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100" />
-                                </button>
-                              ))}
-                          </div>
-                        )}
                         <div className="flex flex-wrap gap-2">
                           {formData.participants.filter(p => p.type === 'broker').map((p, idx) => (
                             <div key={idx} className="flex items-center gap-2 bg-amber-50 px-3 py-1 rounded-full text-xs text-amber-600 border border-amber-100">
@@ -1990,7 +1985,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                       </div>
 
                       {/* Imobiliárias */}
-                      <div className="space-y-2 relative">
+                      <div className="space-y-2">
                         <label className="block text-sm font-medium text-black/60">Imobiliárias</label>
                         <div className="relative">
                           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black/40" />
@@ -2001,31 +1996,31 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                             onChange={(e) => setParticipantSearch({ ...participantSearch, agency: e.target.value })}
                             className="w-full pl-10 pr-4 py-2 text-sm rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] outline-none focus:ring-2 focus:ring-black/5"
                           />
+                          {participantSearch.agency && (
+                            <div className="absolute top-full left-0 z-10 mt-1 w-full bg-white rounded-xl shadow-xl border border-black/10 max-h-48 overflow-y-auto p-2">
+                              {agencies.filter(a => a.name.toLowerCase().includes(participantSearch.agency.toLowerCase())).length > 0 ? (
+                                agencies
+                                  .filter(a => a.name.toLowerCase().includes(participantSearch.agency.toLowerCase()))
+                                  .map(a => (
+                                    <button
+                                      key={a.id}
+                                      type="button"
+                                      onClick={() => {
+                                        addParticipant('agency', a.id!, a.name);
+                                        setParticipantSearch({ ...participantSearch, agency: '' });
+                                      }}
+                                      className="w-full text-left text-xs p-2 hover:bg-black/5 rounded-lg transition-colors flex items-center justify-between group text-black/60"
+                                    >
+                                      {a.name}
+                                      <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100" />
+                                    </button>
+                                  ))
+                              ) : (
+                                <div className="p-2 text-xs text-black/40 text-center">Nenhuma imobiliária encontrada</div>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        {participantSearch.agency && (
-                          <div className="absolute z-10 mt-1 w-full bg-white rounded-xl shadow-xl border border-black/10 max-h-48 overflow-y-auto p-2">
-                            {agencies.filter(a => a.name.toLowerCase().includes(participantSearch.agency.toLowerCase())).length > 0 ? (
-                              agencies
-                                .filter(a => a.name.toLowerCase().includes(participantSearch.agency.toLowerCase()))
-                                .map(a => (
-                                  <button
-                                    key={a.id}
-                                    type="button"
-                                    onClick={() => {
-                                      addParticipant('agency', a.id!, a.name);
-                                      setParticipantSearch({ ...participantSearch, agency: '' });
-                                    }}
-                                    className="w-full text-left text-xs p-2 hover:bg-black/5 rounded-lg transition-colors flex items-center justify-between group text-black/60"
-                                  >
-                                    {a.name}
-                                    <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100" />
-                                  </button>
-                                ))
-                            ) : (
-                              <div className="p-2 text-xs text-black/40 text-center">Nenhuma imobiliária encontrada</div>
-                            )}
-                          </div>
-                        )}
                         <div className="flex flex-wrap gap-2">
                           {formData.participants.filter(p => p.type === 'agency').map((p, idx) => (
                             <div key={idx} className="flex items-center gap-2 bg-black/5 px-3 py-1 rounded-full text-xs text-black border border-black/10">

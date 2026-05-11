@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { Bank } from '../types';
-import { Plus, Trash2, Edit2, X, Building2 } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Building2, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
 import { useAuth } from '../context/AuthContext';
@@ -151,6 +151,18 @@ export default function BankManager() {
                   ))}
                 </div>
               </div>
+
+              {bank.simulatorUrl && (
+                <a
+                  href={bank.simulatorUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2.5 bg-[#f5f5f0] text-black/60 hover:bg-black hover:text-white rounded-xl transition-all shadow-sm border border-black/5 flex items-center justify-center shrink-0 group/sim"
+                  title="Simulador do Banco"
+                >
+                  <ExternalLink className="w-4 h-4 group-hover/sim:scale-110 transition-transform" />
+                </a>
+              )}
 
               {isAdmin && (
                 <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

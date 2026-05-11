@@ -134,16 +134,18 @@ export const ReportsManager: React.FC<ReportsManagerProps> = ({
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
   };
 
-  const stages = ['Aprovado', 'Vistoria', 'Análise', 'Contrato', 'ITBI', 'Registro', 'Finalizado'];
+  const stages = ['Aprovado', 'Vistoria', 'Documentos', 'Conformidade', 'Recursos', 'Contrato', 'ITBI', 'Registro', 'Finalizado'];
   
   const stageConfig: Record<string, { color: string }> = {
-    'Aprovado': { color: '#dcfce7' },
-    'Vistoria': { color: '#bbf7d0' },
-    'Análise': { color: '#86efac' },
-    'Contrato': { color: '#4ade80' },
-    'ITBI': { color: '#22c55e' },
-    'Registro': { color: '#16a34a' },
-    'Finalizado': { color: '#15803d' },
+    'Aprovado': { color: '#f0fdf4' },
+    'Vistoria': { color: '#dcfce7' },
+    'Documentos': { color: '#fef3c7' },
+    'Conformidade': { color: '#bbf7d0' },
+    'Recursos': { color: '#fde68a' },
+    'Contrato': { color: '#86efac' },
+    'ITBI': { color: '#4ade80' },
+    'Registro': { color: '#22c55e' },
+    'Finalizado': { color: '#16a34a' },
   };
 
   const getStageStats = (stage: string) => {
@@ -470,9 +472,11 @@ export const ReportsManager: React.FC<ReportsManagerProps> = ({
                     {stages.map((stage, idx) => {
                       const { count, totalFinancing } = getStageStats(stage);
                       const colors = [
+                        "bg-green-50 text-green-700",
                         "bg-green-100 text-green-800",
+                        "bg-amber-100 text-amber-800",
                         "bg-green-200 text-green-900",
-                        "bg-green-300 text-green-900",
+                        "bg-amber-400 text-white",
                         "bg-green-400 text-white",
                         "bg-green-500 text-white",
                         "bg-green-600 text-white",
