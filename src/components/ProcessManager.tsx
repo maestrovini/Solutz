@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { Process, Client, Bank, Agency, Broker, Participant, Notification, Property } from '../types';
 import { resolveParticipantName } from '../utils/participantUtils';
-import { Plus, Search, Trash2, Edit2, X, FileText, Clock, DollarSign, Building2, User, Users, CheckCircle2, Ban, Pause, AlertCircle, Save, Phone, Mail, MapPin, Calendar, Briefcase, Filter, Bell } from 'lucide-react';
+import { Plus, Search, Trash2, Edit2, X, FileText, Clock, DollarSign, Building2, User, Users, CheckCircle2, Ban, Pause, AlertCircle, Save, Phone, Mail, MapPin, Calendar, Briefcase, Filter, Bell, ArrowUpDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
 import { useAuth } from '../context/AuthContext';
@@ -40,6 +40,8 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isSortOpen, setIsSortOpen] = useState(false);
+  const [sortOrder, setSortOrder] = useState('updated-desc');
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const [editingNotificationId, setEditingNotificationId] = useState<string | null>(null);
   const [notificationData, setNotificationData] = useState({
@@ -189,6 +191,18 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
             <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-white border-2 border-black rounded-full" />
           )}
         </button>
+        <button
+          onClick={() => setIsSortOpen(prev => !prev)}
+          className={cn(
+            "p-2 rounded-lg transition-all border shadow-sm",
+            isSortOpen
+              ? "bg-white text-black border-white" 
+              : "bg-white/10 text-white border-white/10 hover:bg-white/20"
+          )}
+          title="Ordernar"
+        >
+          <ArrowUpDown className="w-5 h-5" />
+        </button>
         {isAdmin && (
           <button
             onClick={() => {
@@ -218,7 +232,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
         )}
       </div>
     );
-  }, [isSearchOpen, searchTerm, isFilterOpen, filters, isAdmin]);
+  }, [isSearchOpen, searchTerm, isFilterOpen, filters, isSortOpen, sortOrder, isAdmin]);
 
   useEffect(() => {
     const unsubProcesses = api.subscribeToCollection('processes', (data) => {
@@ -463,6 +477,13 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     return days === 0 ? 1 : days; // Show at least 1 day if it's in the stage
   };
 
+  const getFinishedDate = (process: Process) => {
+    const finishedEntry = process.stageHistory?.find(h => h.stage === 'Finalizado');
+    const dateStr = finishedEntry?.date || process.updatedAt || new Date().toISOString();
+    const date = new Date(dateStr);
+    return `${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+  };
+
   const handleEntityEdit = (type: 'client' | 'broker' | 'agency', entity: any) => {
     setEntityFormData({ ...entity });
     setIsEditingEntity(true);
@@ -514,7 +535,12 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
 
     const bankMatch = !filters.bankId || process.bankId === filters.bankId;
     const typeMatch = !filters.type || process.type === filters.type;
-    const stageMatch = !filters.stage || process.stage === filters.stage;
+    
+    // Logic: 'Finalizado' processes only appear if explicitly selected in the filter
+    const stageMatch = filters.stage 
+      ? process.stage === filters.stage 
+      : process.stage !== 'Finalizado';
+
     const brokerMatch = !filters.brokerId || process.brokerId === filters.brokerId || brokersList.some(p => p.id === filters.brokerId);
     
     const agencyMatch = !filters.agencyId || agenciesList.some(p => p.id === filters.agencyId) || (() => {
@@ -525,6 +551,27 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     const financingTypeMatch = !filters.financingType || process.financingType === filters.financingType;
 
     return searchMatch && bankMatch && typeMatch && stageMatch && brokerMatch && agencyMatch && financingTypeMatch;
+  });
+
+  const sortedProcesses = [...filteredProcesses].sort((a, b) => {
+    switch (sortOrder) {
+      case 'value-desc':
+        return (b.purchaseValue || 0) - (a.purchaseValue || 0);
+      case 'value-asc':
+        return (a.purchaseValue || 0) - (b.purchaseValue || 0);
+      case 'buyer-asc': {
+        const buyerA = a.participants?.find(p => p.type === 'buyer');
+        const buyerB = b.participants?.find(p => p.type === 'buyer');
+        const nameA = buyerA ? resolveParticipantName(buyerA, clients, brokers, agencies) : '';
+        const nameB = buyerB ? resolveParticipantName(buyerB, clients, brokers, agencies) : '';
+        return nameA.localeCompare(nameB);
+      }
+      case 'stage-asc': {
+        return allStages.indexOf(a.stage) - allStages.indexOf(b.stage);
+      }
+      default: // updated-desc
+        return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime();
+    }
   });
 
   return (
@@ -686,8 +733,77 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {isSortOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="bg-white p-4 rounded-[24px] border border-black/5 shadow-sm flex flex-wrap gap-2">
+              <button
+                onClick={() => setSortOrder('value-desc')}
+                className={cn(
+                  "px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border",
+                  sortOrder === 'value-desc'
+                    ? "bg-black text-white border-black"
+                    : "bg-[#f5f5f0] text-black/40 border-transparent hover:bg-black/5"
+                )}
+              >
+                Valor: Maior → Menor
+              </button>
+              <button
+                onClick={() => setSortOrder('value-asc')}
+                className={cn(
+                  "px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border",
+                  sortOrder === 'value-asc'
+                    ? "bg-black text-white border-black"
+                    : "bg-[#f5f5f0] text-black/40 border-transparent hover:bg-black/5"
+                )}
+              >
+                Valor: Menor → Maior
+              </button>
+              <button
+                onClick={() => setSortOrder('buyer-asc')}
+                className={cn(
+                  "px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border",
+                  sortOrder === 'buyer-asc'
+                    ? "bg-black text-white border-black"
+                    : "bg-[#f5f5f0] text-black/40 border-transparent hover:bg-black/5"
+                )}
+              >
+                Comprador: A-Z
+              </button>
+              <button
+                onClick={() => setSortOrder('stage-asc')}
+                className={cn(
+                  "px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border",
+                  sortOrder === 'stage-asc'
+                    ? "bg-black text-white border-black"
+                    : "bg-[#f5f5f0] text-black/40 border-transparent hover:bg-black/5"
+                )}
+              >
+                Etapa do Processo
+              </button>
+              <button
+                onClick={() => setSortOrder('updated-desc')}
+                className={cn(
+                  "px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border",
+                  sortOrder === 'updated-desc'
+                    ? "bg-black text-white border-black"
+                    : "bg-[#f5f5f0] text-black/40 border-transparent hover:bg-black/5"
+                )}
+              >
+                Mais Recentes
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="grid grid-cols-1 gap-3">
-        {filteredProcesses.map((process) => {
+        {sortedProcesses.map((process) => {
           const buyers = process.participants?.filter(p => p.type === 'buyer') || [];
           const sellers = process.participants?.filter(p => p.type === 'seller') || [];
           const brokersList = process.participants?.filter(p => p.type === 'broker') || [];
@@ -748,19 +864,33 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                   </div>
                   
                   <div className="flex items-center gap-2">
-                    {/* Days in stage counter */}
+                    {/* Days in stage counter or Finish date */}
                     <div className="flex items-center gap-1">
-                      <div 
-                        className="h-8 px-2 flex items-center gap-1.5 rounded-lg border transition-colors" 
-                        title="Dias na etapa atual"
-                        style={{ 
-                          backgroundColor: hexToRgba(bankColor, 0.05),
-                          borderColor: hexToRgba(bankColor, 0.1)
-                        }}
-                      >
-                        <Clock className="w-3.5 h-3.5" style={{ color: bankColor }} />
-                        <span className="text-[10px] font-bold" style={{ color: bankColor }}>{getDaysInCurrentStage(process)}d</span>
-                      </div>
+                      {process.stage === 'Finalizado' ? (
+                        <div 
+                          className="h-8 px-2 flex items-center gap-1.5 rounded-lg border transition-colors" 
+                          title="Data de Finalização"
+                          style={{ 
+                            backgroundColor: hexToRgba(bankColor, 0.05),
+                            borderColor: hexToRgba(bankColor, 0.1)
+                          }}
+                        >
+                          <Calendar className="w-3.5 h-3.5" style={{ color: bankColor }} />
+                          <span className="text-[10px] font-bold" style={{ color: bankColor }}>{getFinishedDate(process)}</span>
+                        </div>
+                      ) : (
+                        <div 
+                          className="h-8 px-2 flex items-center gap-1.5 rounded-lg border transition-colors" 
+                          title="Dias na etapa atual"
+                          style={{ 
+                            backgroundColor: hexToRgba(bankColor, 0.05),
+                            borderColor: hexToRgba(bankColor, 0.1)
+                          }}
+                        >
+                          <Clock className="w-3.5 h-3.5" style={{ color: bankColor }} />
+                          <span className="text-[10px] font-bold" style={{ color: bankColor }}>{getDaysInCurrentStage(process)}d</span>
+                        </div>
+                      )}
                       {process.notifications?.some(n => {
                         const now = new Date();
                         const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
