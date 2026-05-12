@@ -44,6 +44,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
   const [sortOrder, setSortOrder] = useState('updated-desc');
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const [editingNotificationId, setEditingNotificationId] = useState<string | null>(null);
+  const [editingHistoryDate, setEditingHistoryDate] = useState<{ type: 'stage' | 'notification', index?: number, id?: string, date: string, label: string } | null>(null);
   const [notificationData, setNotificationData] = useState({
     date: '',
     reason: ''
@@ -266,6 +267,40 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
       unsubProperties();
     };
   }, []);
+
+  const handleUpdateHistoryDate = async () => {
+    if (!selectedProcessForDetail || !editingHistoryDate) return;
+
+    const updatedProcess = { ...selectedProcessForDetail };
+    
+    if (editingHistoryDate.type === 'stage' && editingHistoryDate.index !== undefined) {
+      const history = [...(updatedProcess.stageHistory || [])];
+      // Keep the time if it's a stage (ISO string)
+      const oldDate = new Date(history[editingHistoryDate.index].date);
+      const newDateParts = editingHistoryDate.date.split('-'); // YYYY-MM-DD
+      const updatedDate = new Date(oldDate);
+      updatedDate.setFullYear(parseInt(newDateParts[0]));
+      updatedDate.setMonth(parseInt(newDateParts[1]) - 1);
+      updatedDate.setDate(parseInt(newDateParts[2]));
+      
+      history[editingHistoryDate.index] = { ...history[editingHistoryDate.index], date: updatedDate.toISOString() };
+      updatedProcess.stageHistory = history;
+    } else if (editingHistoryDate.type === 'notification' && editingHistoryDate.id) {
+      updatedProcess.notifications = (updatedProcess.notifications || []).map(n => 
+        n.id === editingHistoryDate.id ? { ...n, date: editingHistoryDate.date } : n
+      );
+    }
+
+    updatedProcess.updatedAt = new Date().toISOString();
+
+    try {
+      await api.update('processes', updatedProcess.id!, updatedProcess);
+      setSelectedProcessForDetail(updatedProcess);
+      setEditingHistoryDate(null);
+    } catch (error) {
+      console.error("Erro ao atualizar data do histórico:", error);
+    }
+  };
 
   const handleCreateNotification = async () => {
     if (!selectedProcessForDetail || !notificationData.date || !notificationData.reason) return;
@@ -1360,8 +1395,30 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                                       })()
                                     }}
                                   />
-                                  <div className="flex-1 pt-0.5">
-                                    <p className="text-sm font-bold text-[#1a1a1a]">{(item as any).stage}</p>
+                                  <div 
+                                    className={cn(
+                                      "flex-1 pt-0.5 group/stage",
+                                      isAdmin && "cursor-pointer"
+                                    )}
+                                    onClick={() => {
+                                      if (!isAdmin) return;
+                                      const stageItem = item as any;
+                                      // Find the real index in stageHistory
+                                      const realIndex = (selectedProcessForDetail.stageHistory || []).findIndex(h => h.stage === stageItem.stage && h.date === stageItem.date);
+                                      if (realIndex !== -1) {
+                                        setEditingHistoryDate({
+                                          type: 'stage',
+                                          index: realIndex,
+                                          date: stageItem.date.split('T')[0],
+                                          label: stageItem.stage
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <p className="text-sm font-bold text-[#1a1a1a]">{ (item as any).stage }</p>
+                                      {isAdmin && <Edit2 className="w-3 h-3 text-black/10 opacity-0 group-hover/stage:opacity-100 transition-opacity" />}
+                                    </div>
                                     <p className="text-[10px] font-medium text-black/40 uppercase tracking-wider">
                                       {new Date(item.date).toLocaleDateString('pt-BR', {
                                         day: '2-digit',
@@ -1378,27 +1435,32 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                                   <div className="w-6 h-6 rounded-full bg-amber-500 border-4 border-white shadow-sm shrink-0 z-10 flex items-center justify-center">
                                     <Bell className="w-3 h-3 text-white" />
                                   </div>
-                                              <div className="flex items-center justify-between group/notif">
-                <div 
-                  className="flex-1 cursor-pointer"
-                  onClick={() => {
-                    if (!isAdmin) return;
-                    const notif = item as Notification;
-                    setEditingNotificationId(notif.id);
-                    setNotificationData({ date: notif.date, reason: notif.reason });
-                    setIsNotificationModalOpen(true);
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-bold text-amber-600">Notificação Agendada</p>
-                    <span className="text-[8px] font-bold uppercase px-1.5 py-0.5 bg-amber-100 text-amber-600 rounded-md">
-                      {(() => {
-                        const [y, m, d] = item.date.split('-');
-                        return `${d}/${m}/${y}`;
-                      })()}
-                    </span>
-                  </div>
-                  <p className="text-xs text-black/60 mt-1">{(item as any).reason}</p>
+                                              <div className="flex-1">
+                                    <div className="flex items-center justify-between group/notif">
+                                      <div 
+                                        className="flex-1 cursor-pointer group/date"
+                                        onClick={() => {
+                                          if (!isAdmin) return;
+                                          const notif = item as Notification;
+                                          setEditingHistoryDate({
+                                            type: 'notification',
+                                            id: notif.id,
+                                            date: notif.date,
+                                            label: notif.reason
+                                          });
+                                        }}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <p className="text-sm font-bold text-amber-600">Notificação Agendada</p>
+                                          <span className="text-[8px] font-bold uppercase px-1.5 py-0.5 bg-amber-100 text-amber-600 rounded-md flex items-center gap-1 group-hover/date:bg-amber-200 transition-colors">
+                                            {(() => {
+                                              const [y, m, d] = item.date.split('-');
+                                              return `${d}/${m}/${y}`;
+                                            })()}
+                                            {isAdmin && <Edit2 className="w-2 h-2" />}
+                                          </span>
+                                        </div>
+                                        <p className="text-xs text-black/60 mt-1">{(item as any).reason}</p>
                                         <p className="text-[8px] font-medium text-black/20 uppercase tracking-wider mt-1">
                                           Criada em: {(() => {
                                             const [datePart] = (item as any).createdAt.split('T');
@@ -1408,15 +1470,30 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                                         </p>
                                       </div>
                                       {isAdmin && (
-                                        <button
-                                          onClick={() => handleDeleteNotification(selectedProcessForDetail.id!, (item as any).id)}
-                                          className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover/notif:opacity-100 transition-all"
-                                          title="Excluir Notificação"
-                                        >
-                                          <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
+                                        <div className="flex items-center gap-1">
+                                          <button 
+                                            onClick={() => {
+                                              const notif = item as Notification;
+                                              setEditingNotificationId(notif.id);
+                                              setNotificationData({ date: notif.date, reason: notif.reason });
+                                              setIsNotificationModalOpen(true);
+                                            }}
+                                            className="p-1.5 text-black/20 hover:text-black/40 hover:bg-black/5 rounded-lg opacity-0 group-hover/notif:opacity-100 transition-all"
+                                            title="Editar Motivo"
+                                          >
+                                            <Edit2 className="w-3.5 h-3.5" />
+                                          </button>
+                                          <button
+                                            onClick={() => handleDeleteNotification(selectedProcessForDetail.id!, (item as any).id)}
+                                            className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover/notif:opacity-100 transition-all"
+                                            title="Excluir Notificação"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
                                       )}
                                     </div>
+                                  </div>
                                   </>
                                 )}
                               </div>
@@ -1425,6 +1502,57 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                       );
                     })()}
                   </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {editingHistoryDate && (
+          <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white w-full max-w-xs rounded-[32px] shadow-2xl overflow-hidden border border-black/10"
+            >
+              <div className="p-5 border-b border-black/5 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-black/40" />
+                  <h3 className="text-sm font-bold text-[#1a1a1a]">Alterar Data</h3>
+                </div>
+                <button 
+                  onClick={() => setEditingHistoryDate(null)} 
+                  className="p-1.5 hover:bg-black/5 rounded-full text-black/40"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-black/40 mb-2">{editingHistoryDate.label}</p>
+                  <input
+                    type="date"
+                    value={editingHistoryDate.date}
+                    onChange={(e) => setEditingHistoryDate({ ...editingHistoryDate, date: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] outline-none focus:ring-2 focus:ring-black/5"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setEditingHistoryDate(null)}
+                    className="flex-1 px-4 py-2 text-xs font-bold border border-black/10 rounded-xl text-black/60 hover:bg-black/5 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleUpdateHistoryDate}
+                    className="flex-1 px-4 py-2 text-xs font-bold bg-black text-white rounded-xl hover:bg-black/80 transition-all"
+                  >
+                    Salvar
+                  </button>
                 </div>
               </div>
             </motion.div>
