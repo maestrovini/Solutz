@@ -75,6 +75,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     purchaseValue: 0,
     financingValue: 0,
     financingType: 'SBPE' as Process['financingType'],
+    isAssistedPurchase: false,
     value: 0,
     agency: '',
     notes: '',
@@ -124,6 +125,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
         purchaseValue: 0,
         financingValue: 0,
         financingType: 'SBPE',
+        isAssistedPurchase: false,
         value: 0,
         agency: '',
         notes: '',
@@ -218,6 +220,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                 purchaseValue: 0,
                 financingValue: 0,
                 financingType: 'SBPE',
+                isAssistedPurchase: false,
                 value: 0,
                 agency: '',
                 notes: '',
@@ -419,6 +422,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
         purchaseValue: 0,
         financingValue: 0,
         financingType: 'SBPE',
+        isAssistedPurchase: false,
         value: 0,
         agency: '',
         notes: '' 
@@ -825,6 +829,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
               purchaseValue: process.purchaseValue || 0,
               financingValue: process.financingValue || 0,
               financingType: process.financingType || 'SBPE',
+              isAssistedPurchase: process.isAssistedPurchase || false,
               value: process.value,
               agency: process.agency || '',
               notes: process.notes || '',
@@ -955,7 +960,12 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
 
                   {isFinance && (
                     <div className="space-y-0.5">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-black/40">Financiamento</p>
+                      <div className="flex items-center gap-1">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-black/40">Financiamento</p>
+                        {process.financingType === 'MCMV' && process.isAssistedPurchase && (
+                          <span className="text-[8px] font-bold text-blue-600 bg-blue-50 px-1 rounded">Assistida</span>
+                        )}
+                      </div>
                       <p className="text-sm font-bold text-[#1a1a1a]">
                         R$ {(process.financingValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
@@ -1105,6 +1115,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                               purchaseValue: process.purchaseValue || 0,
                               financingValue: process.financingValue || 0,
                               financingType: process.financingType || 'SBPE',
+                              isAssistedPurchase: process.isAssistedPurchase || false,
                               value: process.value,
                               agency: process.agency || '',
                               notes: process.notes || '',
@@ -1287,6 +1298,12 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                       <div className="space-y-1">
                         <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Financiamento</p>
                         <p className="text-base font-bold text-[#1a1a1a]">{formatCurrency(selectedProcessForDetail.financingValue || 0)}</p>
+                      </div>
+                    )}
+                    {selectedProcessForDetail.financingType === 'MCMV' && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Compra Assistida</p>
+                        <p className="text-sm font-bold text-[#1a1a1a]">{selectedProcessForDetail.isAssistedPurchase ? 'Sim' : 'Não'}</p>
                       </div>
                     )}
                   </div>
@@ -2239,6 +2256,19 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                         <option value="SBPE">SBPE</option>
                         <option value="MCMV">MCMV</option>
                         <option value="Pró-Cotista">Pró-Cotista</option>
+                      </select>
+                    </div>
+                  )}
+                  {formData.type === 'Financiamento' && formData.financingType === 'MCMV' && (
+                    <div>
+                      <label className="block text-sm font-medium text-black/60 mb-1">Compra Assistida</label>
+                      <select
+                        value={formData.isAssistedPurchase ? 'sim' : 'nao'}
+                        onChange={(e) => setFormData({ ...formData, isAssistedPurchase: e.target.value === 'sim' })}
+                        className="w-full px-4 py-2 text-sm rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] focus:ring-2 focus:ring-black/5 outline-none"
+                      >
+                        <option value="nao">Não</option>
+                        <option value="sim">Sim</option>
                       </select>
                     </div>
                   )}
