@@ -79,8 +79,8 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
     }
 
     const unsubBanks = api.subscribeToCollection('banks', (data) => setBanks(data as Bank[]));
-    const unsubBrokers = api.subscribeToCollection('brokers', (data) => setBrokers(data as Broker[]));
-    const unsubAgencies = api.subscribeToCollection('agencies', (data) => setAgencies(data as Agency[]));
+    const unsubBrokers = api.subscribeToCollection('brokers', (data) => setBrokers((data as Broker[]).sort((a, b) => a.name.localeCompare(b.name))));
+    const unsubAgencies = api.subscribeToCollection('agencies', (data) => setAgencies((data as Agency[]).sort((a, b) => a.name.localeCompare(b.name))));
     const unsubProcesses = api.subscribeToCollection('processes', (data) => setProcesses(data as Process[]));
     const unsubClients = api.subscribeToCollection('clients', (data) => setAllClients(data as Client[]));
     
