@@ -8,6 +8,7 @@ import AgencyManager from './components/AgencyManager';
 import BrokerManager from './components/BrokerManager';
 import PropertyManager from './components/PropertyManager';
 import UserManager from './components/UserManager';
+import FinanceManager from './components/FinanceManager';
 import { ReportsManager } from './components/ReportsManager';
 import ClientModal from './components/ClientModal';
 import { HeaderProvider } from './context/HeaderContext';
@@ -126,6 +127,8 @@ export default function App() {
         );
       case 'banks':
         return <BankManager />;
+      case 'finance':
+        return <FinanceManager />;
       case 'reports':
         return (
           <ReportsManager 

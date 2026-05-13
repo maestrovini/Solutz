@@ -56,6 +56,7 @@ export default function Layout({ children, activeTab, setActiveTab }: LayoutProp
     { id: 'agencies', label: 'Imobiliárias', icon: Building2 },
     { id: 'properties', label: 'Imóveis', icon: Building2 },
     { id: 'banks', label: 'Bancos', icon: Landmark },
+    { id: 'finance', label: 'Financeiro', icon: BarChart3 },
     { id: 'reports', label: 'Relatórios', icon: BarChart3 },
     ...(isAdmin ? [{ id: 'users', label: 'Usuários', icon: Shield }] : []),
   ];

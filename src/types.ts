@@ -75,6 +75,11 @@ export interface Process {
   financingValue?: number;
   financingType?: 'SBPE' | 'MCMV' | 'Pró-Cotista';
   isAssistedPurchase?: boolean;
+  assistedPurchaseValue?: number;
+  hasDispatcher?: boolean;
+  dispatcherValue?: number;
+  isDispatcherPaid?: boolean;
+  dispatcherPaymentDate?: string;
   value: number;
   agency?: string;
   brokerId: string;

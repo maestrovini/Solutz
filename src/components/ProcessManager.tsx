@@ -44,7 +44,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
   const [sortOrder, setSortOrder] = useState('updated-desc');
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const [editingNotificationId, setEditingNotificationId] = useState<string | null>(null);
-  const [editingHistoryDate, setEditingHistoryDate] = useState<{ type: 'stage' | 'notification', index?: number, id?: string, date: string, label: string } | null>(null);
+  const [editingHistoryDate, setEditingHistoryDate] = useState<{ type: 'stage' | 'notification' | 'dispatcher', index?: number, id?: string, date: string, label: string } | null>(null);
   const [notificationData, setNotificationData] = useState({
     date: '',
     reason: ''
@@ -77,6 +77,11 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     financingValue: 0,
     financingType: 'SBPE' as Process['financingType'],
     isAssistedPurchase: false,
+    assistedPurchaseValue: 0,
+    hasDispatcher: false,
+    dispatcherValue: 0,
+    isDispatcherPaid: false,
+    dispatcherPaymentDate: new Date().toISOString().split('T')[0],
     value: 0,
     agency: '',
     notes: '',
@@ -102,7 +107,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     return Number(value.replace(/\D/g, '')) / 100;
   };
 
-  const handleCurrencyChange = (field: 'purchaseValue' | 'financingValue', value: string) => {
+  const handleCurrencyChange = (field: 'purchaseValue' | 'financingValue' | 'dispatcherValue' | 'assistedPurchaseValue', value: string) => {
     const numericValue = parseCurrency(value);
     setFormData({ ...formData, [field]: numericValue });
   };
@@ -127,6 +132,11 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
         financingValue: 0,
         financingType: 'SBPE',
         isAssistedPurchase: false,
+        assistedPurchaseValue: 0,
+        hasDispatcher: false,
+        dispatcherValue: 0,
+        isDispatcherPaid: false,
+        dispatcherPaymentDate: new Date().toISOString().split('T')[0],
         value: 0,
         agency: '',
         notes: '',
@@ -222,6 +232,11 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                 financingValue: 0,
                 financingType: 'SBPE',
                 isAssistedPurchase: false,
+                assistedPurchaseValue: 0,
+                hasDispatcher: false,
+                dispatcherValue: 0,
+                isDispatcherPaid: false,
+                dispatcherPaymentDate: new Date().toISOString().split('T')[0],
                 value: 0,
                 agency: '',
                 notes: '',
@@ -285,6 +300,8 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
       
       history[editingHistoryDate.index] = { ...history[editingHistoryDate.index], date: updatedDate.toISOString() };
       updatedProcess.stageHistory = history;
+    } else if (editingHistoryDate.type === 'dispatcher') {
+      updatedProcess.dispatcherPaymentDate = editingHistoryDate.date;
     } else if (editingHistoryDate.type === 'notification' && editingHistoryDate.id) {
       updatedProcess.notifications = (updatedProcess.notifications || []).map(n => 
         n.id === editingHistoryDate.id ? { ...n, date: editingHistoryDate.date } : n
@@ -458,6 +475,11 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
         financingValue: 0,
         financingType: 'SBPE',
         isAssistedPurchase: false,
+        assistedPurchaseValue: 0,
+        hasDispatcher: false,
+        dispatcherValue: 0,
+        isDispatcherPaid: false,
+        dispatcherPaymentDate: new Date().toISOString().split('T')[0],
         value: 0,
         agency: '',
         notes: '' 
@@ -865,6 +887,11 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
               financingValue: process.financingValue || 0,
               financingType: process.financingType || 'SBPE',
               isAssistedPurchase: process.isAssistedPurchase || false,
+              assistedPurchaseValue: process.assistedPurchaseValue || 0,
+              hasDispatcher: process.hasDispatcher || false,
+              dispatcherValue: process.dispatcherValue || 0,
+              isDispatcherPaid: process.isDispatcherPaid || false,
+              dispatcherPaymentDate: process.dispatcherPaymentDate || new Date().toISOString().split('T')[0],
               value: process.value,
               agency: process.agency || '',
               notes: process.notes || '',
@@ -1151,6 +1178,11 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                               financingValue: process.financingValue || 0,
                               financingType: process.financingType || 'SBPE',
                               isAssistedPurchase: process.isAssistedPurchase || false,
+                              assistedPurchaseValue: process.assistedPurchaseValue || 0,
+                              hasDispatcher: process.hasDispatcher || false,
+                              dispatcherValue: process.dispatcherValue || 0,
+                              isDispatcherPaid: process.isDispatcherPaid || false,
+                              dispatcherPaymentDate: process.dispatcherPaymentDate || new Date().toISOString().split('T')[0],
                               value: process.value,
                               agency: process.agency || '',
                               notes: process.notes || '',
@@ -1329,18 +1361,24 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                       <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Compra/Venda</p>
                       <p className="text-base font-bold text-[#1a1a1a]">{formatCurrency(selectedProcessForDetail.purchaseValue || 0)}</p>
                     </div>
-                    {(selectedProcessForDetail.type === 'Financiamento' || selectedProcessForDetail.type === 'Home Equity') && (
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Financiamento</p>
-                        <p className="text-base font-bold text-[#1a1a1a]">{formatCurrency(selectedProcessForDetail.financingValue || 0)}</p>
-                      </div>
-                    )}
-                    {selectedProcessForDetail.financingType === 'MCMV' && (
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Compra Assistida</p>
-                        <p className="text-sm font-bold text-[#1a1a1a]">{selectedProcessForDetail.isAssistedPurchase ? 'Sim' : 'Não'}</p>
-                      </div>
-                    )}
+                  {(selectedProcessForDetail.type === 'Financiamento' || selectedProcessForDetail.type === 'Home Equity') && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Financiamento</p>
+                      <p className="text-base font-bold text-[#1a1a1a]">{formatCurrency(selectedProcessForDetail.financingValue || 0)}</p>
+                    </div>
+                  )}
+                  {selectedProcessForDetail.financingType === 'MCMV' && selectedProcessForDetail.isAssistedPurchase && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Compra Assistida</p>
+                      <p className="text-sm font-bold text-[#1a1a1a]">{formatCurrency(selectedProcessForDetail.assistedPurchaseValue || 0)}</p>
+                    </div>
+                  )}
+                  {selectedProcessForDetail.hasDispatcher && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Despachante</p>
+                      <p className="text-sm font-bold text-[#1a1a1a]">{formatCurrency(selectedProcessForDetail.dispatcherValue || 0)}</p>
+                    </div>
+                  )}
                   </div>
                 </div>
 
@@ -1358,12 +1396,17 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                   </div>
                   <div className="space-y-4">
                     {(() => {
-                      const timeline = [
+                      const timelineData = [
                         ...(selectedProcessForDetail.stageHistory || []).map(h => ({ ...h, type: 'stage' as const })),
-                        ...(selectedProcessForDetail.notifications || []).map(n => ({ ...n, type: 'notification' as const }))
+                        ...(selectedProcessForDetail.notifications || []).map(n => ({ ...n, type: 'notification' as const })),
+                        ...(selectedProcessForDetail.isDispatcherPaid && selectedProcessForDetail.dispatcherPaymentDate ? [{
+                          stage: `Despachante - ${formatCurrency(selectedProcessForDetail.dispatcherValue || 0)}`,
+                          date: selectedProcessForDetail.dispatcherPaymentDate,
+                          type: 'dispatcher' as const
+                        }] : [])
                       ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-                      if (timeline.length === 0) {
+                      if (timelineData.length === 0) {
                         return (
                           <div className="text-center py-4 bg-[#f5f5f0] rounded-2xl border border-dashed border-black/10">
                             <p className="text-xs text-black/40">Nenhum histórico disponível.</p>
@@ -1373,12 +1416,12 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
 
                       return (
                         <div className="space-y-4">
-                          {timeline.map((item, i) => (
+                          {timelineData.map((item, i) => (
                             <div key={i} className="flex items-start gap-4 relative">
-                              {i !== timeline.length - 1 && (
+                              {i !== timelineData.length - 1 && (
                                 <div className="absolute left-[11px] top-6 bottom-[-16px] w-px bg-black/5" />
                               )}
-                              {item.type === 'stage' ? (
+                              {item.type === 'stage' || item.type === 'dispatcher' ? (
                                 <>
                                   <div 
                                     className={cn(
@@ -1386,6 +1429,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                                     )}
                                     style={{
                                       backgroundColor: (() => {
+                                        if (item.type === 'dispatcher') return '#10b981';
                                         const stageName = (item as any).stage;
                                         const idx = allStages.indexOf(stageName);
                                         const bank = banks.find(b => b.id === selectedProcessForDetail.bankId);
@@ -1402,6 +1446,14 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                                     )}
                                     onClick={() => {
                                       if (!isAdmin) return;
+                                      if (item.type === 'dispatcher') {
+                                        setEditingHistoryDate({
+                                          type: 'dispatcher',
+                                          date: item.date,
+                                          label: item.stage
+                                        });
+                                        return;
+                                      }
                                       const stageItem = item as any;
                                       // Find the real index in stageHistory
                                       const realIndex = (selectedProcessForDetail.stageHistory || []).findIndex(h => h.stage === stageItem.stage && h.date === stageItem.date);
@@ -1420,12 +1472,14 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                                       {isAdmin && <Edit2 className="w-3 h-3 text-black/10 opacity-0 group-hover/stage:opacity-100 transition-opacity" />}
                                     </div>
                                     <p className="text-[10px] font-medium text-black/40 uppercase tracking-wider">
-                                      {new Date(item.date).toLocaleDateString('pt-BR', {
+                                      {new Date(item.date + (item.type === 'dispatcher' ? 'T12:00:00' : '')).toLocaleDateString('pt-BR', {
                                         day: '2-digit',
                                         month: 'long',
                                         year: 'numeric',
-                                        hour: '2-digit',
-                                        minute: '2-digit'
+                                        ...(item.type !== 'dispatcher' && {
+                                          hour: '2-digit',
+                                          minute: '2-digit'
+                                        })
                                       })}
                                     </p>
                                   </div>
@@ -2388,16 +2442,40 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                     </div>
                   )}
                   {formData.type === 'Financiamento' && formData.financingType === 'MCMV' && (
-                    <div>
-                      <label className="block text-sm font-medium text-black/60 mb-1">Compra Assistida</label>
-                      <select
-                        value={formData.isAssistedPurchase ? 'sim' : 'nao'}
-                        onChange={(e) => setFormData({ ...formData, isAssistedPurchase: e.target.value === 'sim' })}
-                        className="w-full px-4 py-2 text-sm rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] focus:ring-2 focus:ring-black/5 outline-none"
-                      >
-                        <option value="nao">Não</option>
-                        <option value="sim">Sim</option>
-                      </select>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="flex items-center gap-2 mb-1 cursor-pointer group">
+                          <div className="relative flex items-center justify-center">
+                            <input
+                              type="checkbox"
+                              checked={formData.isAssistedPurchase}
+                              onChange={() => setFormData({ ...formData, isAssistedPurchase: !formData.isAssistedPurchase })}
+                              className="sr-only"
+                            />
+                            <div className={cn(
+                              "w-5 h-5 rounded-md border-2 transition-all flex items-center justify-center",
+                              formData.isAssistedPurchase 
+                                ? "bg-black border-black" 
+                                : "bg-[#f5f5f0] border-black/10 group-hover:border-black/20"
+                            )}>
+                              {formData.isAssistedPurchase && <Plus className="w-3.5 h-3.5 text-white" />}
+                            </div>
+                          </div>
+                          <span className="text-sm font-medium text-black/60">Compra Assistida</span>
+                        </label>
+                      </div>
+                      {formData.isAssistedPurchase && (
+                        <div>
+                          <label className="block text-sm font-medium text-black/60 mb-1">Valor Compra Assistida</label>
+                          <input
+                            required
+                            type="text"
+                            value={formatCurrency(formData.assistedPurchaseValue || 0)}
+                            onChange={(e) => handleCurrencyChange('assistedPurchaseValue', e.target.value)}
+                            className="w-full px-4 py-2 text-sm rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] focus:ring-2 focus:ring-black/5 outline-none"
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
                   <div>
@@ -2440,6 +2518,72 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                       onChange={(e) => setFormData({ ...formData, agency: e.target.value })}
                       className="w-full px-4 py-2 text-sm rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] focus:ring-2 focus:ring-black/5 outline-none"
                     />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-2 cursor-pointer group">
+                        <div className="relative flex items-center justify-center">
+                          <input
+                            type="checkbox"
+                            checked={formData.hasDispatcher}
+                            onChange={() => setFormData({ ...formData, hasDispatcher: !formData.hasDispatcher })}
+                            className="sr-only"
+                          />
+                          <div className={cn(
+                            "w-5 h-5 rounded-md border-2 transition-all flex items-center justify-center",
+                            formData.hasDispatcher 
+                              ? "bg-black border-black" 
+                              : "bg-[#f5f5f0] border-black/10 group-hover:border-black/20"
+                          )}>
+                            {formData.hasDispatcher && <Plus className="w-3.5 h-3.5 text-white" />}
+                          </div>
+                        </div>
+                        <span className="text-sm font-medium text-black/60">Despachante</span>
+                      </label>
+
+                      {formData.hasDispatcher && (
+                        <label className="flex items-center gap-2 cursor-pointer group">
+                          <div className="relative flex items-center justify-center">
+                            <input
+                              type="checkbox"
+                              checked={formData.isDispatcherPaid}
+                              onChange={() => {
+                                const isPaid = !formData.isDispatcherPaid;
+                                setFormData({ 
+                                  ...formData, 
+                                  isDispatcherPaid: isPaid,
+                                  dispatcherPaymentDate: isPaid ? new Date().toISOString().split('T')[0] : formData.dispatcherPaymentDate
+                                });
+                              }}
+                              className="sr-only"
+                            />
+                            <div className={cn(
+                              "w-5 h-5 rounded-md border-2 transition-all flex items-center justify-center",
+                              formData.isDispatcherPaid 
+                                ? "bg-emerald-500 border-emerald-500" 
+                                : "bg-[#f5f5f0] border-black/10 group-hover:border-black/20"
+                            )}>
+                              {formData.isDispatcherPaid && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                            </div>
+                          </div>
+                          <span className="text-sm font-medium text-black/60">Pago</span>
+                        </label>
+                      )}
+                    </div>
+                    {formData.hasDispatcher && (
+                      <div className="grid grid-cols-1 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-black/60 mb-1">Valor Despachante</label>
+                          <input
+                            required
+                            type="text"
+                            value={formatCurrency(formData.dispatcherValue || 0)}
+                            onChange={(e) => handleCurrencyChange('dispatcherValue', e.target.value)}
+                            className="w-full px-4 py-2 text-sm rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] focus:ring-2 focus:ring-black/5 outline-none"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-black/60 mb-1">Observações</label>
