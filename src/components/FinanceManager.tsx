@@ -47,7 +47,7 @@ export default function FinanceManager() {
   };
 
   const filteredProcesses = processes.filter(p => {
-    if (!p.hasDispatcher) return false;
+    if (!p.hasDispatcher || !p.isDispatcherPaid) return false;
     
     if (timeFilter === 'all') return true;
     

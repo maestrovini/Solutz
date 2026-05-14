@@ -1072,14 +1072,6 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                     );
                   })}
                 </div>
-
-                {/* Observations in Main Card */}
-                {process.notes && (
-                  <div className="pt-1.5 border-t border-black/5">
-                    <p className="text-[8px] font-bold uppercase tracking-wider text-black/40 mb-1">Observações</p>
-                    <p className="text-xs text-black/60 line-clamp-2 italic">{process.notes}</p>
-                  </div>
-                )}
               </div>
             </motion.div>
           );
