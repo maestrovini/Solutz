@@ -271,6 +271,17 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
       ? formData.birthDate.split('/').reverse().join('-')
       : formData.birthDate;
 
+    const capitalize = (str: string) => {
+      if (!str) return '';
+      return str.toLowerCase().split(' ').map(word => {
+        if (word.length === 0) return '';
+        return word.charAt(0).toUpperCase() + word.slice(1);
+      }).join(' ');
+    };
+
+    const formattedName = capitalize(formData.name);
+    const formattedEmail = formData.email ? formData.email.toLowerCase() : '';
+
     setLoading(true);
     try {
       const formattedApprovedBanks = formData.approvedBanks.map(bank => ({
@@ -282,6 +293,8 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
 
       const clientData = {
         ...formData,
+        name: formattedName,
+        email: formattedEmail,
         birthDate: formattedBirthDate,
         approvedBanks: formattedApprovedBanks,
         updatedAt: new Date().toISOString(),

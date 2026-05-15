@@ -142,9 +142,24 @@ export default function AgencyManager() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const capitalize = (str: string) => {
+      if (!str) return '';
+      return str.toLowerCase().split(' ').map(word => {
+        if (word.length === 0) return '';
+        return word.charAt(0).toUpperCase() + word.slice(1);
+      }).join(' ');
+    };
+
+    const formattedName = capitalize(formData.name);
+    const formattedEmail = formData.email ? formData.email.toLowerCase() : '';
+    const formattedAddress = capitalize(formData.address);
+
     const agencyData = {
       ...formData,
-      createdAt: new Date().toISOString(),
+      name: formattedName,
+      email: formattedEmail,
+      address: formattedAddress,
+      createdAt: editingAgency?.createdAt || new Date().toISOString(),
     };
 
     try {

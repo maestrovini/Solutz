@@ -130,8 +130,20 @@ export default function PropertyModal({ isOpen, onClose, onSuccess, property }: 
     e.preventDefault();
     setLoading(true);
 
+    const capitalize = (str: string) => {
+      if (!str) return '';
+      return str.toLowerCase().split(' ').map(word => {
+        if (word.length === 0) return '';
+        return word.charAt(0).toUpperCase() + word.slice(1);
+      }).join(' ');
+    };
+
     const propertyData = {
       ...formData,
+      address: capitalize(formData.address),
+      neighborhood: capitalize(formData.neighborhood),
+      city: capitalize(formData.city),
+      complement: capitalize(formData.complement),
       price: formData.price !== '' ? parseCurrencyInput(formData.price) : undefined,
       createdAt: property?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),

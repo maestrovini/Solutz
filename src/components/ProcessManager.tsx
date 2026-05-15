@@ -554,11 +554,28 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     e.preventDefault();
     if (!selectedEntityForDetail || !entityFormData) return;
 
+    const capitalize = (str: string) => {
+      if (!str) return '';
+      return str.toLowerCase().split(' ').map(word => {
+        if (word.length === 0) return '';
+        return word.charAt(0).toUpperCase() + word.slice(1);
+      }).join(' ');
+    };
+
     try {
       const collection = selectedEntityForDetail.type === 'client' ? 'clients' : 
                          selectedEntityForDetail.type === 'broker' ? 'brokers' : 'agencies';
       
-      await api.update(collection as any, selectedEntityForDetail.id, entityFormData);
+      const formattedData = { ...entityFormData };
+      
+      if (formattedData.name) formattedData.name = capitalize(formattedData.name);
+      if (formattedData.email) formattedData.email = formattedData.email.toLowerCase();
+      if (formattedData.address) formattedData.address = capitalize(formattedData.address);
+      if (formattedData.neighborhood) formattedData.neighborhood = capitalize(formattedData.neighborhood);
+      if (formattedData.city) formattedData.city = capitalize(formattedData.city);
+      if (formattedData.complement) formattedData.complement = capitalize(formattedData.complement);
+      
+      await api.update(collection as any, selectedEntityForDetail.id, formattedData);
       
       setIsEditingEntity(false);
     } catch (error) {
