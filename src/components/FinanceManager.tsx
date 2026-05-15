@@ -41,8 +41,17 @@ export default function FinanceManager() {
     }).format(value);
   };
 
-  const getClientName = (clientId: string) => {
-    const client = clients.find(c => c.id === clientId);
+  const getProcessClients = (p: Process) => {
+    const buyers = p.participants?.filter(part => part.type === 'buyer') || [];
+    
+    if (buyers.length > 0) {
+      return buyers.map(b => {
+        const client = clients.find(c => c.id === b.id);
+        return client ? client.name : b.name;
+      }).join(', ');
+    }
+
+    const client = clients.find(c => c.id === p.clientId);
     return client ? client.name : 'Cliente não encontrado';
   };
 
@@ -201,7 +210,7 @@ export default function FinanceManager() {
               {filteredProcesses.map((p) => (
                 <tr key={p.id} className="hover:bg-black/5 transition-colors group">
                   <td className="px-6 py-4">
-                    <span className="text-sm font-bold text-[#1a1a1a]">{getClientName(p.clientId)}</span>
+                    <span className="text-sm font-bold text-[#1a1a1a]">{getProcessClients(p)}</span>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex flex-col">
