@@ -43,6 +43,7 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
     pis: '',
     birthDate: '',
     income: 0,
+    incomeReferenceMonth: '',
     hasFGTS: false,
     maritalStatus: '' as 'Solteiro' | 'Casado' | 'Divorciado' | 'Viúvo' | 'União Estável' | '',
     brokerId: '',
@@ -68,6 +69,7 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
         pis: '',
         birthDate: '',
         income: 0,
+        incomeReferenceMonth: '',
         hasFGTS: false,
         maritalStatus: '',
         brokerId: '',
@@ -100,6 +102,7 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
             pis: client.pis || '',
             birthDate: client.birthDate || '',
             income: client.income || 0,
+            incomeReferenceMonth: client.incomeReferenceMonth || '',
             hasFGTS: !!client.hasFGTS,
             maritalStatus: client.maritalStatus || '',
             brokerId: client.brokerId || '',
@@ -168,6 +171,13 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
     if (digits.length <= 2) return digits;
     if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
     return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+  };
+
+  const formatMonthYear = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 6);
+    if (!digits) return '';
+    if (digits.length <= 2) return digits;
+    return `${digits.slice(0, 2)}/${digits.slice(2)}`;
   };
 
   const formatCurrencyInput = (value: string | number) => {
@@ -790,6 +800,19 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
                       className="w-full px-4 py-3 bg-black/5 text-[#1a1a1a] rounded-2xl border border-transparent focus:bg-white focus:border-black/10 outline-none transition-all font-medium"
                     />
                   </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-black/40 uppercase tracking-widest mb-1.5 ml-1">Mês de Referência</label>
+                    <div className="relative">
+                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20" />
+                      <input
+                        type="text"
+                        placeholder="MM/AAAA"
+                        value={formData.incomeReferenceMonth}
+                        onChange={(e) => setFormData({ ...formData, incomeReferenceMonth: formatMonthYear(e.target.value) })}
+                        className="w-full pl-11 pr-4 py-3 bg-black/5 text-[#1a1a1a] rounded-2xl border border-transparent focus:bg-white focus:border-black/10 outline-none transition-all font-medium"
+                      />
+                    </div>
+                  </div>
                   <div className="md:col-span-2">
                     <label className="flex items-center gap-3 p-4 bg-black/5 rounded-2xl border border-transparent hover:bg-black/10 transition-all cursor-pointer">
                       <input
@@ -988,9 +1011,16 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
                   </div>
                 )}
                 {formData.income !== undefined && formData.income > 0 && (
-                  <div className="flex items-center gap-3 text-sm text-[#1a1a1a] font-bold">
-                    <DollarSign className="w-4 h-4 shrink-0" />
-                    <span>Renda: {formatCurrency(formData.income)}</span>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-3 text-sm text-[#1a1a1a] font-bold">
+                      <DollarSign className="w-4 h-4 shrink-0" />
+                      <span>Renda: {formatCurrency(formData.income)}</span>
+                    </div>
+                    {formData.incomeReferenceMonth && (
+                      <div className="flex items-center gap-3 text-[10px] text-black/40 font-bold ml-7">
+                        <span>Ref: {formData.incomeReferenceMonth}</span>
+                      </div>
+                    )}
                   </div>
                 )}
                 {formData.maritalStatus && (

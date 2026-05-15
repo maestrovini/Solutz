@@ -173,10 +173,71 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     return () => window.removeEventListener('keydown', handleEsc);
   }, [onCloseDetail]);
 
+  const getClientName = (id: string) => clients.find(c => c.id === id)?.name || 'Cliente Desconhecido';
+  const getBankName = (id: string) => banks.find(b => b.id === id)?.name || 'N/A';
+  const getParticipantName = (p: Participant) => resolveParticipantName(p, clients, brokers, agencies);
+
+  const filteredProcesses = processes.filter(process => {
+    const buyers = process.participants?.filter(p => p.type === 'buyer') || [];
+    const sellers = process.participants?.filter(p => p.type === 'seller') || [];
+    const brokersList = process.participants?.filter(p => p.type === 'broker') || [];
+    const agenciesList = process.participants?.filter(p => p.type === 'agency') || [];
+    
+    const searchMatch = 
+      buyers.some(p => getParticipantName(p).toLowerCase().includes(searchTerm.toLowerCase())) ||
+      sellers.some(p => getParticipantName(p).toLowerCase().includes(searchTerm.toLowerCase())) ||
+      brokersList.some(p => getParticipantName(p).toLowerCase().includes(searchTerm.toLowerCase())) ||
+      agenciesList.some(p => getParticipantName(p).toLowerCase().includes(searchTerm.toLowerCase())) ||
+      process.notes?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const bankMatch = !filters.bankId || process.bankId === filters.bankId;
+    const typeMatch = !filters.type || process.type === filters.type;
+    
+    // Logic: 'Finalizado' processes only appear if explicitly selected in the filter
+    const stageMatch = filters.stage 
+      ? process.stage === filters.stage 
+      : process.stage !== 'Finalizado';
+
+    const brokerMatch = !filters.brokerId || process.brokerId === filters.brokerId || brokersList.some(p => p.id === filters.brokerId);
+    
+    const agencyMatch = !filters.agencyId || agenciesList.some(p => p.id === filters.agencyId) || (() => {
+      const broker = brokers.find(b => b.id === process.brokerId);
+      return broker?.agencyId === filters.agencyId;
+    })();
+
+    const financingTypeMatch = !filters.financingType || process.financingType === filters.financingType;
+
+    return searchMatch && bankMatch && typeMatch && stageMatch && brokerMatch && agencyMatch && financingTypeMatch;
+  });
+
+  const sortedProcesses = [...filteredProcesses].sort((a, b) => {
+    switch (sortOrder) {
+      case 'value-desc':
+        return (b.purchaseValue || 0) - (a.purchaseValue || 0);
+      case 'value-asc':
+        return (a.purchaseValue || 0) - (b.purchaseValue || 0);
+      case 'buyer-asc': {
+        const buyerA = a.participants?.find(p => p.type === 'buyer');
+        const buyerB = b.participants?.find(p => p.type === 'buyer');
+        const nameA = buyerA ? resolveParticipantName(buyerA, clients, brokers, agencies) : '';
+        const nameB = buyerB ? resolveParticipantName(buyerB, clients, brokers, agencies) : '';
+        return nameA.localeCompare(nameB);
+      }
+      case 'stage-asc': {
+        return allStages.indexOf(a.stage) - allStages.indexOf(b.stage);
+      }
+      default: // updated-desc
+        return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime();
+    }
+  });
+
   useEffect(() => {
     setTitle('Processos');
     setActions(
       <div className="flex items-center gap-2">
+        <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-white/10 text-white border border-white/10 font-black text-sm shadow-sm">
+          {sortedProcesses.length}
+        </div>
         <button
           onClick={() => setIsSearchOpen(prev => !prev)}
           className={cn(
@@ -251,7 +312,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
         )}
       </div>
     );
-  }, [isSearchOpen, searchTerm, isFilterOpen, filters, isSortOpen, sortOrder, isAdmin]);
+  }, [isSearchOpen, searchTerm, isFilterOpen, filters, isSortOpen, sortOrder, isAdmin, sortedProcesses.length]);
 
   useEffect(() => {
     const unsubProcesses = api.subscribeToCollection('processes', (data) => {
@@ -521,11 +582,6 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     'Finalizado': { color: '#c2410c', percent: 100 },
   };
 
-  const getClientName = (id: string) => clients.find(c => c.id === id)?.name || 'Cliente Desconhecido';
-  const getBankName = (id: string) => banks.find(b => b.id === id)?.name || 'N/A';
-
-  const getParticipantName = (p: Participant) => resolveParticipantName(p, clients, brokers, agencies);
-
   const getDaysInCurrentStage = (process: Process) => {
     const lastHistory = process.stageHistory && process.stageHistory.length > 0 
       ? process.stageHistory[process.stageHistory.length - 1]
@@ -597,60 +653,6 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
       participants: formData.participants.filter(p => !(p.id === id && p.type === type))
     });
   };
-
-  const filteredProcesses = processes.filter(process => {
-    const buyers = process.participants?.filter(p => p.type === 'buyer') || [];
-    const sellers = process.participants?.filter(p => p.type === 'seller') || [];
-    const brokersList = process.participants?.filter(p => p.type === 'broker') || [];
-    const agenciesList = process.participants?.filter(p => p.type === 'agency') || [];
-    
-    const searchMatch = 
-      buyers.some(p => getParticipantName(p).toLowerCase().includes(searchTerm.toLowerCase())) ||
-      sellers.some(p => getParticipantName(p).toLowerCase().includes(searchTerm.toLowerCase())) ||
-      brokersList.some(p => getParticipantName(p).toLowerCase().includes(searchTerm.toLowerCase())) ||
-      agenciesList.some(p => getParticipantName(p).toLowerCase().includes(searchTerm.toLowerCase())) ||
-      process.notes?.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const bankMatch = !filters.bankId || process.bankId === filters.bankId;
-    const typeMatch = !filters.type || process.type === filters.type;
-    
-    // Logic: 'Finalizado' processes only appear if explicitly selected in the filter
-    const stageMatch = filters.stage 
-      ? process.stage === filters.stage 
-      : process.stage !== 'Finalizado';
-
-    const brokerMatch = !filters.brokerId || process.brokerId === filters.brokerId || brokersList.some(p => p.id === filters.brokerId);
-    
-    const agencyMatch = !filters.agencyId || agenciesList.some(p => p.id === filters.agencyId) || (() => {
-      const broker = brokers.find(b => b.id === process.brokerId);
-      return broker?.agencyId === filters.agencyId;
-    })();
-
-    const financingTypeMatch = !filters.financingType || process.financingType === filters.financingType;
-
-    return searchMatch && bankMatch && typeMatch && stageMatch && brokerMatch && agencyMatch && financingTypeMatch;
-  });
-
-  const sortedProcesses = [...filteredProcesses].sort((a, b) => {
-    switch (sortOrder) {
-      case 'value-desc':
-        return (b.purchaseValue || 0) - (a.purchaseValue || 0);
-      case 'value-asc':
-        return (a.purchaseValue || 0) - (b.purchaseValue || 0);
-      case 'buyer-asc': {
-        const buyerA = a.participants?.find(p => p.type === 'buyer');
-        const buyerB = b.participants?.find(p => p.type === 'buyer');
-        const nameA = buyerA ? resolveParticipantName(buyerA, clients, brokers, agencies) : '';
-        const nameB = buyerB ? resolveParticipantName(buyerB, clients, brokers, agencies) : '';
-        return nameA.localeCompare(nameB);
-      }
-      case 'stage-asc': {
-        return allStages.indexOf(a.stage) - allStages.indexOf(b.stage);
-      }
-      default: // updated-desc
-        return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime();
-    }
-  });
 
   return (
     <div className="space-y-6">

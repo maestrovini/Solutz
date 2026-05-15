@@ -22,6 +22,7 @@ export interface Client {
   pis?: string;
   birthDate?: string;
   income?: number; // Renda Mensal
+  incomeReferenceMonth?: string; // Mês de Referência (mm/aaaa)
   hasFGTS?: boolean;
   maritalStatus?: 'Solteiro' | 'Casado' | 'Divorciado' | 'Viúvo' | 'União Estável';
   brokerId?: string;
