@@ -174,7 +174,7 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
             </div>
           </div>
           <div className="max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3">
               {allNotifications.map((n) => {
                 const now = new Date();
                 const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -323,7 +323,7 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
         </div>
 
         {birthdays.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 gap-3">
               {birthdays.map((b, i) => {
                 const day = parseInt(b.date.split('-')[2]);
                 const isToday = day === new Date().getDate();

@@ -412,7 +412,7 @@ export const ReportsManager: React.FC<ReportsManagerProps> = ({
               {activeView === 'agencies' && (
                 <div>
                   <h2 className="text-sm font-bold text-[#1a1a1a] mb-4">Destaques Imobiliárias</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4">
                     {[
                       { title: 'Top Imobiliária (Qtd)', data: topAgencyByCount, icon: Trophy, color: 'text-amber-500', bg: 'bg-amber-500/10' },
                       { title: 'Top Imobiliária (Vol)', data: topAgencyByVolume, icon: TrendingUp, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
@@ -440,7 +440,7 @@ export const ReportsManager: React.FC<ReportsManagerProps> = ({
               {activeView === 'brokers' && (
                 <div>
                   <h2 className="text-sm font-bold text-[#1a1a1a] mb-4">Destaques Corretores</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4">
                     {[
                       { title: 'Top Corretor (Qtd)', data: topBrokerByCount, icon: Award, color: 'text-blue-500', bg: 'bg-blue-500/10' },
                       { title: 'Top Corretor (Vol)', data: topBrokerByVolume, icon: BarChart3, color: 'text-purple-500', bg: 'bg-purple-500/10' },

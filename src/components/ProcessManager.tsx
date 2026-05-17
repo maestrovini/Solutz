@@ -1381,7 +1381,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                   {selectedProcessForDetail.financingType === 'MCMV' && selectedProcessForDetail.isAssistedPurchase && (
                     <div className="space-y-1">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Compra Assistida</p>
-                      <p className="text-sm font-bold text-[#1a1a1a]">{formatCurrency(selectedProcessForDetail.assistedPurchaseValue || 0)}</p>
+                      <p className="text-sm font-bold text-blue-600">Marcado como compra assistida</p>
                     </div>
                   )}
                   {selectedProcessForDetail.hasDispatcher && (
@@ -2453,8 +2453,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                     </div>
                   )}
                   {formData.type === 'Financiamento' && formData.financingType === 'MCMV' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
+                    <div className="pb-2">
                         <label className="flex items-center gap-2 mb-1 cursor-pointer group">
                           <div className="relative flex items-center justify-center">
                             <input
@@ -2474,19 +2473,6 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                           </div>
                           <span className="text-sm font-medium text-black/60">Compra Assistida</span>
                         </label>
-                      </div>
-                      {formData.isAssistedPurchase && (
-                        <div>
-                          <label className="block text-sm font-medium text-black/60 mb-1">Valor Compra Assistida</label>
-                          <input
-                            required
-                            type="text"
-                            value={formatCurrency(formData.assistedPurchaseValue || 0)}
-                            onChange={(e) => handleCurrencyChange('assistedPurchaseValue', e.target.value)}
-                            className="w-full px-4 py-2 text-sm rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] focus:ring-2 focus:ring-black/5 outline-none"
-                          />
-                        </div>
-                      )}
                     </div>
                   )}
                   <div>

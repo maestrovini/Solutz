@@ -178,7 +178,7 @@ export default function PropertyManager({ onOpenProcess }: PropertyManagerProps)
         )}
       </AnimatePresence>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 gap-2">
         <AnimatePresence mode="popLayout">
           {filteredProperties.map((property) => {
             const isExpanded = expandedPropertyId === property.id;
