@@ -35,6 +35,14 @@ export const api = {
       handleFirestoreError(error, OperationType.LIST, 'all');
     }
   },
+  async list(collectionName: string) {
+    try {
+      const querySnapshot = await getDocs(collection(db, collectionName));
+      return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, collectionName);
+    }
+  },
   async getById(collectionName: string, id: string) {
     try {
       const docRef = doc(db, collectionName, id);
@@ -57,6 +65,17 @@ export const api = {
       return newItem;
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, collectionName);
+    }
+  },
+  async set(collectionName: string, id: string, data: any) {
+    try {
+      const cleanedData = cleanData(data);
+      const docRef = doc(db, collectionName, id);
+      const newItem = { ...cleanedData, id };
+      await setDoc(docRef, newItem);
+      return newItem;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, `${collectionName}/${id}`);
     }
   },
   async update(collectionName: string, id: string, data: any) {

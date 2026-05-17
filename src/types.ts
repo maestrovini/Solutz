@@ -1,6 +1,9 @@
 export interface UserProfile {
+  id?: string;
   uid: string;
-  email: string;
+  username: string;
+  password?: string;
+  email?: string;
   displayName: string;
   role: 'admin' | 'user';
   agencyId?: string;

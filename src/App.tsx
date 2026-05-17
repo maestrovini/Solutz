@@ -16,7 +16,11 @@ import { AuthProvider } from './context/AuthContext';
 import { api } from './api';
 import { Process, Client, Bank, Agency, Broker, Property } from './types';
 
-export default function App() {
+import { useAuth } from './context/AuthContext';
+import Login from './components/Login';
+
+function AppContent() {
+  const { user, loading, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedProcessId, setSelectedProcessId] = useState<string | null>(null);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
@@ -33,6 +37,8 @@ export default function App() {
   const [properties, setProperties] = useState<Property[]>([]);
 
   useEffect(() => {
+    if (!user) return;
+
     const unsubProcesses = api.subscribeToCollection('processes', (data) => setProcesses(data as Process[]));
     const unsubClients = api.subscribeToCollection('clients', (data) => setClients(data as Client[]));
     const unsubBanks = api.subscribeToCollection('banks', (data) => setBanks(data as Bank[]));
@@ -48,7 +54,19 @@ export default function App() {
       unsubBrokers();
       unsubProperties();
     };
-  }, []);
+  }, [user]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#f5f5f0] flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-black/10 border-t-black rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login />;
+  }
 
   const handleOpenClient = (id: string) => {
     setSelectedClientId(id);
@@ -110,7 +128,7 @@ export default function App() {
           />
         );
       case 'users':
-        return <UserManager />;
+        return isAdmin ? <UserManager /> : <Dashboard />;
       case 'processes':
         return (
           <ProcessManager 
@@ -128,9 +146,9 @@ export default function App() {
       case 'banks':
         return <BankManager />;
       case 'finance':
-        return <FinanceManager />;
+        return isAdmin ? <FinanceManager /> : <Dashboard />;
       case 'reports':
-        return (
+        return isAdmin ? (
           <ReportsManager 
             processes={processes}
             clients={clients}
@@ -138,30 +156,36 @@ export default function App() {
             brokers={brokers}
             agencies={agencies}
           />
-        );
+        ) : <Dashboard />;
       default:
         return <Dashboard />;
     }
   };
 
   return (
+    <HeaderProvider>
+      <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
+        {renderContent()}
+      </Layout>
+      <ClientModal 
+        isOpen={isClientModalOpen}
+        clientId={selectedClientId}
+        initialIsEditing={isClientModalEdit}
+        onCreateProcessForClient={handleCreateProcessForClient}
+        onClose={() => {
+          setIsClientModalOpen(false);
+          setSelectedClientId(null);
+          setIsClientModalEdit(false);
+        }}
+      />
+    </HeaderProvider>
+  );
+}
+
+export default function App() {
+  return (
     <AuthProvider>
-      <HeaderProvider>
-        <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
-          {renderContent()}
-        </Layout>
-        <ClientModal 
-          isOpen={isClientModalOpen}
-          clientId={selectedClientId}
-          initialIsEditing={isClientModalEdit}
-          onCreateProcessForClient={handleCreateProcessForClient}
-          onClose={() => {
-            setIsClientModalOpen(false);
-            setSelectedClientId(null);
-            setIsClientModalEdit(false);
-          }}
-        />
-      </HeaderProvider>
+      <AppContent />
     </AuthProvider>
   );
 }

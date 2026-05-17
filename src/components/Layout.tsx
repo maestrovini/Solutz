@@ -14,24 +14,12 @@ interface LayoutProps {
 }
 
 export default function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
-  const { user, loading, isAdmin } = useAuth();
+  const { user, loading, isAdmin, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { title, actions } = useHeader();
 
-  const handleLogin = async () => {
-    try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (error) {
-      console.error("Erro ao fazer login:", error);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await auth.signOut();
-    } catch (error) {
-      console.error("Erro ao fazer logout:", error);
-    }
+  const handleLogout = () => {
+    logout();
   };
 
   if (loading) {
@@ -56,9 +44,11 @@ export default function Layout({ children, activeTab, setActiveTab }: LayoutProp
     { id: 'agencies', label: 'Imobiliárias', icon: Building2 },
     { id: 'properties', label: 'Imóveis', icon: Building2 },
     { id: 'banks', label: 'Bancos', icon: Landmark },
-    { id: 'finance', label: 'Financeiro', icon: BarChart3 },
-    { id: 'reports', label: 'Relatórios', icon: BarChart3 },
-    ...(isAdmin ? [{ id: 'users', label: 'Usuários', icon: Shield }] : []),
+    ...(isAdmin ? [
+      { id: 'finance', label: 'Financeiro', icon: BarChart3 },
+      { id: 'reports', label: 'Relatórios', icon: BarChart3 },
+      { id: 'users', label: 'Usuários', icon: Shield }
+    ] : []),
   ];
 
   const SidebarContent = () => (
@@ -102,28 +92,18 @@ export default function Layout({ children, activeTab, setActiveTab }: LayoutProp
             {user?.displayName?.[0] || 'V'}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-white truncate">{user?.displayName || 'Visitante'}</p>
+            <p className="text-sm font-bold text-white truncate">{user?.displayName || 'Usuário'}</p>
             <p className="text-xs text-white/60 truncate capitalize">{user?.role || 'user'}</p>
           </div>
         </div>
         
-        {isGuest ? (
-          <button
-            onClick={handleLogin}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-white hover:bg-white/10 transition-colors"
-          >
-            <LogIn className="w-5 h-5" />
-            <span className="font-medium">Entrar</span>
-          </button>
-        ) : (
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-red-400 hover:bg-red-400/10 transition-colors"
-          >
-            <LogOut className="w-5 h-5" />
-            <span className="font-medium">Sair</span>
-          </button>
-        )}
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-red-400 hover:bg-red-400/10 transition-colors"
+        >
+          <LogOut className="w-5 h-5" />
+          <span className="font-medium">Sair</span>
+        </button>
       </div>
     </>
   );
