@@ -84,6 +84,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     dispatcherPaymentDate: new Date().toISOString().split('T')[0],
     value: 0,
     agency: '',
+    signatureType: '' as 'Digital' | 'Física' | '',
     notes: '',
   });
 
@@ -139,6 +140,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
         dispatcherPaymentDate: new Date().toISOString().split('T')[0],
         value: 0,
         agency: '',
+        signatureType: '' as 'Digital' | 'Física' | '',
         notes: '',
       });
       setIsModalOpen(true);
@@ -300,6 +302,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                 dispatcherPaymentDate: new Date().toISOString().split('T')[0],
                 value: 0,
                 agency: '',
+                signatureType: '' as 'Digital' | 'Física' | '',
                 notes: '',
               });
               setIsModalOpen(true);
@@ -543,6 +546,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
         dispatcherPaymentDate: new Date().toISOString().split('T')[0],
         value: 0,
         agency: '',
+        signatureType: '' as 'Digital' | 'Física' | '',
         notes: '' 
       });
     } catch (error) {
@@ -913,6 +917,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
               dispatcherPaymentDate: process.dispatcherPaymentDate || new Date().toISOString().split('T')[0],
               value: process.value,
               agency: process.agency || '',
+              signatureType: process.signatureType || '',
               notes: process.notes || '',
             });
             setSelectedProcessForDetail(null);
@@ -1141,6 +1146,11 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                           Agência: {selectedProcessForDetail.agency}
                         </p>
                       )}
+                      {selectedProcessForDetail.signatureType && (
+                        <p className="text-[9px] font-bold text-blue-600 uppercase mt-0.5">
+                          Assinatura: {selectedProcessForDetail.signatureType}
+                        </p>
+                      )}
                       <p className="text-[10px] font-medium text-black/40 uppercase tracking-widest mt-0.5">
                         {selectedProcessForDetail.stage}
                       </p>
@@ -1196,6 +1206,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                               dispatcherPaymentDate: process.dispatcherPaymentDate || new Date().toISOString().split('T')[0],
                               value: process.value,
                               agency: process.agency || '',
+                              signatureType: process.signatureType || '',
                               notes: process.notes || '',
                             });
                             setSelectedProcessForDetail(null);
@@ -2515,6 +2526,26 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                       onChange={(e) => setFormData({ ...formData, agency: e.target.value })}
                       className="w-full px-4 py-2 text-sm rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] focus:ring-2 focus:ring-black/5 outline-none"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-black/60 mb-1">Tipo de Assinatura</label>
+                    <div className="flex gap-2">
+                      {(['Digital', 'Física'] as const).map((type) => (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, signatureType: formData.signatureType === type ? '' : type })}
+                          className={cn(
+                            "flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border",
+                            formData.signatureType === type
+                              ? "bg-black text-white border-black"
+                              : "bg-[#f5f5f0] text-black/40 border-transparent hover:bg-black/5"
+                          )}
+                        >
+                          {type}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="flex items-center gap-4">

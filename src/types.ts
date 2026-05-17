@@ -86,6 +86,7 @@ export interface Process {
   dispatcherPaymentDate?: string;
   value: number;
   agency?: string;
+  signatureType?: 'Digital' | 'Física';
   brokerId: string;
   notes?: string;
   updatedAt: string;

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { Client, Process, Agency, Broker, Bank, Participant } from '../types';
 import { resolveParticipantName } from '../utils/participantUtils';
-import { Users, Building2, User, ChevronDown, ChevronUp, Trophy, TrendingUp, Award, BarChart3, Star, Layers, Landmark, X, Cake, CalendarDays, AlertCircle, Bell, CheckCircle2 } from 'lucide-react';
+import { Users, Building2, User, ChevronDown, ChevronUp, Trophy, TrendingUp, Award, BarChart3, Star, Layers, Landmark, Cake, CalendarDays, AlertCircle, Bell, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
 import { cn } from '../utils/cn';
@@ -150,6 +150,8 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
   const { hoje, futuras, pendentes } = getCategorizedNotifications();
   const allNotifications = [...pendentes, ...hoje, ...futuras];
 
+  const monthsNames = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+
   const formatDate = (dateStr: string) => {
     const [year, month, day] = dateStr.split('-');
     return `${day}/${month}/${year}`;
@@ -180,89 +182,73 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
                 const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
                 const isToday = n.date === today;
                 const isPending = n.date < today;
-                const isFuture = n.date > today;
 
                 return (
                   <div 
                     key={`${n.processId}-${n.notificationId}`}
                     className={cn(
-                      "p-3 rounded-xl border shadow-sm flex flex-col gap-2 text-left transition-all group relative",
+                      "p-3 rounded-2xl border shadow-sm flex items-center gap-3 transition-all",
                       isToday ? "bg-amber-50 border-amber-200" :
                       isPending ? "bg-red-50 border-red-200" :
-                      "bg-green-50 border-green-200"
+                      "bg-emerald-50 border-emerald-200"
                     )}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div 
-                          className="flex items-center gap-2 text-left mb-1 w-full"
-                        >
-                          <div className={cn(
-                            "w-6 h-6 rounded-md flex items-center justify-center shrink-0 transition-colors",
-                            isToday ? "bg-amber-100 group-hover:bg-amber-200" :
-                            isPending ? "bg-red-100 group-hover:bg-red-200" :
-                            "bg-green-100 group-hover:bg-green-200"
-                          )}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (n.processId) onOpenProcess?.(n.processId);
-                          }}
-                          title="Ver Processo"
-                          >
-                            <AlertCircle className={cn(
-                              "w-3 h-3",
-                              isToday ? "text-amber-600" :
-                              isPending ? "text-red-600" :
-                              "text-green-600"
-                            )} />
-                          </div>
-                          <p 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (n.clientId) onOpenClient?.(n.clientId);
-                            }}
-                            className={cn(
-                              "text-xs font-bold truncate hover:opacity-70 transition-opacity cursor-pointer",
-                              isToday ? "text-amber-900" :
-                              isPending ? "text-red-900" :
-                              "text-green-900"
-                            )}
-                          >
-                            {n.clientName}
-                          </p>
-                        </div>
-                        <p className={cn(
-                          "text-[11px] leading-tight line-clamp-2",
-                          isToday ? "text-amber-800/70" :
-                          isPending ? "text-red-800/70" :
-                          "text-green-800/70"
-                        )}>{n.reason}</p>
+                    {/* Date Box */}
+                    <div 
+                      className={cn(
+                        "w-10 h-10 rounded-lg flex flex-col items-center justify-center shrink-0 border shadow-sm cursor-pointer",
+                        isToday ? "bg-amber-500 text-white border-amber-400" : 
+                        isPending ? "bg-red-500 text-white border-red-400" :
+                        "bg-emerald-500 text-white border-emerald-400"
+                      )}
+                      onClick={() => {
+                        if (n.processId) onOpenProcess?.(n.processId);
+                      }}
+                      title="Ver Processos"
+                    >
+                      <span className="text-base font-bold leading-none">{n.date.split('-')[2]}</span>
+                      <span className="text-[7px] font-bold uppercase tracking-tighter opacity-80">
+                        {monthsNames[parseInt(n.date.split('-')[1]) - 1]}
+                      </span>
+                    </div>
+
+                    {/* Middle Info */}
+                    <div className="flex-1 min-w-0">
+                      <p 
+                        onClick={() => {
+                          if (n.clientId) onOpenClient?.(n.clientId);
+                        }}
+                        className="text-xs font-bold text-[#1a1a1a] truncate leading-tight cursor-pointer hover:opacity-70 transition-opacity"
+                      >
+                        {n.clientName}
+                      </p>
+                      <div className={cn(
+                        "inline-block px-1.5 py-0.5 mt-0.5 rounded text-[8px] font-bold uppercase tracking-wider",
+                        isToday ? "bg-amber-100 text-amber-700" :
+                        isPending ? "bg-red-100 text-red-700" :
+                        "bg-emerald-100 text-emerald-700"
+                      )}>
+                        {n.reason}
                       </div>
-                      <div className="flex flex-col items-end gap-2 shrink-0">
-                        <span className={cn(
-                          "text-[8px] font-bold uppercase px-1.5 py-0.5 rounded-md",
-                          isToday ? "bg-amber-100 text-amber-600" :
-                          isPending ? "bg-red-100 text-red-600" :
-                          "bg-green-100 text-green-600"
-                        )}>
-                          {isToday ? 'Hoje' : formatDate(n.date)}
-                        </span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setConcludeConfirm({ processId: n.processId, notificationId: n.notificationId });
-                          }}
-                          className={cn(
-                            "p-1 rounded-full transition-colors",
-                            isToday ? "hover:bg-amber-200 text-amber-600" :
-                            isPending ? "hover:bg-red-200 text-red-600" :
-                            "hover:bg-green-200 text-green-600"
-                          )}
-                          title="Concluir"
-                        >
-                          <CheckCircle2 className="w-6 h-6" />
-                        </button>
-                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setConcludeConfirm({ processId: n.processId, notificationId: n.notificationId });
+                        }}
+                        className={cn(
+                          "p-1.5 rounded-lg transition-all hover:scale-105",
+                          isToday ? "bg-amber-500 text-white hover:bg-amber-600" :
+                          isPending ? "bg-red-500 text-white hover:bg-red-600" :
+                          "bg-emerald-500 text-white hover:bg-emerald-600"
+                        )}
+                        title="Concluir"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 );
@@ -351,7 +337,9 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
                     isToday ? "bg-pink-500 text-white border-pink-400" : "bg-white text-[#1a1a1a] border-black/5"
                   )}>
                     <span className="text-base font-bold leading-none">{day}</span>
-                    <span className="text-[7px] font-bold uppercase tracking-tighter opacity-60">MAR</span>
+                    <span className="text-[7px] font-bold uppercase tracking-tighter opacity-60">
+                      {monthsNames[parseInt(b.date.split('-')[1]) - 1]}
+                    </span>
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-[#1a1a1a] truncate leading-tight">{b.name}</p>
