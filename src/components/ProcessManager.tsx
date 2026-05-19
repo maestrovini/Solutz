@@ -82,6 +82,9 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     dispatcherValue: 0,
     isDispatcherPaid: false,
     dispatcherPaymentDate: new Date().toISOString().split('T')[0],
+    hasIQ: false,
+    iqBankId: '',
+    iqDebtValue: 0,
     value: 0,
     agency: '',
     signatureType: '' as 'Digital' | 'Física' | '',
@@ -108,7 +111,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     return Number(value.replace(/\D/g, '')) / 100;
   };
 
-  const handleCurrencyChange = (field: 'purchaseValue' | 'financingValue' | 'dispatcherValue' | 'assistedPurchaseValue', value: string) => {
+  const handleCurrencyChange = (field: 'purchaseValue' | 'financingValue' | 'dispatcherValue' | 'assistedPurchaseValue' | 'iqDebtValue', value: string) => {
     const numericValue = parseCurrency(value);
     setFormData({ ...formData, [field]: numericValue });
   };
@@ -138,6 +141,9 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
         dispatcherValue: 0,
         isDispatcherPaid: false,
         dispatcherPaymentDate: new Date().toISOString().split('T')[0],
+        hasIQ: false,
+        iqBankId: '',
+        iqDebtValue: 0,
         value: 0,
         agency: '',
         signatureType: '' as 'Digital' | 'Física' | '',
@@ -300,6 +306,9 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                 dispatcherValue: 0,
                 isDispatcherPaid: false,
                 dispatcherPaymentDate: new Date().toISOString().split('T')[0],
+                hasIQ: false,
+                iqBankId: '',
+                iqDebtValue: 0,
                 value: 0,
                 agency: '',
                 signatureType: '' as 'Digital' | 'Física' | '',
@@ -544,6 +553,9 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
         dispatcherValue: 0,
         isDispatcherPaid: false,
         dispatcherPaymentDate: new Date().toISOString().split('T')[0],
+        hasIQ: false,
+        iqBankId: '',
+        iqDebtValue: 0,
         value: 0,
         agency: '',
         signatureType: '' as 'Digital' | 'Física' | '',
@@ -915,6 +927,9 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
               dispatcherValue: process.dispatcherValue || 0,
               isDispatcherPaid: process.isDispatcherPaid || false,
               dispatcherPaymentDate: process.dispatcherPaymentDate || new Date().toISOString().split('T')[0],
+              hasIQ: process.hasIQ || false,
+              iqBankId: process.iqBankId || '',
+              iqDebtValue: process.iqDebtValue || 0,
               value: process.value,
               agency: process.agency || '',
               signatureType: process.signatureType || '',
@@ -1204,6 +1219,9 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                               dispatcherValue: process.dispatcherValue || 0,
                               isDispatcherPaid: process.isDispatcherPaid || false,
                               dispatcherPaymentDate: process.dispatcherPaymentDate || new Date().toISOString().split('T')[0],
+                              hasIQ: process.hasIQ || false,
+                              iqBankId: process.iqBankId || '',
+                              iqDebtValue: process.iqDebtValue || 0,
                               value: process.value,
                               agency: process.agency || '',
                               signatureType: process.signatureType || '',
@@ -1399,6 +1417,14 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                     <div className="space-y-1">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Despachante</p>
                       <p className="text-sm font-bold text-[#1a1a1a]">{formatCurrency(selectedProcessForDetail.dispatcherValue || 0)}</p>
+                    </div>
+                  )}
+                  {selectedProcessForDetail.hasIQ && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Interveniente Quitante</p>
+                      <p className="text-sm font-bold text-[#1a1a1a]">
+                        {getBankName(selectedProcessForDetail.iqBankId || '')} - {formatCurrency(selectedProcessForDetail.iqDebtValue || 0)}
+                      </p>
                     </div>
                   )}
                   </div>
@@ -2526,6 +2552,57 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                       onChange={(e) => setFormData({ ...formData, agency: e.target.value })}
                       className="w-full px-4 py-2 text-sm rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] focus:ring-2 focus:ring-black/5 outline-none"
                     />
+                  </div>
+
+                  <div className="space-y-4 pt-4 border-t border-black/5">
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-2 cursor-pointer group">
+                        <div className="relative flex items-center justify-center">
+                          <input
+                            type="checkbox"
+                            checked={formData.hasIQ}
+                            onChange={() => setFormData({ ...formData, hasIQ: !formData.hasIQ })}
+                            className="sr-only"
+                          />
+                          <div className={cn(
+                            "w-5 h-5 rounded-md border-2 transition-all flex items-center justify-center",
+                            formData.hasIQ 
+                              ? "bg-black border-black" 
+                              : "bg-[#f5f5f0] border-black/10 group-hover:border-black/20"
+                          )}>
+                            {formData.hasIQ && <Plus className="w-3.5 h-3.5 text-white" />}
+                          </div>
+                        </div>
+                        <span className="text-sm font-medium text-black/60">Interveniente Quitante</span>
+                      </label>
+                    </div>
+
+                    {formData.hasIQ && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-black/60 mb-1">Banco IQ</label>
+                          <select
+                            required={formData.hasIQ}
+                            value={formData.iqBankId}
+                            onChange={(e) => setFormData({ ...formData, iqBankId: e.target.value })}
+                            className="w-full px-4 py-2 text-sm rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] focus:ring-2 focus:ring-black/5 outline-none"
+                          >
+                            <option value="">Selecione o banco do IQ</option>
+                            {banks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-black/60 mb-1">Saldo Devedor</label>
+                          <input
+                            required={formData.hasIQ}
+                            type="text"
+                            value={formatCurrency(formData.iqDebtValue || 0)}
+                            onChange={(e) => handleCurrencyChange('iqDebtValue', e.target.value)}
+                            className="w-full px-4 py-2 text-sm rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] focus:ring-2 focus:ring-black/5 outline-none"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-black/60 mb-1">Tipo de Assinatura</label>

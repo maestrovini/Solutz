@@ -84,6 +84,9 @@ export interface Process {
   dispatcherValue?: number;
   isDispatcherPaid?: boolean;
   dispatcherPaymentDate?: string;
+  hasIQ?: boolean;
+  iqBankId?: string;
+  iqDebtValue?: number;
   value: number;
   agency?: string;
   signatureType?: 'Digital' | 'Física';

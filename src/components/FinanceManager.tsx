@@ -55,27 +55,32 @@ export default function FinanceManager() {
     return client ? client.name : 'Cliente não encontrado';
   };
 
-  const filteredProcesses = processes.filter(p => {
-    if (!p.hasDispatcher || !p.isDispatcherPaid) return false;
-    
-    if (timeFilter === 'all') return true;
-    
-    if (!p.dispatcherPaymentDate) return false;
-    
-    const paymentDate = new Date(p.dispatcherPaymentDate + 'T12:00:00');
-    const now = new Date();
-    
-    if (timeFilter === 'year') {
-      return paymentDate.getFullYear() === selectedYear;
-    }
-    
-    if (timeFilter === 'month') {
-      return paymentDate.getFullYear() === selectedYear && 
-             paymentDate.getMonth() === selectedMonth;
-    }
-    
-    return true;
-  });
+  const filteredProcesses = processes
+    .filter(p => {
+      if (!p.hasDispatcher || !p.isDispatcherPaid) return false;
+      
+      if (timeFilter === 'all') return true;
+      
+      if (!p.dispatcherPaymentDate) return false;
+      
+      const paymentDate = new Date(p.dispatcherPaymentDate + 'T12:00:00');
+      
+      if (timeFilter === 'year') {
+        return paymentDate.getFullYear() === selectedYear;
+      }
+      
+      if (timeFilter === 'month') {
+        return paymentDate.getFullYear() === selectedYear && 
+               paymentDate.getMonth() === selectedMonth;
+      }
+      
+      return true;
+    })
+    .sort((a, b) => {
+      const dateA = a.dispatcherPaymentDate || '';
+      const dateB = b.dispatcherPaymentDate || '';
+      return dateB.localeCompare(dateA);
+    });
 
   const totals = filteredProcesses.reduce((acc, p) => ({
     dispatcher: acc.dispatcher + (p.dispatcherValue || 0),
