@@ -6,12 +6,14 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/cn';
+import { resolveParticipantName } from '../utils/participantUtils';
 
 interface BrokerManagerProps {
   onOpenClient?: (id: string) => void;
+  onOpenProcess?: (id: string) => void;
 }
 
-export default function BrokerManager({ onOpenClient }: BrokerManagerProps) {
+export default function BrokerManager({ onOpenClient, onOpenProcess }: BrokerManagerProps) {
   const { isAdmin } = useAuth();
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
@@ -298,6 +300,19 @@ export default function BrokerManager({ onOpenClient }: BrokerManagerProps) {
                       <div className="flex items-center gap-1 px-2 py-0.5 bg-black/5 text-black/60 text-[8px] font-bold uppercase tracking-wider rounded-full border border-black/5" title={`${brokerClients.length} ${brokerClients.length === 1 ? 'Cliente' : 'Clientes'}`}>
                         <span>{brokerClients.length} {brokerClients.length === 1 ? 'Cliente' : 'Clientes'}</span>
                       </div>
+                      {(() => {
+                        const ticketAverage = brokerProcesses.length > 0 ? totalFinancing / brokerProcesses.length : 0;
+                        return (
+                          <div className={cn(
+                            "flex items-center gap-1 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider rounded-full border",
+                            ticketAverage > 0 
+                              ? "bg-amber-100 text-amber-800 border-amber-200" 
+                              : "bg-black/5 text-black/60 border-black/5"
+                          )} title={`Tiket Médio: ${formatCurrency(ticketAverage)}`}>
+                            <span>Tiket Médio: {formatCurrency(ticketAverage)}</span>
+                          </div>
+                        );
+                      })()}
                       {totalFinancing > 0 && (
                         <div className="flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[8px] font-bold uppercase tracking-wider rounded-full border border-emerald-200">
                           <span>Total: {formatCurrency(totalFinancing)}</span>
@@ -356,6 +371,26 @@ export default function BrokerManager({ onOpenClient }: BrokerManagerProps) {
                         <FileText className="w-4 h-4 shrink-0" />
                         <span>{brokerProcesses.length} {brokerProcesses.length === 1 ? 'Processo' : 'Processos'}</span>
                       </div>
+                      {brokerProcesses.length > 0 && (
+                        <div className="ml-7 pt-1 pb-2 space-y-1">
+                          {brokerProcesses.map(process => {
+                            const firstBuyer = process.participants?.find(part => part.type === 'buyer');
+                            const processName = firstBuyer ? resolveParticipantName(firstBuyer, clients, brokers, agencies) : 'Desconhecido';
+                            return (
+                              <div 
+                                key={process.id} 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (process.id) onOpenProcess?.(process.id);
+                                }}
+                                className="text-xs text-black/60 bg-black/5 px-2 py-1 rounded-lg truncate hover:bg-black/10 transition-colors cursor-pointer"
+                              >
+                                {processName}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                       <div className="flex items-center gap-3 text-sm text-emerald-600 font-bold">
                         <User className="w-4 h-4 shrink-0" />
                         <span>{brokerClients.length} {brokerClients.length === 1 ? 'Cliente' : 'Clientes'}</span>
@@ -376,6 +411,20 @@ export default function BrokerManager({ onOpenClient }: BrokerManagerProps) {
                           ))}
                         </div>
                       )}
+                      
+                      {(() => {
+                        const ticketAverage = brokerProcesses.length > 0 ? totalFinancing / brokerProcesses.length : 0;
+                        return (
+                          <div className={cn(
+                            "flex items-center gap-3 text-sm font-bold",
+                            ticketAverage > 0 ? "text-amber-600" : "text-black/40"
+                          )}>
+                            <TrendingUp className="w-4 h-4 shrink-0" />
+                            <span>Tiket Médio: {formatCurrency(ticketAverage)}</span>
+                          </div>
+                        );
+                      })()}
+
                       {totalFinancing > 0 && (
                         <div className="flex items-center gap-3 text-sm text-emerald-600 font-bold">
                           <TrendingUp className="w-4 h-4 shrink-0" />

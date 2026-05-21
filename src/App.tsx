@@ -116,6 +116,10 @@ function AppContent() {
         return (
           <BrokerManager 
             onOpenClient={handleOpenClientModal}
+            onOpenProcess={(id) => {
+              setSelectedProcessId(id);
+              setActiveTab('processes');
+            }}
           />
         );
       case 'properties':

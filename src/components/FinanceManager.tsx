@@ -10,7 +10,7 @@ export default function FinanceManager() {
   const { setTitle, setActions } = useHeader();
   const [processes, setProcesses] = useState<Process[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
-  const [timeFilter, setTimeFilter] = useState<'all' | 'year' | 'month'>('all');
+  const [timeFilter, setTimeFilter] = useState<'all' | 'year' | 'month'>('month');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
 
