@@ -1,11 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../api';
 import { Client, Process, Agency, Broker, Bank, Participant } from '../types';
 import { resolveParticipantName } from '../utils/participantUtils';
-import { Users, Building2, User, ChevronDown, ChevronUp, Trophy, TrendingUp, Award, BarChart3, Star, Layers, Landmark, Cake, CalendarDays, AlertCircle, Bell, CheckCircle2 } from 'lucide-react';
+import { Users, Building2, User, ChevronDown, ChevronUp, Trophy, TrendingUp, Award, BarChart3, Star, Layers, Landmark, Cake, CalendarDays, AlertCircle, Bell, CheckCircle2, DollarSign, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
 import { cn } from '../utils/cn';
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend
+} from 'recharts';
+
+const formatCurrency = (val: number) => {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(val);
+};
 
 interface DashboardProps {
   onOpenProcess?: (id: string) => void;
@@ -20,7 +36,78 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [loading, setLoading] = useState(true);
   const [concludeConfirm, setConcludeConfirm] = useState<{ processId: string, notificationId: string } | null>(null);
+  const [chartTab, setChartTab] = useState<'volume' | 'count'>('volume');
   const { setTitle, setActions } = useHeader();
+
+  const monthsNames = useMemo(() => ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'], []);
+
+  const kpis = useMemo(() => {
+    const active = processes.filter(p => p.stage !== 'Finalizado' && p.status !== 'Cancelado');
+    const finalized = processes.filter(p => p.stage === 'Finalizado');
+    
+    // Volume total concedido (finalizados)
+    const volumeConcedido = finalized.reduce((sum, p) => sum + (p.financingValue || p.value || 0), 0);
+    
+    // Qtd de processos pra tirar média
+    const processesWithVal = processes.filter(p => (p.financingValue || p.value || 0) > 0);
+    const avgLoanVal = processesWithVal.length > 0
+      ? processesWithVal.reduce((sum, p) => sum + (p.financingValue || p.value || 0), 0) / processesWithVal.length
+      : 0;
+
+    return {
+      activeCount: active.length,
+      volumeConcedido,
+      avgLoanVal
+    };
+  }, [processes]);
+
+  const chartData = useMemo(() => {
+    const dataMap: Record<string, { monthKey: string; monthLabel: string; activeCount: number; volume: number; totalValue: number; count: number }> = {};
+    
+    // Timeline of last 6 months
+    const currentDate = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = `${monthsNames[d.getMonth()]} ${String(d.getFullYear()).slice(-2)}`;
+      dataMap[key] = {
+        monthKey: key,
+        monthLabel: label,
+        activeCount: 0,
+        volume: 0,
+        totalValue: 0,
+        count: 0
+      };
+    }
+
+    // Populate data from process update dates
+    processes.forEach(p => {
+      let d = new Date();
+      if (p.updatedAt) {
+        try {
+          const parsed = new Date(p.updatedAt);
+          if (!isNaN(parsed.getTime())) {
+            d = parsed;
+          }
+        } catch (e) {}
+      }
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const val = p.financingValue || p.value || 0;
+
+      if (dataMap[key]) {
+        if (p.stage !== 'Finalizado' && p.status !== 'Cancelado') {
+          dataMap[key].activeCount += 1;
+        }
+        if (p.stage === 'Finalizado') {
+          dataMap[key].volume += val;
+        }
+        dataMap[key].totalValue += val;
+        dataMap[key].count += 1;
+      }
+    });
+
+    return Object.values(dataMap).sort((a, b) => a.monthKey.localeCompare(b.monthKey));
+  }, [processes, monthsNames]);
 
   useEffect(() => {
     setTitle('Dashboard Solutz');
@@ -150,8 +237,6 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
   const { hoje, futuras, pendentes } = getCategorizedNotifications();
   const allNotifications = [...pendentes, ...hoje, ...futuras];
 
-  const monthsNames = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
-
   const formatDate = (dateStr: string) => {
     const [year, month, day] = dateStr.split('-');
     return `${day}/${month}/${year}`;
@@ -159,105 +244,392 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
 
   return (
     <div className="space-y-6">
-      {/* Notifications Section */}
-      {allNotifications.length > 0 && (
-        <motion.div 
-          initial={{ opacity: 0, y: -20 }}
+      {/* Top level KPIs Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* KPI 1: Active Processes */}
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-6 rounded-[24px] shadow-sm border border-black/5"
+          transition={{ duration: 0.3 }}
+          className="bg-white p-6 rounded-[24px] border border-black/5 shadow-sm hover:shadow-md transition-all flex items-center gap-4"
         >
-          <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 shrink-0">
+            <Activity className="w-6 h-6" />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-black/40 uppercase tracking-widest block mb-0.5">Processos Ativos</span>
+            <span className="text-3xl font-bold text-[#1a1a1a] block leading-none">{kpis.activeCount}</span>
+            <span className="text-[10px] text-black/30 font-medium mt-1 block">Simulações e propostas em andamento</span>
+          </div>
+        </motion.div>
+
+        {/* KPI 2: Ticket Médio */}
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          className="bg-white p-6 rounded-[24px] border border-black/5 shadow-sm hover:shadow-md transition-all flex items-center gap-4"
+        >
+          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600 shrink-0">
+            <Landmark className="w-6 h-6" />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-black/40 uppercase tracking-widest block mb-0.5">Ticket Médio</span>
+            <span className="text-3xl font-bold text-[#1a1a1a] block leading-none">{formatCurrency(kpis.avgLoanVal)}</span>
+            <span className="text-[10px] text-black/30 font-medium mt-1 block">Média de valor dos financiamentos</span>
+          </div>
+        </motion.div>
+
+        {/* KPI 3: Volume Concedido */}
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
+          className="bg-white p-6 rounded-[24px] border border-black/5 shadow-sm hover:shadow-md transition-all flex items-center gap-4"
+        >
+          <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-600 shrink-0">
+            <TrendingUp className="w-6 h-6" />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-black/40 uppercase tracking-widest block mb-0.5">Crédito Concedido</span>
+            <span className="text-3xl font-bold text-[#1a1a1a] block leading-none">{formatCurrency(kpis.volumeConcedido)}</span>
+            <span className="text-[10px] text-black/30 font-medium mt-1 block">Volume total de contratos finalizados</span>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Visual Charts Section using Recharts */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.2 }}
+        className="bg-white p-6 rounded-[24px] shadow-sm border border-black/5"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-black rounded-xl flex items-center justify-center text-white shadow-lg shadow-black/20">
-              <Bell className="w-5 h-5" />
+              <BarChart3 className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-[#1a1a1a] leading-none">Notificações</h2>
-              <p className="text-[10px] text-black/40 uppercase tracking-wider mt-1">Acompanhamento de processos</p>
+              <h2 className="text-xl font-bold text-[#1a1a1a] leading-none">Análise de Performance</h2>
+              <p className="text-[10px] text-black/40 uppercase tracking-wider mt-1">Evolução e volume da operação (Últimos 6 Meses)</p>
             </div>
           </div>
-          <div className="max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
-            <div className="grid grid-cols-1 gap-3">
-              {allNotifications.map((n) => {
-                const now = new Date();
-                const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-                const isToday = n.date === today;
-                const isPending = n.date < today;
 
-                return (
-                  <div 
-                    key={`${n.processId}-${n.notificationId}`}
-                    className={cn(
-                      "p-3 rounded-2xl border shadow-sm flex items-center gap-3 transition-all",
-                      isToday ? "bg-amber-50 border-amber-200" :
-                      isPending ? "bg-red-50 border-red-200" :
-                      "bg-emerald-50 border-emerald-200"
-                    )}
-                  >
-                    {/* Date Box */}
+          {/* Tab switches */}
+          <div className="flex bg-[#f5f5f0] p-1 rounded-xl self-start sm:self-center">
+            <button
+              onClick={() => setChartTab('volume')}
+              className={cn(
+                "px-4 py-2 rounded-lg text-xs font-bold transition-all",
+                chartTab === 'volume'
+                  ? "bg-white text-black shadow-sm"
+                  : "text-black/40 hover:text-black/60"
+              )}
+            >
+              Volume de Crédito
+            </button>
+            <button
+              onClick={() => setChartTab('count')}
+              className={cn(
+                "px-4 py-2 rounded-lg text-xs font-bold transition-all",
+                chartTab === 'count'
+                  ? "bg-white text-black shadow-sm"
+                  : "text-black/40 hover:text-black/60"
+              )}
+            >
+              Quantidade de Processos
+            </button>
+          </div>
+        </div>
+
+        {/* Recharts Container */}
+        <div className="w-full h-80">
+          <ResponsiveContainer width="100%" height="100%">
+            {chartTab === 'volume' ? (
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorVolume" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
+                <XAxis 
+                  dataKey="monthLabel" 
+                  tickLine={false} 
+                  axisLine={false}
+                  dy={10}
+                  className="text-[10px] font-bold font-mono text-black/40"
+                />
+                <YAxis 
+                  tickLine={false} 
+                  axisLine={false}
+                  dx={-10}
+                  tickFormatter={(val) => formatCurrency(val)}
+                  className="text-[10px] font-bold font-mono text-black/40"
+                />
+                <Tooltip
+                  content={
+                    ({ active, payload, label }) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div className="bg-black/95 text-white p-3 rounded-2xl border border-white/10 shadow-2xl text-xs font-sans">
+                            <p className="font-bold mb-1.5 opacity-60 text-[10px] uppercase tracking-wider">{label}</p>
+                            <p className="font-bold text-emerald-400">Volume: {formatCurrency(payload[0].value as number)}</p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }
+                  }
+                  cursor={{ stroke: 'rgba(0,0,0,0.07)', strokeWidth: 1 }}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="volume" 
+                  name="Volume Solicitado" 
+                  stroke="#10b981" 
+                  strokeWidth={2} 
+                  fillOpacity={1} 
+                  fill="url(#colorVolume)" 
+                />
+              </AreaChart>
+            ) : (
+              <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
+                <XAxis 
+                  dataKey="monthLabel" 
+                  tickLine={false} 
+                  axisLine={false}
+                  dy={10}
+                  className="text-[10px] font-bold font-mono text-black/40"
+                />
+                <YAxis 
+                  tickLine={false} 
+                  axisLine={false}
+                  dx={-10}
+                  className="text-[10px] font-bold font-mono text-black/40"
+                />
+                <Tooltip
+                  content={
+                    ({ active, payload, label }) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div className="bg-black/95 text-white p-3 rounded-2xl border border-white/10 shadow-2xl text-xs font-sans space-y-1">
+                            <p className="font-bold opacity-60 text-[10px] uppercase tracking-wider">{label}</p>
+                            {payload.map((entry, idx) => (
+                              <p key={idx} style={{ color: entry.color }} className="font-bold">
+                                {entry.name}: {entry.value}
+                              </p>
+                            ))}
+                          </div>
+                        );
+                      }
+                      return null;
+                    }
+                  }
+                />
+                <Legend 
+                  verticalAlign="top" 
+                  height={36} 
+                  align="right"
+                  iconType="circle"
+                  iconSize={8}
+                  formatter={(value) => <span className="text-xs font-bold text-black/60">{value}</span>}
+                />
+                <Bar 
+                  dataKey="count" 
+                  name="Novos Processos" 
+                  fill="#005ca9" 
+                  radius={[4, 4, 0, 0]} 
+                />
+                <Bar 
+                  dataKey="activeCount" 
+                  name="Processos Ativos" 
+                  fill="#f59e0b" 
+                  radius={[4, 4, 0, 0]} 
+                />
+              </BarChart>
+            )}
+          </ResponsiveContainer>
+        </div>
+      </motion.div>
+
+      {/* Dynamic Grid for alerts and other modules below */}
+      <div className={cn("grid grid-cols-1 gap-6", allNotifications.length > 0 && "lg:grid-cols-2")}>
+        {/* Notifications Column */}
+        {allNotifications.length > 0 && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white p-6 rounded-[24px] shadow-sm border border-black/5"
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-black rounded-xl flex items-center justify-center text-white shadow-lg shadow-black/20">
+                <Bell className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-[#1a1a1a] leading-none">Notificações</h2>
+                <p className="text-[10px] text-black/40 uppercase tracking-wider mt-1">Acompanhamento de processos</p>
+              </div>
+            </div>
+            <div className="max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
+              <div className="grid grid-cols-1 gap-3">
+                {allNotifications.map((n) => {
+                  const now = new Date();
+                  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                  const isToday = n.date === today;
+                  const isPending = n.date < today;
+
+                  return (
                     <div 
+                      key={`${n.processId}-${n.notificationId}`}
                       className={cn(
-                        "w-10 h-10 rounded-lg flex flex-col items-center justify-center shrink-0 border shadow-sm cursor-pointer",
-                        isToday ? "bg-amber-500 text-white border-amber-400" : 
-                        isPending ? "bg-red-500 text-white border-red-400" :
-                        "bg-emerald-500 text-white border-emerald-400"
+                        "p-3 rounded-2xl border shadow-sm flex items-center gap-3 transition-all",
+                        isToday ? "bg-amber-50 border-amber-200" :
+                        isPending ? "bg-red-50 border-red-200" :
+                        "bg-emerald-50 border-emerald-200"
                       )}
-                      onClick={() => {
-                        if (n.processId) onOpenProcess?.(n.processId);
-                      }}
-                      title="Ver Processos"
                     >
-                      <span className="text-base font-bold leading-none">{n.date.split('-')[2]}</span>
-                      <span className="text-[7px] font-bold uppercase tracking-tighter opacity-80">
-                        {monthsNames[parseInt(n.date.split('-')[1]) - 1]}
-                      </span>
-                    </div>
-
-                    {/* Middle Info */}
-                    <div className="flex-1 min-w-0">
-                      <p 
+                      {/* Date Box */}
+                      <div 
+                        className={cn(
+                          "w-10 h-10 rounded-lg flex flex-col items-center justify-center shrink-0 border shadow-sm cursor-pointer",
+                          isToday ? "bg-amber-500 text-white border-amber-400" : 
+                          isPending ? "bg-red-500 text-white border-red-400" :
+                          "bg-emerald-500 text-white border-emerald-400"
+                        )}
                         onClick={() => {
-                          if (n.clientId) onOpenClient?.(n.clientId);
+                          if (n.processId) onOpenProcess?.(n.processId);
                         }}
-                        className="text-xs font-bold text-[#1a1a1a] truncate leading-tight cursor-pointer hover:opacity-70 transition-opacity"
+                        title="Ver Processos"
                       >
-                        {n.clientName}
-                      </p>
-                      <div className={cn(
-                        "inline-block px-1.5 py-0.5 mt-0.5 rounded text-[8px] font-bold uppercase tracking-wider",
-                        isToday ? "bg-amber-100 text-amber-700" :
-                        isPending ? "bg-red-100 text-red-700" :
-                        "bg-emerald-100 text-emerald-700"
-                      )}>
-                        {n.reason}
+                        <span className="text-base font-bold leading-none">{n.date.split('-')[2]}</span>
+                        <span className="text-[7px] font-bold uppercase tracking-tighter opacity-80">
+                          {monthsNames[parseInt(n.date.split('-')[1]) - 1]}
+                        </span>
+                      </div>
+
+                      {/* Middle Info */}
+                      <div className="flex-1 min-w-0">
+                        <p 
+                          onClick={() => {
+                            if (n.clientId) onOpenClient?.(n.clientId);
+                          }}
+                          className="text-xs font-bold text-[#1a1a1a] truncate leading-tight cursor-pointer hover:opacity-70 transition-opacity"
+                        >
+                          {n.clientName}
+                        </p>
+                        <div className={cn(
+                          "inline-block px-1.5 py-0.5 mt-0.5 rounded text-[8px] font-bold uppercase tracking-wider",
+                          isToday ? "bg-amber-100 text-amber-700" :
+                          isPending ? "bg-red-100 text-red-700" :
+                          "bg-emerald-100 text-emerald-700"
+                        )}>
+                          {n.reason}
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConcludeConfirm({ processId: n.processId, notificationId: n.notificationId });
+                          }}
+                          className={cn(
+                            "p-1.5 rounded-lg transition-all hover:scale-105",
+                            isToday ? "bg-amber-500 text-white hover:bg-amber-600" :
+                            isPending ? "bg-red-500 text-white hover:bg-red-600" :
+                            "bg-emerald-500 text-white hover:bg-emerald-600"
+                          )}
+                          title="Concluir"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
+                  );
+                })}
+              </div>
+            </div>
+          </motion.div>
+        )}
 
-                    {/* Actions */}
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setConcludeConfirm({ processId: n.processId, notificationId: n.notificationId });
-                        }}
-                        className={cn(
-                          "p-1.5 rounded-lg transition-all hover:scale-105",
-                          isToday ? "bg-amber-500 text-white hover:bg-amber-600" :
-                          isPending ? "bg-red-500 text-white hover:bg-red-600" :
-                          "bg-emerald-500 text-white hover:bg-emerald-600"
-                        )}
-                        title="Concluir"
-                      >
-                        <CheckCircle2 className="w-4 h-4" />
-                      </button>
+        {/* Birthdays Section */}
+        <div className="bg-white p-6 rounded-[24px] shadow-sm border border-black/5">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 bg-pink-500/10 rounded-xl flex items-center justify-center text-pink-500 border border-pink-500/20">
+              <Cake className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-[#1a1a1a] leading-none">Aniversariantes do Mês</h2>
+              <p className="text-[10px] text-black/40 uppercase tracking-wider mt-1">Celebre com seus parceiros</p>
+            </div>
+          </div>
+
+          {birthdays.length > 0 ? (
+            <div className="grid grid-cols-1 gap-3 max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
+              {birthdays.map((b, i) => {
+                const day = parseInt(b.date.split('-')[2]);
+                const isToday = day === new Date().getDate();
+
+                return (
+                  <motion.div
+                    key={`${b.name}-${b.date}`}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: i * 0.05 }}
+                    onClick={() => {
+                      if (b.type === 'Cliente' && b.id) {
+                        onOpenClient?.(b.id);
+                      }
+                    }}
+                    className={cn(
+                      "p-3 rounded-xl border flex items-center gap-3 transition-all cursor-pointer",
+                      isToday 
+                        ? "bg-pink-50 border-pink-200 shadow-md ring-2 ring-pink-500/20" 
+                        : "bg-[#f5f5f0]/50 border-black/5 hover:border-black/10"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-10 h-10 rounded-lg flex flex-col items-center justify-center shrink-0 border",
+                      isToday ? "bg-pink-500 text-white border-pink-400" : "bg-white text-[#1a1a1a] border-black/5"
+                    )}>
+                      <span className="text-base font-bold leading-none">{day}</span>
+                      <span className="text-[7px] font-bold uppercase tracking-tighter opacity-60">
+                        {monthsNames[parseInt(b.date.split('-')[1]) - 1]}
+                      </span>
                     </div>
-                  </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-[#1a1a1a] truncate leading-tight">{b.name}</p>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className={cn(
+                          "text-[8px] font-bold uppercase px-1 py-0.5 rounded",
+                          b.type === 'Cliente' ? "bg-blue-100 text-blue-600" : "bg-amber-100 text-amber-600"
+                        )}>
+                          {b.type}
+                        </span>
+                        {isToday && (
+                          <span className="text-[8px] font-bold text-pink-500 animate-pulse">HOJE!</span>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
                 );
               })}
             </div>
-          </div>
-        </motion.div>
-      )}
+          ) : (
+            <div className="text-center py-8 bg-[#f5f5f0]/30 rounded-2xl border border-dashed border-black/10">
+              <CalendarDays className="w-10 h-10 text-black/10 mx-auto mb-2" />
+              <p className="text-[10px] text-black/40 font-bold uppercase tracking-widest">Nenhum aniversariante</p>
+            </div>
+          )}
+        </div>
+      </div>
 
+      {/* Confirmation modal for notification completion */}
       <AnimatePresence>
         {concludeConfirm && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -295,77 +667,6 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
           </div>
         )}
       </AnimatePresence>
-
-      {/* Birthdays Section */}
-      <div className="bg-white p-6 rounded-[24px] shadow-sm border border-black/5">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 bg-pink-500/10 rounded-xl flex items-center justify-center text-pink-500 border border-pink-500/20">
-            <Cake className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-[#1a1a1a] leading-none">Aniversariantes do Mês</h2>
-            <p className="text-[10px] text-black/40 uppercase tracking-wider mt-1">Celebre com seus parceiros</p>
-          </div>
-        </div>
-
-        {birthdays.length > 0 ? (
-          <div className="grid grid-cols-1 gap-3">
-              {birthdays.map((b, i) => {
-                const day = parseInt(b.date.split('-')[2]);
-                const isToday = day === new Date().getDate();
-
-                return (
-                  <motion.div
-                    key={`${b.name}-${b.date}`}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: i * 0.05 }}
-                    onClick={() => {
-                      if (b.type === 'Cliente' && b.id) {
-                        onOpenClient?.(b.id);
-                      }
-                    }}
-                    className={cn(
-                      "p-3 rounded-xl border flex items-center gap-3 transition-all cursor-pointer",
-                    isToday 
-                      ? "bg-pink-50 border-pink-200 shadow-md ring-2 ring-pink-500/20" 
-                      : "bg-[#f5f5f0]/50 border-black/5 hover:border-black/10"
-                  )}
-                >
-                  <div className={cn(
-                    "w-10 h-10 rounded-lg flex flex-col items-center justify-center shrink-0 border",
-                    isToday ? "bg-pink-500 text-white border-pink-400" : "bg-white text-[#1a1a1a] border-black/5"
-                  )}>
-                    <span className="text-base font-bold leading-none">{day}</span>
-                    <span className="text-[7px] font-bold uppercase tracking-tighter opacity-60">
-                      {monthsNames[parseInt(b.date.split('-')[1]) - 1]}
-                    </span>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-[#1a1a1a] truncate leading-tight">{b.name}</p>
-                    <div className="flex items-center gap-1 mt-0.5">
-                      <span className={cn(
-                        "text-[8px] font-bold uppercase px-1 py-0.5 rounded",
-                        b.type === 'Cliente' ? "bg-blue-100 text-blue-600" : "bg-amber-100 text-amber-600"
-                      )}>
-                        {b.type}
-                      </span>
-                      {isToday && (
-                        <span className="text-[8px] font-bold text-pink-500 animate-pulse">HOJE!</span>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="text-center py-8 bg-[#f5f5f0]/30 rounded-2xl border border-dashed border-black/10">
-            <CalendarDays className="w-10 h-10 text-black/10 mx-auto mb-2" />
-            <p className="text-[10px] text-black/40 font-bold uppercase tracking-widest">Nenhum aniversariante</p>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

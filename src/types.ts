@@ -42,6 +42,7 @@ export interface Bank {
   color?: string;
   simulatorUrl?: string;
   processTypes: ('MCMV' | 'SBPE' | 'Pró-Cotista' | 'Home Equity')[];
+  productTypes?: string[];
 }
 
 export interface Participant {
