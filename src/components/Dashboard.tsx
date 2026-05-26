@@ -23,6 +23,27 @@ const formatCurrency = (val: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(val);
 };
 
+const getYearMonth = (dateStr?: string): { year: number; month: number } | null => {
+  if (!dateStr) return null;
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    return {
+      year: parseInt(match[1], 10),
+      month: parseInt(match[2], 10) - 1
+    };
+  }
+  try {
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      return {
+        year: d.getUTCFullYear(),
+        month: d.getUTCMonth()
+      };
+    }
+  } catch (e) {}
+  return null;
+};
+
 interface DashboardProps {
   onOpenProcess?: (id: string) => void;
   onOpenClient?: (id: string) => void;
@@ -62,7 +83,16 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
   }, [processes]);
 
   const chartData = useMemo(() => {
-    const dataMap: Record<string, { monthKey: string; monthLabel: string; activeCount: number; volume: number; totalValue: number; count: number }> = {};
+    const dataMap: Record<string, { 
+      monthKey: string; 
+      monthLabel: string; 
+      sbpeFinalizedCount: number; 
+      fgtsFinalizedCount: number; 
+      totalFinalizedCount: number; 
+      sbpeFinalizedVolume: number; 
+      fgtsFinalizedVolume: number; 
+      totalFinalizedVolume: number; 
+    }> = {};
     
     // Timeline of last 6 months
     const currentDate = new Date();
@@ -73,36 +103,45 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
       dataMap[key] = {
         monthKey: key,
         monthLabel: label,
-        activeCount: 0,
-        volume: 0,
-        totalValue: 0,
-        count: 0
+        sbpeFinalizedCount: 0,
+        fgtsFinalizedCount: 0,
+        totalFinalizedCount: 0,
+        sbpeFinalizedVolume: 0,
+        fgtsFinalizedVolume: 0,
+        totalFinalizedVolume: 0
       };
     }
 
-    // Populate data from process update dates
+    // Populate data based on process stage/history dates
     processes.forEach(p => {
-      let d = new Date();
-      if (p.updatedAt) {
-        try {
-          const parsed = new Date(p.updatedAt);
-          if (!isNaN(parsed.getTime())) {
-            d = parsed;
-          }
-        } catch (e) {}
-      }
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      // We only consider finalized processes
+      if (p.stage !== 'Finalizado') return;
+
+      // Find the finalized reference date
+      const finishedHistory = p.stageHistory?.find(h => h.stage === 'Finalizado');
+      const refDate = finishedHistory?.date || p.updatedAt;
+      
+      const dateObj = getYearMonth(refDate);
+      if (!dateObj) return;
+      
+      const key = `${dateObj.year}-${String(dateObj.month + 1).padStart(2, '0')}`;
       const val = p.financingValue || p.value || 0;
 
+      const isSbpe = p.financingType === 'SBPE';
+      const isFgts = p.financingType === 'MCMV' || p.financingType === 'Pró-Cotista' || p.type === 'Aquisição à vista com FGTS';
+
       if (dataMap[key]) {
-        if (p.stage !== 'Finalizado' && p.status !== 'Cancelado') {
-          dataMap[key].activeCount += 1;
+        if (isSbpe) {
+          dataMap[key].sbpeFinalizedCount += 1;
+          dataMap[key].sbpeFinalizedVolume += val;
         }
-        if (p.stage === 'Finalizado') {
-          dataMap[key].volume += val;
+        if (isFgts) {
+          dataMap[key].fgtsFinalizedCount += 1;
+          dataMap[key].fgtsFinalizedVolume += val;
         }
-        dataMap[key].totalValue += val;
-        dataMap[key].count += 1;
+        // Accumulate total initialized as sum of both categories
+        dataMap[key].totalFinalizedCount += 1;
+        dataMap[key].totalFinalizedVolume += val;
       }
     });
 
@@ -349,8 +388,16 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
             {chartTab === 'volume' ? (
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 20, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="colorVolume" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
+                  <linearGradient id="colorSbpe" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#005ca9" stopOpacity={0.15}/>
+                    <stop offset="95%" stopColor="#005ca9" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorFgts" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.15}/>
+                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorFinalized" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.15}/>
                     <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
@@ -374,9 +421,13 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
                     ({ active, payload, label }) => {
                       if (active && payload && payload.length) {
                         return (
-                          <div className="bg-black/95 text-white p-3 rounded-2xl border border-white/10 shadow-2xl text-xs font-sans">
-                            <p className="font-bold mb-1.5 opacity-60 text-[10px] uppercase tracking-wider">{label}</p>
-                            <p className="font-bold text-emerald-400">Volume: {formatCurrency(payload[0].value as number)}</p>
+                          <div className="bg-black/95 text-white p-3 rounded-2xl border border-white/10 shadow-2xl text-xs font-sans space-y-1.5">
+                            <p className="font-bold mb-1 opacity-60 text-[10px] uppercase tracking-wider">{label}</p>
+                            {payload.map((entry, idx) => (
+                              <p key={idx} style={{ color: entry.color }} className="font-bold">
+                                {entry.name}: {formatCurrency(entry.value as number)}
+                              </p>
+                            ))}
                           </div>
                         );
                       }
@@ -385,14 +436,40 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
                   }
                   cursor={{ stroke: 'rgba(0,0,0,0.07)', strokeWidth: 1 }}
                 />
+                <Legend 
+                  verticalAlign="top" 
+                  height={36} 
+                  align="right"
+                  iconType="circle"
+                  iconSize={8}
+                  formatter={(value) => <span className="text-xs font-bold text-black/60">{value}</span>}
+                />
                 <Area 
                   type="monotone" 
-                  dataKey="volume" 
-                  name="Volume Solicitado" 
+                  dataKey="fgtsFinalizedVolume" 
+                  name="FGTS Finalizados" 
+                  stroke="#f59e0b" 
+                  strokeWidth={2} 
+                  fillOpacity={1} 
+                  fill="url(#colorFgts)" 
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="sbpeFinalizedVolume" 
+                  name="SBPE Finalizados" 
+                  stroke="#005ca9" 
+                  strokeWidth={2} 
+                  fillOpacity={1} 
+                  fill="url(#colorSbpe)" 
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="totalFinalizedVolume" 
+                  name="Total Finalizados" 
                   stroke="#10b981" 
                   strokeWidth={2} 
                   fillOpacity={1} 
-                  fill="url(#colorVolume)" 
+                  fill="url(#colorFinalized)" 
                 />
               </AreaChart>
             ) : (
@@ -439,15 +516,21 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
                   formatter={(value) => <span className="text-xs font-bold text-black/60">{value}</span>}
                 />
                 <Bar 
-                  dataKey="count" 
-                  name="Novos Processos" 
+                  dataKey="fgtsFinalizedCount" 
+                  name="FGTS Finalizados" 
+                  fill="#f59e0b" 
+                  radius={[4, 4, 0, 0]} 
+                />
+                <Bar 
+                  dataKey="sbpeFinalizedCount" 
+                  name="SBPE Finalizados" 
                   fill="#005ca9" 
                   radius={[4, 4, 0, 0]} 
                 />
                 <Bar 
-                  dataKey="activeCount" 
-                  name="Processos Ativos" 
-                  fill="#f59e0b" 
+                  dataKey="totalFinalizedCount" 
+                  name="Total Finalizados" 
+                  fill="#10b981" 
                   radius={[4, 4, 0, 0]} 
                 />
               </BarChart>
