@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../api';
 import { Client, Process, Agency, Broker, Bank, Participant, Property } from '../types';
 import { resolveParticipantName } from '../utils/participantUtils';
-import { Users, Building2, User, ChevronDown, ChevronUp, Trophy, TrendingUp, Award, BarChart3, Star, Layers, Landmark, Cake, CalendarDays, AlertCircle, Bell, CheckCircle2, DollarSign, Activity, MapPin, Flame, Search, SlidersHorizontal, Map, Percent, Home } from 'lucide-react';
+import { Users, Building2, User, ChevronDown, ChevronUp, Trophy, TrendingUp, Award, BarChart3, Star, Layers, Landmark, Cake, CalendarDays, AlertCircle, Bell, CheckCircle2, DollarSign, Activity, MapPin, Flame, Search, SlidersHorizontal, Map, Percent, Home, ZoomIn, ZoomOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
 import { cn } from '../utils/cn';
@@ -68,6 +68,47 @@ const matchNeighborhood = (name?: string): string | null => {
   return null;
 };
 
+const getCityNeighborhoodCoords = (cityName: string, neighborhoodsList: string[]) => {
+  const isPoa = cityName.toLowerCase().includes('porto alegre') || cityName.toLowerCase() === 'poa';
+  if (isPoa) {
+    return POA_NEIGHBORHOODS_COORDS;
+  }
+  
+  const coordsMap: Record<string, { x: number; y: number; zone: 'Norte' | 'Central' | 'Sul' | 'Leste' }> = {};
+  const uniqueNames = Array.from(new Set(neighborhoodsList.filter(Boolean))).sort();
+  const total = uniqueNames.length;
+  
+  uniqueNames.forEach((name, index) => {
+    const angle = (index / Math.max(1, total)) * 2 * Math.PI;
+    const radius = 22 + (index % 3) * 8; 
+    const x = Math.round(50 + Math.cos(angle) * radius);
+    const y = Math.round(50 + Math.sin(angle) * radius * 0.82);
+    
+    const zones: ('Norte' | 'Central' | 'Sul' | 'Leste')[] = ['Central', 'Norte', 'Leste', 'Sul'];
+    const zone = zones[index % zones.length];
+    
+    coordsMap[name] = { x, y, zone };
+  });
+  
+  return coordsMap;
+};
+
+const matchNeighborhoodDynamic = (name: string | undefined, coordsMap: Record<string, any>): string | null => {
+  if (!name) return null;
+  const normalizedMatch = normalizeWord(name);
+  for (const staticName of Object.keys(coordsMap)) {
+    const normalizedStatic = normalizeWord(staticName);
+    if (
+      normalizedMatch === normalizedStatic || 
+      normalizedMatch.includes(normalizedStatic) || 
+      normalizedStatic.includes(normalizedMatch)
+    ) {
+      return staticName;
+    }
+  }
+  return null;
+};
+
 const formatCurrency = (val: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(val);
 };
@@ -119,12 +160,108 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
   const [poaSearchTerm, setPoaSearchTerm] = useState('');
   const [poaSelectedBairro, setPoaSelectedBairro] = useState<string | null>(null);
   const [poaSortBy, setPoaSortBy] = useState<'count' | 'volume' | 'avgPrice'>('count');
-  const [poaOnlyReal, setPoaOnlyReal] = useState(false);
+  const [selectedCity, setSelectedCity] = useState<string>('Porto Alegre');
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
+
+  const availableCities = useMemo(() => {
+    const citiesMap: Record<string, string> = {}; // lowercase -> Capitalized
+    properties.forEach(p => {
+      if (p.city) {
+        const trimmed = p.city.trim();
+        if (trimmed) {
+          citiesMap[trimmed.toLowerCase()] = capitalizeName(trimmed);
+        }
+      }
+    });
+    // Make sure Porto Alegre is always in the available list so there's always at least one
+    if (!citiesMap['porto alegre'] && !citiesMap['poa']) {
+      citiesMap['porto alegre'] = 'Porto Alegre';
+    }
+    return Object.values(citiesMap).sort((a, b) => a.localeCompare(b));
+  }, [properties]);
   const [loading, setLoading] = useState(true);
   const [concludeConfirm, setConcludeConfirm] = useState<{ processId: string, notificationId: string } | null>(null);
   const [chartTab, setChartTab] = useState<'volume' | 'count'>('volume');
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const { setTitle, setActions } = useHeader();
+
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isPointerDown, setIsPointerDown] = useState(false);
+  const [pointerStart, setPointerStart] = useState({ x: 0, y: 0 });
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+
+  const mapContainerRef = React.useRef<HTMLDivElement>(null);
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('button')) return;
+    
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setIsPointerDown(true);
+    setPointerStart({ x: e.clientX, y: e.clientY });
+    setPanStart(pan);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isPointerDown) return;
+    
+    const dx = e.clientX - pointerStart.x;
+    const dy = e.clientY - pointerStart.y;
+    
+    const maxPanX = Math.max(0, 220 * (zoom - 1));
+    const maxPanY = Math.max(0, 220 * (zoom - 1));
+    
+    let nextX = panStart.x + dx;
+    let nextY = panStart.y + dy;
+    
+    nextX = Math.max(-maxPanX, Math.min(maxPanX, nextX));
+    nextY = Math.max(-maxPanY, Math.min(maxPanY, nextY));
+    
+    setPan({ x: nextX, y: nextY });
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isPointerDown) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+      setIsPointerDown(false);
+    }
+  };
+
+  useEffect(() => {
+    const container = mapContainerRef.current;
+    if (!container) return;
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = -e.deltaY;
+      const zoomFactor = 0.15;
+      
+      setZoom(prevZoom => {
+        let nextZoom = prevZoom + (delta > 0 ? zoomFactor : -zoomFactor);
+        nextZoom = Math.max(1, Math.min(4, nextZoom));
+        
+        setPan(prevPan => {
+          if (nextZoom === 1) {
+            return { x: 0, y: 0 };
+          }
+          const maxPanX = Math.max(0, 220 * (nextZoom - 1));
+          const maxPanY = Math.max(0, 220 * (nextZoom - 1));
+          return {
+            x: Math.max(-maxPanX, Math.min(maxPanX, prevPan.x)),
+            y: Math.max(-maxPanY, Math.min(maxPanY, prevPan.y))
+          };
+        });
+        
+        return nextZoom;
+      });
+    };
+
+    container.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      container.removeEventListener('wheel', onWheel);
+    };
+  }, []);
 
   const monthsNames = useMemo(() => ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'], []);
 
@@ -259,10 +396,6 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
     const unsubProperties = api.subscribeToCollection('properties', (data) => {
       const props = data as Property[];
       setProperties(props);
-      const hasRealPoa = props.some(p => p.city?.toLowerCase().includes('porto alegre') || p.city?.toLowerCase() === 'poa');
-      if (hasRealPoa) {
-        setPoaOnlyReal(true);
-      }
       if (loading) setLoading(false);
     });
 
@@ -276,29 +409,21 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
     };
   }, [loading]);
 
-  // 1. Filter out only Porto Alegre properties
+  // 1. Filter out only selected city properties
   const realPropertiesInPoa = useMemo(() => {
     return properties.filter(p => {
       if (!p.city) return false;
-      const c = p.city.toLowerCase();
-      return c.includes('porto alegre') || c === 'poa';
+      const selectedLower = selectedCity.toLowerCase();
+      const pCityLower = p.city.toLowerCase();
+      if (selectedLower.includes('porto alegre') || selectedLower === 'poa') {
+        return pCityLower.includes('porto alegre') || pCityLower === 'poa';
+      }
+      return pCityLower === selectedLower || pCityLower.includes(selectedLower) || selectedLower.includes(pCityLower);
     });
-  }, [properties]);
+  }, [properties, selectedCity]);
 
-  // 2. Generate aggregated data for all neighborhoods
+  // 2. Generate aggregated data for all selected city neighborhoods
   const poaNeighborhoodData = useMemo(() => {
-    const baseProperties = poaOnlyReal 
-      ? realPropertiesInPoa 
-      : [
-          ...realPropertiesInPoa, 
-          ...SAMPLE_POA_PROPERTIES.map(sp => ({
-            ...sp,
-            isSample: true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          })) as unknown as Property[]
-        ];
-
     const statsMap: Record<string, {
       name: string;
       count: number;
@@ -310,8 +435,14 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
       y?: number;
     }> = {};
 
-    // Hydrate all standard registered Porto Alegre coords to guarantee they show up
-    Object.entries(POA_NEIGHBORHOODS_COORDS).forEach(([name, coords]) => {
+    // Get coordinates setup for selected city
+    const matchedCoords = getCityNeighborhoodCoords(
+      selectedCity,
+      Array.from(new Set(realPropertiesInPoa.map(p => p.neighborhood).filter(Boolean))) as string[]
+    );
+
+    // Hydrate all coords for matching
+    Object.entries(matchedCoords).forEach(([name, coords]) => {
       statsMap[name] = {
         name,
         count: 0,
@@ -324,17 +455,14 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
       };
     });
 
-    baseProperties.forEach(p => {
-      const matchName = matchNeighborhood(p.neighborhood);
+    realPropertiesInPoa.forEach(p => {
+      const matchName = matchNeighborhoodDynamic(p.neighborhood, matchedCoords);
       const priceVal = p.price || 0;
-      const isReal = !(p as any).isSample;
 
       if (matchName) {
         statsMap[matchName].count += 1;
         statsMap[matchName].totalPrice += priceVal;
-        if (isReal) {
-          statsMap[matchName].realCount += 1;
-        }
+        statsMap[matchName].realCount += 1;
       } else if (p.neighborhood) {
         const literalName = capitalizeName(p.neighborhood);
         if (!statsMap[literalName]) {
@@ -349,9 +477,7 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
         }
         statsMap[literalName].count += 1;
         statsMap[literalName].totalPrice += priceVal;
-        if (isReal) {
-          statsMap[literalName].realCount += 1;
-        }
+        statsMap[literalName].realCount += 1;
       }
     });
 
@@ -372,11 +498,12 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
         heatPercent
       };
     });
-  }, [realPropertiesInPoa, poaOnlyReal]);
+  }, [realPropertiesInPoa, selectedCity]);
 
   // 3. Leaderboard data filtered by search terms and sorted by rules
   const poaLeaderboardData = useMemo(() => {
     const filtered = poaNeighborhoodData.filter(item => {
+      if (item.count === 0) return false; // Only show neighborhoods with actual properties inserted
       if (!poaSearchTerm) return true;
       return normalizeWord(item.name).includes(normalizeWord(poaSearchTerm)) ||
              normalizeWord(item.zone).includes(normalizeWord(poaSearchTerm));
@@ -520,23 +647,23 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Top level KPIs Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* KPI 1: Active Processes */}
         <motion.div
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="bg-white p-6 rounded-[24px] border border-black/5 shadow-sm hover:shadow-md transition-all flex items-center gap-4"
+          className="bg-white p-4 rounded-xl border border-black/5 shadow-sm hover:shadow-md transition-all flex items-center gap-3.5"
         >
-          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 shrink-0">
-            <Activity className="w-6 h-6" />
+          <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 shrink-0">
+            <Activity className="w-5 h-5" />
           </div>
           <div>
             <span className="text-[10px] font-bold text-black/40 uppercase tracking-widest block mb-0.5">Processos Ativos</span>
-            <span className="text-3xl font-bold text-[#1a1a1a] block leading-none">{kpis.activeCount}</span>
-            <span className="text-[10px] text-black/30 font-medium mt-1 block">Simulações e propostas em andamento</span>
+            <span className="text-2xl font-extrabold text-[#1a1a1a] block leading-none">{kpis.activeCount}</span>
+            <span className="text-[9px] text-black/30 font-medium mt-1 block leading-tight">Simulações e propostas em andamento</span>
           </div>
         </motion.div>
 
@@ -545,15 +672,15 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
-          className="bg-white p-6 rounded-[24px] border border-black/5 shadow-sm hover:shadow-md transition-all flex items-center gap-4"
+          className="bg-white p-4 rounded-xl border border-black/5 shadow-sm hover:shadow-md transition-all flex items-center gap-3.5"
         >
-          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600 shrink-0">
-            <Landmark className="w-6 h-6" />
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600 shrink-0">
+            <Landmark className="w-5 h-5" />
           </div>
           <div>
             <span className="text-[10px] font-bold text-black/40 uppercase tracking-widest block mb-0.5">Ticket Médio</span>
-            <span className="text-3xl font-bold text-[#1a1a1a] block leading-none">{formatCurrency(kpis.avgLoanVal)}</span>
-            <span className="text-[10px] text-black/30 font-medium mt-1 block">Média de valor dos financiamentos</span>
+            <span className="text-2xl font-extrabold text-[#1a1a1a] block leading-none">{formatCurrency(kpis.avgLoanVal)}</span>
+            <span className="text-[9px] text-black/30 font-medium mt-1 block leading-tight">Média de valor dos financiamentos</span>
           </div>
         </motion.div>
 
@@ -562,15 +689,15 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.2 }}
-          className="bg-white p-6 rounded-[24px] border border-black/5 shadow-sm hover:shadow-md transition-all flex items-center gap-4"
+          className="bg-white p-4 rounded-xl border border-black/5 shadow-sm hover:shadow-md transition-all flex items-center gap-3.5"
         >
-          <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-600 shrink-0">
-            <TrendingUp className="w-6 h-6" />
+          <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-600 shrink-0">
+            <TrendingUp className="w-5 h-5" />
           </div>
           <div>
             <span className="text-[10px] font-bold text-black/40 uppercase tracking-widest block mb-0.5">Crédito Concedido</span>
-            <span className="text-3xl font-bold text-[#1a1a1a] block leading-none">{formatCurrency(kpis.volumeConcedido)}</span>
-            <span className="text-[10px] text-black/30 font-medium mt-1 block">Volume total de contratos finalizados</span>
+            <span className="text-2xl font-extrabold text-[#1a1a1a] block leading-none">{formatCurrency(kpis.volumeConcedido)}</span>
+            <span className="text-[9px] text-black/30 font-medium mt-1 block leading-tight">Volume total de contratos finalizados</span>
           </div>
         </motion.div>
       </div>
@@ -892,7 +1019,7 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
         </div>
       </motion.div>
 
-      {/* MAPA DE CALOR POR BAIRROS (PORTO ALEGRE) */}
+      {/* MAPA DE CALOR POR BAIRROS (DIPONÍVEL EM VÁRIAS CIDADES) */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -907,67 +1034,189 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-xl font-bold text-[#1a1a1a] leading-none">Mapa de Calor por Bairros</h2>
-                <span className="bg-amber-100 text-amber-800 text-[8px] font-extrabold px-1.5 py-0.5 rounded-full uppercase tracking-wider">Porto Alegre</span>
+                {/* Dynamically selector for cities in properties */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowCityDropdown(!showCityDropdown)}
+                    className="bg-amber-100 hover:bg-amber-200 text-amber-800 text-[8px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider flex items-center gap-1 transition-all active:scale-95 shadow-sm"
+                  >
+                    <span>{selectedCity}</span>
+                    <ChevronDown className="w-2.5 h-2.5 text-amber-800/80" />
+                  </button>
+                  {showCityDropdown && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-40 bg-transparent" 
+                        onClick={() => setShowCityDropdown(false)} 
+                      />
+                      <div className="absolute top-full left-0 mt-1 bg-white border border-black/10 rounded-xl shadow-lg py-1.5 z-50 min-w-[150px] animate-in fade-in slide-in-from-top-1 duration-150">
+                        <p className="text-[7px] font-mono font-bold text-black/30 px-3 py-1 uppercase tracking-widest border-b border-black/5 mb-1 select-none">
+                          Cidades Ativas
+                        </p>
+                        {availableCities.map(city => (
+                          <button
+                            key={city}
+                            type="button"
+                            onClick={() => {
+                              setSelectedCity(city);
+                              setShowCityDropdown(false);
+                              setZoom(1);
+                              setPan({ x: 0, y: 0 });
+                            }}
+                            className={cn(
+                              "w-full text-left px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-wider transition-colors flex items-center justify-between",
+                              city === selectedCity 
+                                ? "bg-amber-500 text-white" 
+                                : "text-black/70 hover:bg-amber-50 hover:text-amber-900"
+                            )}
+                          >
+                            <span>{city}</span>
+                            {city === selectedCity && <CheckCircle2 className="w-3 h-3 text-white" />}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
               <p className="text-[10px] text-black/40 uppercase tracking-wider mt-1">Concentração e distribuição dos imóveis sob análise</p>
             </div>
           </div>
 
-          {/* Interactive Toggle & Stats Counter */}
+          {/* Active Data Indicator */}
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex bg-[#f5f5f0] p-1 rounded-xl">
-              <button
-                onClick={() => setPoaOnlyReal(false)}
-                className={cn(
-                  "px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1.5",
-                  !poaOnlyReal
-                    ? "bg-white text-black shadow-sm"
-                    : "text-black/40 hover:text-black/60"
-                )}
-              >
-                <Layers className="w-3 h-3 text-amber-500" />
-                Base Amostra + Real
-              </button>
-              <button
-                onClick={() => setPoaOnlyReal(true)}
-                className={cn(
-                  "px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1.5",
-                  poaOnlyReal
-                    ? "bg-white text-black shadow-sm"
-                    : "text-black/40 hover:text-black/60"
-                )}
-              >
-                <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                Apenas Reais ({realPropertiesInPoa.length})
-              </button>
+            <div className="bg-emerald-50 text-emerald-800 border border-emerald-200/50 px-3 py-1.5 rounded-xl text-[10px] font-extrabold flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+              Imóveis Ativos: {realPropertiesInPoa.length} Cadastrado{realPropertiesInPoa.length !== 1 ? 's' : ''} em {selectedCity}
             </div>
           </div>
         </div>
 
         {/* Map Grid Container & Info */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* LEFT: Porto Alegre Geographic Schematic */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          {/* LEFT: Dynamic Geographic Schematic */}
           <div className="lg:col-span-7 flex flex-col">
-            <div className="relative w-full h-[380px] bg-neutral-50 rounded-2xl border border-black/5 overflow-hidden flex flex-col justify-between">
-              
-              {/* Abstract Radar concentric circles & grid lines */}
-              <div className="absolute inset-0 pointer-events-none opacity-20">
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] border border-dashed border-black/40 rounded-full" />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] border border-dashed border-black/30 rounded-full" />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[100px] h-[100px] border border-dashed border-black/20 rounded-full" />
-                <div className="absolute top-0 bottom-0 left-1/2 border-l border-dashed border-black/10" />
-                <div className="absolute left-0 right-0 top-1/2 border-t border-dashed border-black/10" />
-              </div>
+            <div 
+              ref={mapContainerRef}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerLeave={handlePointerUp}
+              style={{ touchAction: 'none' }}
+              className={cn(
+                "relative w-full h-[380px] bg-neutral-50 rounded-2xl border border-black/5 overflow-hidden flex flex-col justify-between select-none",
+                isPointerDown ? "cursor-grabbing" : "cursor-grab"
+              )}
+            >
+              {/* ZOOMABLE & PANNING SCHEMATIC AREA */}
+              <div 
+                className="absolute inset-0 origin-center select-none"
+                style={{
+                  transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                  transition: isPointerDown ? 'none' : 'transform 0.15s ease-out'
+                }}
+              >
+                {/* Abstract Radar concentric circles & grid lines */}
+                <div className="absolute inset-0 pointer-events-none opacity-20">
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] border border-dashed border-black/40 rounded-full" />
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] border border-dashed border-black/30 rounded-full" />
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[100px] h-[100px] border border-dashed border-black/20 rounded-full" />
+                  <div className="absolute top-0 bottom-0 left-1/2 border-l border-dashed border-black/10" />
+                  <div className="absolute left-0 right-0 top-1/2 border-t border-dashed border-black/10" />
+                </div>
 
-              {/* Guaíba Lake Water Representation on the left margin */}
-              <div className="absolute left-0 top-0 bottom-0 w-[18%] pointer-events-none">
-                <svg className="w-full h-full text-sky-100/45 fill-current" viewBox="0 0 100 100" preserveAspectRatio="none">
-                  {/* Custom wavy curve outlining Porto Alegre lake border (Guaíba) */}
-                  <path d="M 0,0 Q 40,20 20,40 T 40,80 Q 20,95 0,100 L 0,100 L 0,0 Z" />
-                </svg>
-                {/* Wavy text info along beach */}
-                <div className="absolute bottom-5 left-2 select-none -rotate-90 origin-bottom-left text-[8px] font-mono font-bold tracking-widest text-sky-800/40 uppercase">
-                  Rio Guaíba
+                {/* Guaíba Lake Water Representation on the left margin (Only if Porto Alegre) */}
+                {(selectedCity.toLowerCase().includes('porto alegre') || selectedCity.toLowerCase() === 'poa') && (
+                  <div className="absolute left-0 top-0 bottom-0 w-[18%] pointer-events-none">
+                    <svg className="w-full h-full text-sky-100/45 fill-current" viewBox="0 0 100 100" preserveAspectRatio="none">
+                      {/* Custom wavy curve outlining Porto Alegre lake border (Guaíba) */}
+                      <path d="M 0,0 Q 40,20 20,40 T 40,80 Q 20,95 0,100 L 0,100 L 0,0 Z" />
+                    </svg>
+                    {/* Wavy text info along beach */}
+                    <div className="absolute bottom-5 left-2 select-none -rotate-90 origin-bottom-left text-[8px] font-mono font-bold tracking-widest text-sky-800/40 uppercase">
+                      Rio Guaíba
+                    </div>
+                  </div>
+                )}
+
+                {/* GEOGRAPHIC COORDINATES CANVAS FIELD */}
+                <div className="absolute inset-0 m-4">
+                  {poaNeighborhoodData.map((b) => {
+                    if (b.x === undefined || b.y === undefined) return null;
+
+                    const isHovered = poaSelectedBairro === b.name;
+                    const hasImoves = b.count > 0;
+
+                    let dotColor = 'bg-neutral-300 border-neutral-400 text-neutral-400';
+                    let ringColor = 'border-transparent';
+
+                    if (hasImoves) {
+                      if (b.heatPercent >= 75) {
+                        dotColor = 'bg-rose-500 border-rose-600 text-white shadow-lg shadow-rose-500/40';
+                        ringColor = 'border-rose-500/30';
+                      } else if (b.heatPercent >= 35) {
+                        dotColor = 'bg-amber-500 border-amber-600 text-white shadow-lg shadow-amber-500/30';
+                        ringColor = 'border-amber-500/20';
+                      } else {
+                        dotColor = 'bg-emerald-500 border-emerald-600 text-white shadow-lg shadow-emerald-500/20';
+                        ringColor = 'border-emerald-500/20';
+                      }
+                    }
+
+                    const baseSize = hasImoves ? (12 + (b.heatPercent / 100) * 12) : 8;
+
+                    return (
+                      <div
+                        key={b.name}
+                        className="absolute group transition-all duration-300"
+                        style={{
+                          left: `${b.x}%`,
+                          top: `${b.y}%`,
+                          transform: 'translate(-50%, -50%)',
+                          zIndex: isHovered ? 40 : hasImoves ? 20 : 10
+                        }}
+                        onMouseEnter={() => setPoaSelectedBairro(b.name)}
+                        onMouseLeave={() => setPoaSelectedBairro(null)}
+                      >
+                        {hasImoves && (
+                          <span
+                            style={{
+                              width: `${baseSize * 1.8}px`,
+                              height: `${baseSize * 1.8}px`
+                            }}
+                            className={cn(
+                              "absolute -translate-x-1/2 -translate-y-1/2 top-1/2 left-1/2 rounded-full border animate-ping pointer-events-none duration-1000",
+                              ringColor
+                            )}
+                          />
+                        )}
+
+                        <button
+                          className={cn(
+                            "rounded-full flex items-center justify-center border transition-all duration-300",
+                            dotColor,
+                            isHovered ? "scale-125 ring-4 ring-black/10" : ""
+                          )}
+                          style={{
+                            width: `${baseSize}px`,
+                            height: `${baseSize}px`
+                          }}
+                        >
+                          {hasImoves && b.heatPercent >= 35 && (
+                            <Flame className="w-2 h-2 text-white/90" />
+                          )}
+                        </button>
+
+                        {(isHovered || (hasImoves && b.heatPercent >= 75)) && (
+                          <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 whitespace-nowrap bg-neutral-900 border border-neutral-800 text-white rounded-md px-2 py-0.5 shadow-md pointer-events-none z-50 text-center">
+                            <p className="text-[8px] font-bold tracking-wide">{b.name}</p>
+                            <p className="text-[7px] text-white/50">{b.count} imóvel{b.count > 1 ? 's' : ''}</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -979,90 +1228,58 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
               </div>
 
               {/* Real estate count status summary indicator */}
-              <div className="absolute top-4 left-4 bg-white/70 backdrop-blur-md px-2.5 py-1 rounded-lg border border-black/5 flex items-center gap-1.5 z-10 pointer-events-none">
+              <div className="absolute top-4 left-4 bg-white/80 backdrop-blur-md px-2.5 py-1.5 rounded-xl border border-black/5 flex items-center gap-1.5 z-10 pointer-events-none shadow-xs">
                 <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
                 <span className="text-[9px] font-extrabold text-black/70 uppercase tracking-wider">
                   {poaNeighborhoodData.reduce((acc, curr) => acc + curr.count, 0)} Imóveis Alocados
                 </span>
               </div>
 
-              {/* GEOGRAPHIC COORDINATES CANVAS FIELD */}
-              <div className="absolute inset-0 m-4">
-                {poaNeighborhoodData.map((b) => {
-                  if (b.x === undefined || b.y === undefined) return null;
-
-                  const isHovered = poaSelectedBairro === b.name;
-                  const hasImoves = b.count > 0;
-
-                  let dotColor = 'bg-neutral-300 border-neutral-400 text-neutral-400';
-                  let ringColor = 'border-transparent';
-
-                  if (hasImoves) {
-                    if (b.heatPercent >= 75) {
-                      dotColor = 'bg-rose-500 border-rose-600 text-white shadow-lg shadow-rose-500/40';
-                      ringColor = 'border-rose-500/30';
-                    } else if (b.heatPercent >= 35) {
-                      dotColor = 'bg-amber-500 border-amber-600 text-white shadow-lg shadow-amber-500/30';
-                      ringColor = 'border-amber-500/20';
-                    } else {
-                      dotColor = 'bg-emerald-500 border-emerald-600 text-white shadow-lg shadow-emerald-500/20';
-                      ringColor = 'border-emerald-500/20';
-                    }
-                  }
-
-                  const baseSize = hasImoves ? (12 + (b.heatPercent / 100) * 12) : 8;
-
-                  return (
-                    <div
-                      key={b.name}
-                      className="absolute group transition-all duration-300"
-                      style={{
-                        left: `${b.x}%`,
-                        top: `${b.y}%`,
-                        transform: 'translate(-50%, -50%)',
-                        zIndex: isHovered ? 40 : hasImoves ? 20 : 10
-                      }}
-                      onMouseEnter={() => setPoaSelectedBairro(b.name)}
-                      onMouseLeave={() => setPoaSelectedBairro(null)}
-                    >
-                      {hasImoves && (
-                        <span
-                          style={{
-                            width: `${baseSize * 2.5}px`,
-                            height: `${baseSize * 2.5}px`
-                          }}
-                          className={cn(
-                            "absolute -translate-x-1/2 -translate-y-1/2 top-1/2 left-1/2 rounded-full border animate-ping pointer-events-none duration-1000",
-                            ringColor
-                          )}
-                        />
-                      )}
-
-                      <button
-                        className={cn(
-                          "rounded-full flex items-center justify-center border transition-all duration-300",
-                          dotColor,
-                          isHovered ? "scale-125 ring-4 ring-black/10" : ""
-                        )}
-                        style={{
-                          width: `${baseSize}px`,
-                          height: `${baseSize}px`
-                        }}
-                      >
-                        {hasImoves && b.heatPercent >= 35 && (
-                          <Flame className="w-2 h-2 text-white/90" />
-                        )}
-                      </button>
-
-                      {(isHovered || (hasImoves && b.heatPercent >= 75)) && (
-                        <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 whitespace-nowrap bg-neutral-900 border border-neutral-800 text-white rounded-md px-2 py-0.5 shadow-md pointer-events-none z-50 text-center">
-                          <p className="text-[8px] font-bold tracking-wide">{b.name}</p>
-                          <p className="text-[7px] text-white/50">{b.count} imóvel{b.count > 1 ? 's' : ''}</p>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+              {/* Interactive Zoom Map Controller HUD */}
+              <div className="absolute top-12 right-4 flex flex-col items-end gap-1 z-30">
+                <div className="flex flex-col gap-1 rounded-xl bg-white/90 backdrop-blur-md p-1 border border-black/5 shadow-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setZoom(prev => {
+                        const next = Math.min(4, prev + 0.3);
+                        return next;
+                      });
+                    }}
+                    className="w-7 h-7 hover:bg-neutral-100 rounded-lg flex items-center justify-center text-black/70 hover:text-black transition-all active:scale-95"
+                    title="Aumentar Zoom (+)"
+                  >
+                    <ZoomIn className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setZoom(prev => {
+                        const next = Math.max(1, prev - 0.3);
+                        if (next === 1) setPan({ x: 0, y: 0 });
+                        return next;
+                      });
+                    }}
+                    className="w-7 h-7 hover:bg-neutral-100 rounded-lg flex items-center justify-center text-black/70 hover:text-black transition-all active:scale-95"
+                    title="Diminuir Zoom (-)"
+                  >
+                    <ZoomOut className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setZoom(1);
+                      setPan({ x: 0, y: 0 });
+                    }}
+                    className="w-7 h-7 hover:bg-neutral-100 rounded-lg flex items-center justify-center text-black/70 hover:text-black transition-all active:scale-95 text-[9px] font-black"
+                    title="Resetar Zoom"
+                  >
+                    1x
+                  </button>
+                </div>
+                <span className="text-[6.5px] text-black/40 font-extrabold uppercase tracking-wider select-none bg-white/60 px-1.5 py-0.5 rounded shadow-xs backdrop-blur-xs">
+                  Mouse: Zoom | Arraste para mover
+                </span>
               </div>
 
               {/* BOTTOM HUD PANEL: Focused selected neighborhood statistics */}
@@ -1086,8 +1303,7 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
                         </span>
                       </div>
                       <p className="text-[10px] text-black/40 font-bold uppercase tracking-widest">
-                        {poaSelectedBairroData.count} cadastrado{poaSelectedBairroData.count !== 1 ? 's' : ''} 
-                        {poaSelectedBairroData.realCount > 0 ? ` (${poaSelectedBairroData.realCount} ativo${poaSelectedBairroData.realCount > 1 ? 's' : ''} no Firestore)` : ''}
+                        {poaSelectedBairroData.count} cadastrado{poaSelectedBairroData.count !== 1 ? 's' : ''}
                       </p>
                     </div>
 
@@ -1215,11 +1431,6 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
                                 )}>
                                   {b.zone}
                                 </span>
-                                {b.realCount > 0 && (
-                                  <span className="text-[7px] font-bold uppercase tracking-tight text-emerald-500">
-                                    {b.realCount} Real
-                                  </span>
-                                )}
                               </div>
                             </div>
                           </div>
@@ -1255,7 +1466,7 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
                 ) : (
                   <div className="text-center py-10 bg-neutral-50 rounded-2xl border border-dashed border-black/10">
                     <Map className="w-8 h-8 text-black/10 mx-auto mb-2" />
-                    <p className="text-[10px] text-black/40 font-bold uppercase tracking-widest">Nenhum bairro encontrado</p>
+                    <p className="text-[10px] text-black/40 font-bold uppercase tracking-widest">Nenhum bairro com imóveis inseridos</p>
                   </div>
                 )}
               </div>
@@ -1265,7 +1476,7 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
       </motion.div>
 
       {/* Dynamic Grid for alerts and other modules below */}
-      <div className={cn("grid grid-cols-1 gap-6", allNotifications.length > 0 && "lg:grid-cols-2")}>
+      <div className={cn("grid grid-cols-1 gap-4", allNotifications.length > 0 && "lg:grid-cols-2")}>
         {/* Notifications Column */}
         {allNotifications.length > 0 && (
           <motion.div 
