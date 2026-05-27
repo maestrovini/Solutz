@@ -9,8 +9,11 @@ const __dirname = path.dirname(__filename);
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
+  // Use '/Solutz/' base path solely when compiling for deployment via GitHub Actions / GitHub Pages, otherwise use '/' absolute root path
+  const base = (process.env.GITHUB_ACTIONS === 'true' || process.env.GITHUB_PAGES === 'true') ? '/Solutz/' : '/';
+
   return {
-    base: '/Solutz/',
+    base,
     plugins: [react(), tailwindcss()],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),

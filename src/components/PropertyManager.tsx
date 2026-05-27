@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/cn';
+import { capitalizeName } from '../utils/stringUtils';
 
 import PropertyModal from './PropertyModal';
 
@@ -202,7 +203,7 @@ export default function PropertyManager({ onOpenProcess }: PropertyManagerProps)
                       {property.address}{property.number ? `, ${property.number}` : ''}{property.complement ? ` - ${property.complement}` : ''}
                     </h3>
                     <div className="text-[10px] font-bold text-black/30 uppercase tracking-wider mt-1 flex flex-wrap gap-x-2">
-                       <span>{property.neighborhood ? `${property.neighborhood}, ` : ''}{property.cep ? `${property.cep}, ` : ''}{property.city} - {property.state}</span>
+                       <span>{property.neighborhood ? `${capitalizeName(property.neighborhood)}, ` : ''}{property.cep ? `${property.cep}, ` : ''}{capitalizeName(property.city)} - {property.state}</span>
                     </div>
                   </div>
 

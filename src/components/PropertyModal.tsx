@@ -3,6 +3,7 @@ import { api } from '../api';
 import { Property } from '../types';
 import { X, Save, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { capitalizeName } from '../utils/stringUtils';
 
 interface IBGEState {
   id: number;
@@ -141,8 +142,8 @@ export default function PropertyModal({ isOpen, onClose, onSuccess, property }: 
     const propertyData = {
       ...formData,
       address: capitalize(formData.address),
-      neighborhood: capitalize(formData.neighborhood),
-      city: capitalize(formData.city),
+      neighborhood: capitalizeName(formData.neighborhood),
+      city: capitalizeName(formData.city),
       complement: capitalize(formData.complement),
       price: formData.price !== '' ? parseCurrencyInput(formData.price) : undefined,
       createdAt: property?.createdAt || new Date().toISOString(),

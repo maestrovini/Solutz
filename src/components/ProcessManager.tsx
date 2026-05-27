@@ -8,6 +8,7 @@ import { useHeader } from '../context/HeaderContext';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/cn';
 import { hexToRgba, getContrastColor } from '../utils/colors';
+import { capitalizeName } from '../utils/stringUtils';
 import PropertyModal from './PropertyModal';
 import ClientModal from './ClientModal';
 
@@ -611,7 +612,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
   };
 
   const getFinishedDate = (process: Process) => {
-    const finishedEntry = process.stageHistory?.find(h => h.stage === 'Finalizado');
+    const finishedEntry = Array.isArray(process.stageHistory) ? process.stageHistory.find(h => h.stage === 'Finalizado') : null;
     const dateStr = finishedEntry?.date || process.updatedAt || new Date().toISOString();
     const date = new Date(dateStr);
     return `${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
@@ -643,8 +644,8 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
       if (formattedData.name) formattedData.name = capitalize(formattedData.name);
       if (formattedData.email) formattedData.email = formattedData.email.toLowerCase();
       if (formattedData.address) formattedData.address = capitalize(formattedData.address);
-      if (formattedData.neighborhood) formattedData.neighborhood = capitalize(formattedData.neighborhood);
-      if (formattedData.city) formattedData.city = capitalize(formattedData.city);
+      if (formattedData.neighborhood) formattedData.neighborhood = capitalizeName(formattedData.neighborhood);
+      if (formattedData.city) formattedData.city = capitalizeName(formattedData.city);
       if (formattedData.complement) formattedData.complement = capitalize(formattedData.complement);
       
       await api.update(collection as any, selectedEntityForDetail.id, formattedData);
@@ -1045,7 +1046,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                     >
                       <MapPin className="w-3 h-3" style={{ color: bankColor }} />
                       <span className="text-[10px] font-bold truncate" style={{ color: bankColor }}>
-                        {property.address}{property.number ? `, ${property.number}` : ''} - {property.neighborhood}
+                        {property.address}{property.number ? `, ${property.number}` : ''} - {capitalizeName(property.neighborhood)}
                       </span>
                     </div>
                   );
@@ -1341,7 +1342,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                               {property.address}{property.number ? `, ${property.number}` : ''}{property.complement ? ` - ${property.complement}` : ''}
                             </p>
                             <p className="text-xs text-black/60">
-                              {property.neighborhood ? `${property.neighborhood}, ` : ''}{property.city} - {property.state}
+                              {property.neighborhood ? `${capitalizeName(property.neighborhood)}, ` : ''}{capitalizeName(property.city)} - {property.state}
                             </p>
                             {(property.registrationNumber || property.zone) && (
                               <div className="flex gap-3 pt-1">
@@ -2431,7 +2432,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                       <option value="">Selecione um imóvel</option>
                       {properties.map(p => (
                         <option key={p.id} value={p.id}>
-                          {p.address}{p.number ? `, ${p.number}` : ''} - {p.neighborhood} ({p.city})
+                          {p.address}{p.number ? `, ${p.number}` : ''} - {capitalizeName(p.neighborhood)} ({capitalizeName(p.city)})
                         </option>
                       ))}
                     </select>
