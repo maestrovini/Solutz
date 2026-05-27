@@ -143,3 +143,23 @@ export interface Property {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface Product {
+  id?: string;
+  clientId: string; // Cliente que contratou
+  name: string; // Descrição do produto vendido (ex: "Consórcio R$ 200k", "Seguro Habitacional")
+  bankId: string; // ID do Banco associado
+  category: string;
+  value: number; // Valor do Produto / Venda / Crédito
+  interestRate?: string; // Taxa contratada ou Taxa de Adm
+  termMonths?: number; // Prazo contratado em meses
+  commissionPercent?: number; // % de comissão
+  commissionValue?: number; // R$ de comissão
+  status: 'Em andamento' | 'Finalizado' | 'Cancelado';
+  stage: 'Simulação' | 'Análise Cliente' | 'Contratado';
+  brokerId?: string; // Corretor que vendeu/indicou
+  notes?: string; // Observações / Detalhes
+  createdAt: string;
+  updatedAt: string;
+}
+

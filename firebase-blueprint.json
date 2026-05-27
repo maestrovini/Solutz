@@ -129,6 +129,30 @@
         "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp" }
       },
       "required": ["address", "city", "state", "type"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Sold product contract details tracked inside the system",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Product transaction tracking ID" },
+        "clientId": { "type": "string", "description": "Associated Client ID" },
+        "name": { "type": "string", "description": "Product specific description" },
+        "bankId": { "type": "string", "description": "Associated Bank ID" },
+        "category": { "type": "string", "enum": ["Financiamento", "Consórcio", "Seguro", "Crédito", "Outro"], "description": "Product category" },
+        "value": { "type": "number", "description": "Sold transaction credit/loan value" },
+        "interestRate": { "type": "string", "description": "Interest rate or admin fee details" },
+        "termMonths": { "type": "number", "description": "Repayment term in months" },
+        "commissionPercent": { "type": "number", "description": "Commission percent" },
+        "commissionValue": { "type": "number", "description": "Commission earned value" },
+        "status": { "type": "string", "enum": ["Em andamento", "Finalizado", "Cancelado"], "description": "Coarse transaction status" },
+        "stage": { "type": "string", "enum": ["Simulação", "Proposta Gerada", "Sob Análise", "Aprovado", "Emitido / Pago"], "description": "Active workflow stage" },
+        "brokerId": { "type": "string", "description": "Responsible broker ID" },
+        "notes": { "type": "string", "description": "General observations" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
+      },
+      "required": ["clientId", "name", "bankId", "category", "value", "status", "stage"]
     }
   },
   "firestore": {
@@ -159,6 +183,10 @@
     "/properties/{propertyId}": {
       "schema": "Property",
       "description": "Properties"
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Products"
     }
   }
 }

@@ -3,6 +3,7 @@ import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import ClientManager from './components/ClientManager';
 import ProcessManager from './components/ProcessManager';
+import ProductManager from './components/ProductManager';
 import BankManager from './components/BankManager';
 import AgencyManager from './components/AgencyManager';
 import BrokerManager from './components/BrokerManager';
@@ -14,7 +15,7 @@ import ClientModal from './components/ClientModal';
 import { HeaderProvider } from './context/HeaderContext';
 import { AuthProvider } from './context/AuthContext';
 import { api } from './api';
-import { Process, Client, Bank, Agency, Broker, Property } from './types';
+import { Process, Client, Bank, Agency, Broker, Property, Product } from './types';
 
 import { useAuth } from './context/AuthContext';
 import Login from './components/Login';
@@ -35,6 +36,7 @@ function AppContent() {
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -45,6 +47,7 @@ function AppContent() {
     const unsubAgencies = api.subscribeToCollection('agencies', (data) => setAgencies(data as Agency[]));
     const unsubBrokers = api.subscribeToCollection('brokers', (data) => setBrokers(data as Broker[]));
     const unsubProperties = api.subscribeToCollection('properties', (data) => setProperties(data as Property[]));
+    const unsubProducts = api.subscribeToCollection('products', (data) => setProducts(data as Product[]));
 
     return () => {
       unsubProcesses();
@@ -53,6 +56,7 @@ function AppContent() {
       unsubAgencies();
       unsubBrokers();
       unsubProperties();
+      unsubProducts();
     };
   }, [user]);
 
@@ -147,6 +151,8 @@ function AppContent() {
             onOpenClient={handleOpenClientModal}
           />
         );
+      case 'products':
+        return <ProductManager />;
       case 'banks':
         return <BankManager />;
       case 'finance':
