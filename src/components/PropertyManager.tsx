@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { Property, Process } from '../types';
-import { Plus, Search, Trash2, Edit2, X, MapPin, Filter, AlertCircle, Save, Hash, Globe, Layout, FileText } from 'lucide-react';
+import { Plus, Search, Trash2, Edit2, X, MapPin, Filter, AlertCircle, Save, Hash, Globe, Layout, FileText, ArrowUpDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
 import { useAuth } from '../context/AuthContext';
@@ -33,11 +33,17 @@ export default function PropertyManager({ onOpenProcess }: PropertyManagerProps)
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isSortOpen, setIsSortOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState<string>('');
+  const [cityFilter, setCityFilter] = useState<string>('');
+  const [neighborhoodFilter, setNeighborhoodFilter] = useState<string>('');
+  const [sortOrder, setSortOrder] = useState<string>('address-asc');
   const { setTitle, setActions } = useHeader();
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [expandedPropertyId, setExpandedPropertyId] = useState<string | null>(null);
+
+  const isAnyFilterActive = !!(typeFilter || cityFilter || neighborhoodFilter);
 
   useEffect(() => {
     setTitle('Imóveis');
@@ -58,14 +64,29 @@ export default function PropertyManager({ onOpenProcess }: PropertyManagerProps)
         <button
           onClick={() => setIsFilterOpen(prev => !prev)}
           className={cn(
-            "p-2 rounded-lg transition-all border shadow-sm",
-            isFilterOpen
+            "p-2 rounded-lg transition-all border shadow-sm relative",
+            isFilterOpen || isAnyFilterActive
               ? "bg-white text-black border-white" 
               : "bg-white/10 text-white border-white/10 hover:bg-white/20"
           )}
           title="Filtros"
         >
           <Filter className="w-5 h-5" />
+          {isAnyFilterActive && !isFilterOpen && (
+            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-white border-2 border-black rounded-full" />
+          )}
+        </button>
+        <button
+          onClick={() => setIsSortOpen(prev => !prev)}
+          className={cn(
+            "p-2 rounded-lg transition-all border shadow-sm",
+            isSortOpen
+              ? "bg-white text-black border-white" 
+              : "bg-white/10 text-white border-white/10 hover:bg-white/20"
+          )}
+          title="Ordenar"
+        >
+          <ArrowUpDown className="w-5 h-5" />
         </button>
         {isAdmin && (
           <button
@@ -81,7 +102,7 @@ export default function PropertyManager({ onOpenProcess }: PropertyManagerProps)
         )}
       </div>
     );
-  }, [isSearchOpen, searchTerm, isFilterOpen, isAdmin]);
+  }, [isSearchOpen, searchTerm, isFilterOpen, isAnyFilterActive, isSortOpen, isAdmin]);
 
   useEffect(() => {
     const unsubProperties = api.subscribeToCollection('properties', (data) => {
@@ -108,14 +129,57 @@ export default function PropertyManager({ onOpenProcess }: PropertyManagerProps)
     }
   };
 
+  const uniqueCities = React.useMemo(() => {
+    const citiesSet = new Set<string>();
+    properties.forEach(p => {
+      if (p.city) {
+        citiesSet.add(capitalizeName(p.city.trim()));
+      }
+    });
+    return Array.from(citiesSet).sort((a, b) => a.localeCompare(b));
+  }, [properties]);
+
+  const uniqueNeighborhoods = React.useMemo(() => {
+    const neighborhoodSet = new Set<string>();
+    properties.forEach(p => {
+      if (p.neighborhood) {
+        neighborhoodSet.add(capitalizeName(p.neighborhood.trim()));
+      }
+    });
+    return Array.from(neighborhoodSet).sort((a, b) => a.localeCompare(b));
+  }, [properties]);
+
   const filteredProperties = properties.filter(p => {
     const matchesSearch = p.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          p.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (p.neighborhood && p.neighborhood.toLowerCase().includes(searchTerm.toLowerCase())) ||
                          (p.registrationNumber && p.registrationNumber.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesType = !typeFilter || p.type === typeFilter;
-    return matchesSearch && matchesType;
+    const matchesCity = !cityFilter || p.city.toLowerCase() === cityFilter.toLowerCase();
+    const matchesNeighborhood = !neighborhoodFilter || (p.neighborhood && p.neighborhood.toLowerCase() === neighborhoodFilter.toLowerCase());
+    return matchesSearch && matchesType && matchesCity && matchesNeighborhood;
   });
+
+  const sortedProperties = React.useMemo(() => {
+    return [...filteredProperties].sort((a, b) => {
+      switch (sortOrder) {
+        case 'price-desc':
+          return (b.price || 0) - (a.price || 0);
+        case 'price-asc':
+          return (a.price || 0) - (b.price || 0);
+        case 'neighborhood-asc': {
+          const nameA = a.neighborhood || '';
+          const nameB = b.neighborhood || '';
+          return nameA.localeCompare(nameB);
+        }
+        case 'type-asc':
+          return a.type.localeCompare(b.type);
+        case 'address-asc':
+        default:
+          return a.address.localeCompare(b.address);
+      }
+    });
+  }, [filteredProperties, sortOrder]);
 
   return (
     <div className="space-y-6">
@@ -159,13 +223,13 @@ export default function PropertyManager({ onOpenProcess }: PropertyManagerProps)
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="bg-white p-6 rounded-[24px] border border-black/5 shadow-sm">
+            <div className="bg-white p-6 rounded-[24px] border border-black/5 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-bold text-black/40 uppercase tracking-wider mb-3">Tipo</label>
                 <select
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value)}
-                  className="w-full px-4 py-3 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all appearance-none cursor-pointer"
+                  className="w-full px-4 py-3 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all appearance-none cursor-pointer text-xs font-semibold"
                 >
                   <option value="">Todos os Tipos</option>
                   <option value="Casa">Casa</option>
@@ -174,6 +238,108 @@ export default function PropertyManager({ onOpenProcess }: PropertyManagerProps)
                   <option value="Comercial">Comercial</option>
                 </select>
               </div>
+
+              <div>
+                <label className="block text-xs font-bold text-black/40 uppercase tracking-wider mb-3">Cidade</label>
+                <select
+                  value={cityFilter}
+                  onChange={(e) => setCityFilter(e.target.value)}
+                  className="w-full px-4 py-3 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all appearance-none cursor-pointer text-xs font-semibold"
+                >
+                  <option value="">Todas as Cidades</option>
+                  {uniqueCities.map(city => (
+                    <option key={city} value={city}>{city}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-black/40 uppercase tracking-wider mb-3">Bairro</label>
+                <select
+                  value={neighborhoodFilter}
+                  onChange={(e) => setNeighborhoodFilter(e.target.value)}
+                  className="w-full px-4 py-3 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all appearance-none cursor-pointer text-xs font-semibold"
+                >
+                  <option value="">Todos os Bairros</option>
+                  {uniqueNeighborhoods.map(neighborhood => (
+                    <option key={neighborhood} value={neighborhood}>{neighborhood}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isSortOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="bg-white p-4 rounded-[24px] border border-black/5 shadow-sm flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setSortOrder('price-desc')}
+                className={cn(
+                  "px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border",
+                  sortOrder === 'price-desc'
+                    ? "bg-black text-white border-black"
+                    : "bg-[#f5f5f0] text-black/40 border-transparent hover:bg-black/5"
+                )}
+              >
+                Valor: Maior → Menor
+              </button>
+              <button
+                type="button"
+                onClick={() => setSortOrder('price-asc')}
+                className={cn(
+                  "px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border",
+                  sortOrder === 'price-asc'
+                    ? "bg-black text-white border-black"
+                    : "bg-[#f5f5f0] text-black/40 border-transparent hover:bg-black/5"
+                )}
+              >
+                Valor: Menor → Maior
+              </button>
+              <button
+                type="button"
+                onClick={() => setSortOrder('neighborhood-asc')}
+                className={cn(
+                  "px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border",
+                  sortOrder === 'neighborhood-asc'
+                    ? "bg-black text-white border-black"
+                    : "bg-[#f5f5f0] text-black/40 border-transparent hover:bg-black/5"
+                )}
+              >
+                Bairro: A-Z
+              </button>
+              <button
+                type="button"
+                onClick={() => setSortOrder('type-asc')}
+                className={cn(
+                  "px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border",
+                  sortOrder === 'type-asc'
+                    ? "bg-black text-white border-black"
+                    : "bg-[#f5f5f0] text-black/40 border-transparent hover:bg-black/5"
+                )}
+              >
+                Tipo: A-Z
+              </button>
+              <button
+                type="button"
+                onClick={() => setSortOrder('address-asc')}
+                className={cn(
+                  "px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border",
+                  sortOrder === 'address-asc'
+                    ? "bg-black text-white border-black"
+                    : "bg-[#f5f5f0] text-black/40 border-transparent hover:bg-black/5"
+                )}
+              >
+                Endereço: A-Z
+              </button>
             </div>
           </motion.div>
         )}
@@ -181,7 +347,7 @@ export default function PropertyManager({ onOpenProcess }: PropertyManagerProps)
 
       <div className="grid grid-cols-1 gap-2">
         <AnimatePresence mode="popLayout">
-          {filteredProperties.map((property) => {
+          {sortedProperties.map((property) => {
             const isExpanded = expandedPropertyId === property.id;
 
             return (

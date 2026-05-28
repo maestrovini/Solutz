@@ -232,10 +232,10 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     const bankMatch = !filters.bankId || process.bankId === filters.bankId;
     const typeMatch = !filters.type || process.type === filters.type;
     
-    // Logic: 'Finalizado' processes only appear if explicitly selected in the filter
+    // Logic: 'Finalizado' and 'Aprovado' processes only appear if explicitly selected in the filter
     const stageMatch = filters.stage 
       ? process.stage === filters.stage 
-      : process.stage !== 'Finalizado';
+      : process.stage !== 'Finalizado' && process.stage !== 'Aprovado';
 
     const brokerMatch = !filters.brokerId || process.brokerId === filters.brokerId || brokersList.some(p => p.id === filters.brokerId);
     
@@ -702,6 +702,16 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
               type: 'broker',
               name: broker.name || ''
             });
+            if (broker.agencyId) {
+              const agencyObj = agencies.find(a => a.id === broker.agencyId);
+              if (agencyObj && !newParticipants.some(p => p.id === agencyObj.id && p.type === 'agency')) {
+                newParticipants.push({
+                  id: agencyObj.id!,
+                  type: 'agency',
+                  name: agencyObj.name || ''
+                });
+              }
+            }
           }
         }
         if (client.agencyId) {
@@ -713,6 +723,20 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
               name: agencyObj.name || ''
             });
           }
+        }
+      }
+    }
+
+    if (type === 'broker') {
+      const broker = brokers.find(b => b.id === id);
+      if (broker && broker.agencyId) {
+        const agencyObj = agencies.find(a => a.id === broker.agencyId);
+        if (agencyObj && !newParticipants.some(p => p.id === agencyObj.id && p.type === 'agency')) {
+          newParticipants.push({
+            id: agencyObj.id!,
+            type: 'agency',
+            name: agencyObj.name || ''
+          });
         }
       }
     }

@@ -182,6 +182,7 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
   const [loading, setLoading] = useState(true);
   const [concludeConfirm, setConcludeConfirm] = useState<{ processId: string, notificationId: string } | null>(null);
   const [chartTab, setChartTab] = useState<'volume' | 'count'>('volume');
+  const [performancePeriod, setPerformancePeriod] = useState<'6m' | '1y' | 'all'>('6m');
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const { setTitle, setActions } = useHeader();
 
@@ -266,7 +267,8 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
   const monthsNames = useMemo(() => ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'], []);
 
   const kpis = useMemo(() => {
-    const active = processes.filter(p => p.stage !== 'Finalizado' && p.status !== 'Cancelado');
+    const activeStages = ['Vistoria', 'Documentos', 'Conformidade', 'Recursos', 'Contrato', 'ITBI', 'Registro'];
+    const active = processes.filter(p => activeStages.includes(p.stage) && p.status !== 'Cancelado');
     const finalized = processes.filter(p => p.stage === 'Finalizado');
     
     // Volume total concedido (finalizados)
@@ -297,9 +299,38 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
       totalFinalizedVolume: number; 
     }> = {};
     
-    // Timeline of last 6 months
+    // Timeline of specified period
+    let numMonths = 6;
+    if (performancePeriod === '1y') {
+      numMonths = 12;
+    } else if (performancePeriod === 'all') {
+      let oldestDate = new Date();
+      processes.forEach(p => {
+        const datesToCheck = [p.updatedAt];
+        if (Array.isArray(p.stageHistory)) {
+          p.stageHistory.forEach(h => {
+            if (h.date) datesToCheck.push(h.date);
+          });
+        }
+        datesToCheck.forEach(dStr => {
+          if (dStr) {
+            const d = new Date(dStr);
+            if (!isNaN(d.getTime()) && d < oldestDate) {
+              oldestDate = d;
+            }
+          }
+        });
+      });
+      // Calculate months between oldestDate and now
+      const currentDate = new Date();
+      const diffYears = currentDate.getFullYear() - oldestDate.getFullYear();
+      const diffMonths = currentDate.getMonth() - oldestDate.getMonth();
+      const totalMonths = diffYears * 12 + diffMonths + 1;
+      numMonths = Math.max(6, totalMonths);
+    }
+
     const currentDate = new Date();
-    for (let i = 5; i >= 0; i--) {
+    for (let i = numMonths - 1; i >= 0; i--) {
       const d = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       const label = `${monthsNames[d.getMonth()]} ${String(d.getFullYear()).slice(-2)}`;
@@ -349,7 +380,7 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
     });
 
     return Object.values(dataMap).sort((a, b) => a.monthKey.localeCompare(b.monthKey));
-  }, [processes, monthsNames]);
+  }, [processes, monthsNames, performancePeriod]);
 
   const maxChartVal = useMemo(() => {
     if (!chartData || chartData.length === 0) return 1;
@@ -646,6 +677,13 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
     return `${day}/${month}/${year}`;
   };
 
+  const getXPos = (idx: number) => {
+    if (chartData.length <= 1) return 70 + 250;
+    return 70 + (idx / (chartData.length - 1)) * 500;
+  };
+
+  const wItem = chartData.length > 1 ? 500 / (chartData.length - 1) : 500;
+
   return (
     <div className="space-y-4">
       {/* Top level KPIs Grid */}
@@ -709,41 +747,87 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
         transition={{ duration: 0.4, delay: 0.2 }}
         className="bg-white p-6 rounded-[24px] shadow-sm border border-black/5"
       >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-black rounded-xl flex items-center justify-center text-white shadow-lg shadow-black/20">
               <BarChart3 className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-xl font-bold text-[#1a1a1a] leading-none">Análise de Performance</h2>
-              <p className="text-[10px] text-black/40 uppercase tracking-wider mt-1">Evolução e volume da operação (Últimos 6 Meses)</p>
+              <p className="text-[10px] text-black/40 uppercase tracking-wider mt-1">
+                Evolução e volume da operação ({performancePeriod === '6m' ? 'Últimos 6 Meses' : performancePeriod === '1y' ? 'Último 1 Ano' : 'Período Todo'})
+              </p>
             </div>
           </div>
 
-          {/* Tab switches */}
-          <div className="flex bg-[#f5f5f0] p-1 rounded-xl self-start sm:self-center">
-            <button
-              onClick={() => setChartTab('volume')}
-              className={cn(
-                "px-4 py-2 rounded-lg text-xs font-bold transition-all",
-                chartTab === 'volume'
-                  ? "bg-white text-black shadow-sm"
-                  : "text-black/40 hover:text-black/60"
-              )}
-            >
-              Volume de Crédito
-            </button>
-            <button
-              onClick={() => setChartTab('count')}
-              className={cn(
-                "px-4 py-2 rounded-lg text-xs font-bold transition-all",
-                chartTab === 'count'
-                  ? "bg-white text-black shadow-sm"
-                  : "text-black/40 hover:text-black/60"
-              )}
-            >
-              Quantidade de Processos
-            </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Period selector */}
+            <div className="flex bg-[#f5f5f0] p-1 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setPerformancePeriod('6m')}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all",
+                  performancePeriod === '6m'
+                    ? "bg-white text-black shadow-sm"
+                    : "text-black/40 hover:text-black/60"
+                )}
+              >
+                6 meses
+              </button>
+              <button
+                type="button"
+                onClick={() => setPerformancePeriod('1y')}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all",
+                  performancePeriod === '1y'
+                    ? "bg-white text-black shadow-sm"
+                    : "text-black/40 hover:text-black/60"
+                )}
+              >
+                1 ano
+              </button>
+              <button
+                type="button"
+                onClick={() => setPerformancePeriod('all')}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap",
+                  performancePeriod === 'all'
+                    ? "bg-white text-black shadow-sm"
+                    : "text-black/40 hover:text-black/60"
+                )}
+              >
+                Período todo
+              </button>
+            </div>
+
+            {/* Tab switches */}
+            <div className="flex bg-[#f5f5f0] p-1 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setChartTab('volume')}
+                className={cn(
+                  "px-4 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap",
+                  chartTab === 'volume'
+                    ? "bg-white text-black shadow-sm"
+                    : "text-black/40 hover:text-black/60"
+                )}
+              >
+                Volume de Crédito
+              </button>
+              <button
+                type="button"
+                onClick={() => setChartTab('count')}
+                className={cn(
+                  "px-4 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap",
+                  chartTab === 'count'
+                    ? "bg-white text-black shadow-sm"
+                    : "text-black/40 hover:text-black/60"
+                )}
+              >
+                Quantidade de Processos
+              </button>
+            </div>
           </div>
         </div>
 
@@ -798,20 +882,27 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
 
               {/* X Axis labels */}
               {chartData.map((d, idx) => {
-                const xPos = (idx * 100) + 70;
-                return (
+                const xPos = getXPos(idx);
+                // Reduce clutter on labels if we have too many years/months
+                const shouldShowLabel = 
+                  chartData.length <= 12 || 
+                  idx === 0 || 
+                  idx === chartData.length - 1 || 
+                  idx % Math.ceil(chartData.length / 8) === 0;
+
+                return shouldShowLabel ? (
                   <text key={idx} x={xPos} y="230" textAnchor="middle" className="text-[9px] font-bold font-mono fill-black/35">
                     {d.monthLabel}
                   </text>
-                );
+                ) : null;
               })}
 
               {/* Hover highlight line */}
               {hoveredIndex !== null && (
                 <line 
-                  x1={(hoveredIndex * 100) + 70} 
+                  x1={getXPos(hoveredIndex)} 
                   y1="30" 
-                  x2={(hoveredIndex * 100) + 70} 
+                  x2={getXPos(hoveredIndex)} 
                   y2="210" 
                   stroke="rgba(0,0,0,0.08)" 
                   strokeWidth="1.5"
@@ -824,11 +915,11 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
                 <>
                   {/* FGTS Area & Line */}
                   <path
-                    d={`M 70,210 L ${chartData.map((d, idx) => `${(idx * 100) + 70},${210 - ((d.fgtsFinalizedVolume || 0) / maxChartVal) * 180}`).join(' L ')} L ${(chartData.length - 1) * 100 + 70},210 Z`}
+                    d={`M 70,210 L ${chartData.map((d, idx) => `${getXPos(idx)},${210 - ((d.fgtsFinalizedVolume || 0) / maxChartVal) * 180}`).join(' L ')} L ${getXPos(chartData.length - 1)},210 Z`}
                     fill="url(#colorFgts)"
                   />
                   <path
-                    d={`M ${chartData.map((d, idx) => `${(idx * 100) + 70},${210 - ((d.fgtsFinalizedVolume || 0) / maxChartVal) * 180}`).join(' L ')}`}
+                    d={`M ${chartData.map((d, idx) => `${getXPos(idx)},${210 - ((d.fgtsFinalizedVolume || 0) / maxChartVal) * 180}`).join(' L ')}`}
                     fill="none"
                     stroke="#f59e0b"
                     strokeWidth="2"
@@ -836,11 +927,11 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
 
                   {/* SBPE Area & Line */}
                   <path
-                    d={`M 70,210 L ${chartData.map((d, idx) => `${(idx * 100) + 70},${210 - ((d.sbpeFinalizedVolume || 0) / maxChartVal) * 180}`).join(' L ')} L ${(chartData.length - 1) * 100 + 70},210 Z`}
+                    d={`M 70,210 L ${chartData.map((d, idx) => `${getXPos(idx)},${210 - ((d.sbpeFinalizedVolume || 0) / maxChartVal) * 180}`).join(' L ')} L ${getXPos(chartData.length - 1)},210 Z`}
                     fill="url(#colorSbpe)"
                   />
                   <path
-                    d={`M ${chartData.map((d, idx) => `${(idx * 100) + 70},${210 - ((d.sbpeFinalizedVolume || 0) / maxChartVal) * 180}`).join(' L ')}`}
+                    d={`M ${chartData.map((d, idx) => `${getXPos(idx)},${210 - ((d.sbpeFinalizedVolume || 0) / maxChartVal) * 180}`).join(' L ')}`}
                     fill="none"
                     stroke="#005ca9"
                     strokeWidth="2"
@@ -848,11 +939,11 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
 
                   {/* Total Area & Line */}
                   <path
-                    d={`M 70,210 L ${chartData.map((d, idx) => `${(idx * 100) + 70},${210 - ((d.totalFinalizedVolume || 0) / maxChartVal) * 180}`).join(' L ')} L ${(chartData.length - 1) * 100 + 70},210 Z`}
+                    d={`M 70,210 L ${chartData.map((d, idx) => `${getXPos(idx)},${210 - ((d.totalFinalizedVolume || 0) / maxChartVal) * 180}`).join(' L ')} L ${getXPos(chartData.length - 1)},210 Z`}
                     fill="url(#colorFinalized)"
                   />
                   <path
-                    d={`M ${chartData.map((d, idx) => `${(idx * 100) + 70},${210 - ((d.totalFinalizedVolume || 0) / maxChartVal) * 180}`).join(' L ')}`}
+                    d={`M ${chartData.map((d, idx) => `${getXPos(idx)},${210 - ((d.totalFinalizedVolume || 0) / maxChartVal) * 180}`).join(' L ')}`}
                     fill="none"
                     stroke="#10b981"
                     strokeWidth="2.5"
@@ -860,12 +951,13 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
 
                   {/* Dot anchors */}
                   {chartData.map((d, idx) => {
-                    const x = (idx * 100) + 70;
+                    const x = getXPos(idx);
                     const yFgts = 210 - ((d.fgtsFinalizedVolume || 0) / maxChartVal) * 180;
                     const ySbpe = 210 - ((d.sbpeFinalizedVolume || 0) / maxChartVal) * 180;
                     const yTotal = 210 - ((d.totalFinalizedVolume || 0) / maxChartVal) * 180;
 
                     const isHovered = hoveredIndex === idx;
+                    const showDotLabels = chartData.length <= 12;
 
                     return (
                       <g key={idx}>
@@ -879,7 +971,7 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
                         <circle cx={x} cy={yTotal} r={isHovered ? 6 : 4} className="fill-[#10b981] stroke-white stroke-2 transition-all duration-150" />
 
                         {/* Top Value Labels on total line dynamically */}
-                        {!isHovered && d.totalFinalizedVolume > 0 && (
+                        {!isHovered && d.totalFinalizedVolume > 0 && showDotLabels && (
                           <text x={x} y={yTotal - 8} textAnchor="middle" className="text-[8px] font-black fill-[#059669]">
                             {formatCompactCurrency(d.totalFinalizedVolume)}
                           </text>
@@ -892,42 +984,44 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
                 /* Render Bar Chart for counts */
                 <>
                   {chartData.map((d, idx) => {
-                    const xCenter = (idx * 100) + 70;
+                    const xCenter = getXPos(idx);
                     
                     const hFgts = ((d.fgtsFinalizedCount || 0) / maxChartVal) * 180;
                     const hSbpe = ((d.sbpeFinalizedCount || 0) / maxChartVal) * 180;
                     const hTotal = ((d.totalFinalizedCount || 0) / maxChartVal) * 180;
 
-                    const w = 12;
+                    const w = Math.max(3, Math.min(12, 120 / chartData.length));
+                    const g = Math.max(1, Math.min(4, w * 0.35));
                     const isHovered = hoveredIndex === idx;
+                    const showBarLabels = chartData.length <= 12;
 
                     return (
                       <g key={idx}>
                         {/* FGTS Bar */}
                         <rect
-                          x={xCenter - 22}
+                          x={xCenter - (1.5 * w + g)}
                           y={210 - hFgts}
                           width={w}
                           height={Math.max(hFgts, 1)}
                           rx="3"
                           className={cn("fill-[#f59e0b] transition-all duration-300", isHovered ? "brightness-105" : "brightness-100")}
                         />
-                        {d.fgtsFinalizedCount > 0 && !isHovered && (
-                          <text x={xCenter - 16} y={210 - hFgts - 4} textAnchor="middle" className="text-[7px] font-bold fill-[#d97706]">
+                        {d.fgtsFinalizedCount > 0 && !isHovered && showBarLabels && (
+                          <text x={xCenter - (w + g)} y={210 - hFgts - 4} textAnchor="middle" className="text-[7px] font-bold fill-[#d97706]">
                             {d.fgtsFinalizedCount}
                           </text>
                         )}
 
                         {/* SBPE Bar */}
                         <rect
-                          x={xCenter - 6}
+                          x={xCenter - (0.5 * w)}
                           y={210 - hSbpe}
                           width={w}
                           height={Math.max(hSbpe, 1)}
                           rx="3"
                           className={cn("fill-[#005ca9] transition-all duration-300", isHovered ? "brightness-105" : "brightness-100")}
                         />
-                        {d.sbpeFinalizedCount > 0 && !isHovered && (
+                        {d.sbpeFinalizedCount > 0 && !isHovered && showBarLabels && (
                           <text x={xCenter} y={210 - hSbpe - 4} textAnchor="middle" className="text-[7px] font-bold fill-[#005ca9]">
                             {d.sbpeFinalizedCount}
                           </text>
@@ -935,15 +1029,15 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
 
                         {/* Total Bar */}
                         <rect
-                          x={xCenter + 10}
+                          x={xCenter + (0.5 * w + g)}
                           y={210 - hTotal}
                           width={w}
                           height={Math.max(hTotal, 1)}
                           rx="3"
                           className={cn("fill-[#10b981] transition-all duration-300", isHovered ? "brightness-105" : "brightness-100")}
                         />
-                        {d.totalFinalizedCount > 0 && !isHovered && (
-                          <text x={xCenter + 16} y={210 - hTotal - 4} textAnchor="middle" className="text-[8px] font-black fill-[#059669]">
+                        {d.totalFinalizedCount > 0 && !isHovered && showBarLabels && (
+                          <text x={xCenter + (w + g)} y={210 - hTotal - 4} textAnchor="middle" className="text-[8px] font-black fill-[#059669]">
                             {d.totalFinalizedCount}
                           </text>
                         )}
@@ -954,19 +1048,25 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
               )}
 
               {/* Invisible Hit Testing Overlays to process hover actions reliably */}
-              {chartData.map((_, idx) => (
-                <rect
-                  key={idx}
-                  x={idx === 0 ? 50 : (idx * 100) + 20}
-                  y="10"
-                  width="100"
-                  height="210"
-                  fill="transparent"
-                  className="cursor-pointer"
-                  onMouseEnter={() => setHoveredIndex(idx)}
-                  onMouseOver={() => setHoveredIndex(idx)}
-                />
-              ))}
+              {chartData.map((_, idx) => {
+                const xPos = getXPos(idx);
+                const rectWidth = idx === 0 || idx === chartData.length - 1 ? wItem / 2 + 20 : wItem;
+                const rectX = idx === 0 ? 50 : xPos - wItem / 2;
+
+                return (
+                  <rect
+                    key={idx}
+                    x={rectX}
+                    y="10"
+                    width={rectWidth}
+                    height="210"
+                    fill="transparent"
+                    className="cursor-pointer"
+                    onMouseEnter={() => setHoveredIndex(idx)}
+                    onMouseOver={() => setHoveredIndex(idx)}
+                  />
+                );
+              })}
             </svg>
 
             {/* Float Tooltip overlaying nicely above */}
@@ -974,7 +1074,7 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
               <div 
                 className="absolute z-40 bg-black/95 text-white p-3 rounded-2xl border border-white/10 shadow-2xl text-[10px] sm:text-xs font-sans space-y-1.5 pointer-events-none transition-all duration-150"
                 style={{
-                  left: `${((hoveredIndex * 100) + 70) / 6}%`,
+                  left: `${(getXPos(hoveredIndex) / 600) * 100}%`,
                   top: '15px',
                   transform: 'translateX(-50%)',
                 }}
