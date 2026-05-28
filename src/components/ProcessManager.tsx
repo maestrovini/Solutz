@@ -121,13 +121,43 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     if (initialNewProcessClientId && clients.length > 0) {
       setEditingProcess(null);
       const clientName = getClientName(initialNewProcessClientId);
+      const initialRole = initialNewProcessRole || 'buyer';
+      
+      const initialParticipants: Participant[] = [{ 
+        id: initialNewProcessClientId, 
+        type: initialRole, 
+        name: clientName 
+      }];
+
+      if (initialRole === 'buyer') {
+        const client = clients.find(c => c.id === initialNewProcessClientId);
+        if (client) {
+          if (client.brokerId) {
+            const broker = brokers.find(b => b.id === client.brokerId);
+            if (broker) {
+              initialParticipants.push({
+                id: broker.id!,
+                type: 'broker',
+                name: broker.name || ''
+              });
+            }
+          }
+          if (client.agencyId) {
+            const agencyObj = agencies.find(a => a.id === client.agencyId);
+            if (agencyObj) {
+              initialParticipants.push({
+                id: agencyObj.id!,
+                type: 'agency',
+                name: agencyObj.name || ''
+              });
+            }
+          }
+        }
+      }
+
       setFormData({
         clientId: initialNewProcessClientId,
-        participants: [{ 
-          id: initialNewProcessClientId, 
-          type: initialNewProcessRole || 'buyer', 
-          name: clientName 
-        }],
+        participants: initialParticipants,
         type: 'Financiamento',
         status: 'Em andamento',
         stage: 'Aprovado',
@@ -152,7 +182,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
       });
       setIsModalOpen(true);
     }
-  }, [initialNewProcessClientId, initialNewProcessRole, clients]);
+  }, [initialNewProcessClientId, initialNewProcessRole, clients, brokers, agencies]);
   useEffect(() => {
     if (initialSelectedProcessId && processes.length > 0) {
       const process = processes.find(p => p.id === initialSelectedProcessId);
@@ -658,9 +688,38 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
 
   const addParticipant = (type: Participant['type'], id: string, name: string) => {
     if (formData.participants.some(p => p.id === id && p.type === type)) return;
+    
+    let newParticipants: Participant[] = [...formData.participants, { id, type, name }];
+    
+    if (type === 'buyer') {
+      const client = clients.find(c => c.id === id);
+      if (client) {
+        if (client.brokerId) {
+          const broker = brokers.find(b => b.id === client.brokerId);
+          if (broker && !newParticipants.some(p => p.id === broker.id && p.type === 'broker')) {
+            newParticipants.push({
+              id: broker.id!,
+              type: 'broker',
+              name: broker.name || ''
+            });
+          }
+        }
+        if (client.agencyId) {
+          const agencyObj = agencies.find(a => a.id === client.agencyId);
+          if (agencyObj && !newParticipants.some(p => p.id === agencyObj.id && p.type === 'agency')) {
+            newParticipants.push({
+              id: agencyObj.id!,
+              type: 'agency',
+              name: agencyObj.name || ''
+            });
+          }
+        }
+      }
+    }
+    
     setFormData({
       ...formData,
-      participants: [...formData.participants, { id, type, name }]
+      participants: newParticipants
     });
   };
 

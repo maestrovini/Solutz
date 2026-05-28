@@ -158,6 +158,7 @@ export interface Product {
   status: 'Em andamento' | 'Finalizado' | 'Cancelado';
   stage: 'Simulação' | 'Análise Cliente' | 'Contratado';
   brokerId?: string; // Corretor que vendeu/indicou
+  expirationDate?: string; // Data de vencimento
   notes?: string; // Observações / Detalhes
   createdAt: string;
   updatedAt: string;

@@ -58,6 +58,7 @@ export default function ProductManager() {
   const [formStage, setFormStage] = useState<Product['stage']>('Simulação');
   const [formBrokerId, setFormBrokerId] = useState('');
   const [formNotes, setFormNotes] = useState('');
+  const [formExpirationDate, setFormExpirationDate] = useState('');
 
   // Dynamically obtain unique products from banks registered in the system
   const uniqueProductTypes = useMemo(() => {
@@ -254,6 +255,7 @@ export default function ProductManager() {
       setFormStage(prod.stage || 'Simulação');
       setFormBrokerId(prod.brokerId || '');
       setFormNotes(prod.notes || '');
+      setFormExpirationDate(prod.expirationDate || '');
     } else {
       const defaultCategory = uniqueProductTypes[0] || 'Consórcio';
       const matchingBanks = banks.filter(b => b.productTypes?.includes(defaultCategory));
@@ -271,6 +273,7 @@ export default function ProductManager() {
       setFormStage('Simulação');
       setFormBrokerId(brokers[0]?.id || '');
       setFormNotes('');
+      setFormExpirationDate('');
     }
     setIsModalOpen(true);
   };
@@ -298,6 +301,7 @@ export default function ProductManager() {
       stage: formStage,
       brokerId: formBrokerId || undefined,
       notes: formNotes || undefined,
+      expirationDate: formExpirationDate || undefined,
       updatedAt: new Date().toISOString(),
       createdAt: editingProduct?.createdAt || new Date().toISOString()
     };
@@ -672,6 +676,19 @@ export default function ProductManager() {
                     </div>
                   </div>
 
+                  <div 
+                    className="flex items-center gap-2 py-1.5 px-2 rounded-xl border transition-colors"
+                    style={{ 
+                      backgroundColor: hexToRgba(bankColor, 0.05),
+                      borderColor: hexToRgba(bankColor, 0.1)
+                    }}
+                  >
+                    <TrendingUp className="w-3 h-3" style={{ color: bankColor }} />
+                    <span className="text-[10px] font-bold truncate" style={{ color: bankColor }}>
+                      {p.name}
+                    </span>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-0.5">
                       <p className="text-[9px] font-bold uppercase tracking-wider text-black/40">Valor</p>
@@ -681,9 +698,9 @@ export default function ProductManager() {
                     </div>
 
                     <div className="space-y-0.5">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-black/40">Produto</p>
-                      <p className="text-sm font-bold text-[#1a1a1a] truncate" title={p.name}>
-                        {p.name.split(' - ')[0]}
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-black/40">Vencimento</p>
+                      <p className="text-xs font-bold text-[#1a1a1a] font-mono pt-0.5">
+                        {p.expirationDate ? p.expirationDate.split('-').reverse().join('/') : '—'}
                       </p>
                     </div>
                   </div>
@@ -879,6 +896,16 @@ export default function ProductManager() {
                     value={formValue ? formatCurrency(formValue) : ''}
                     onChange={(e) => handleCurrencyInput(e.target.value)}
                     className="w-full bg-[#f5f5f0] border-0 rounded-xl text-xs text-right font-semibold font-mono px-3 py-2 outline-none focus:ring-1 focus:ring-black"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-black/50 uppercase tracking-wide text-[9px] mb-1">Data de Vencimento</label>
+                  <input
+                    type="date"
+                    value={formExpirationDate}
+                    onChange={(e) => setFormExpirationDate(e.target.value)}
+                    className="w-full bg-[#f5f5f0] border-0 rounded-xl text-xs font-semibold px-3 py-2 outline-none focus:ring-1 focus:ring-black"
                   />
                 </div>
 
