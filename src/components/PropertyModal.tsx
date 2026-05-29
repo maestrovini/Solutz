@@ -42,6 +42,7 @@ export default function PropertyModal({ isOpen, onClose, onSuccess, property }: 
     additionalInfo: '',
     price: '',
     type: 'Casa' as Property['type'],
+    isNew: false,
   });
 
   useEffect(() => {
@@ -60,6 +61,7 @@ export default function PropertyModal({ isOpen, onClose, onSuccess, property }: 
           additionalInfo: property.additionalInfo || '',
           price: property.price ? (property.price * 100).toString() : '',
           type: property.type,
+          isNew: property.isNew || false,
         });
       } else {
         setFormData({
@@ -75,6 +77,7 @@ export default function PropertyModal({ isOpen, onClose, onSuccess, property }: 
           additionalInfo: '',
           price: '',
           type: 'Casa',
+          isNew: false,
         });
       }
     }
@@ -231,6 +234,19 @@ export default function PropertyModal({ isOpen, onClose, onSuccess, property }: 
                   <option value="Terreno">Terreno</option>
                   <option value="Comercial">Comercial</option>
                 </select>
+              </div>
+
+              <div className="col-span-2 flex items-center gap-2 py-1">
+                <input
+                  type="checkbox"
+                  id="property-is-new"
+                  checked={formData.isNew}
+                  onChange={(e) => setFormData({ ...formData, isNew: e.target.checked })}
+                  className="w-4 h-4 rounded border-black/10 text-black focus:ring-black/5 accent-black cursor-pointer"
+                />
+                <label htmlFor="property-is-new" className="text-sm font-medium text-black/80 cursor-pointer select-none">
+                  Novo
+                </label>
               </div>
 
               <div>

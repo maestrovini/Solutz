@@ -140,6 +140,7 @@ export interface Property {
   additionalInfo?: string; // Informações
   price?: number; // Valor
   type: 'Casa' | 'Apartamento' | 'Terreno' | 'Comercial';
+  isNew?: boolean;
   createdAt: string;
   updatedAt: string;
 }

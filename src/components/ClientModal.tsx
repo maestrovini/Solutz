@@ -146,13 +146,22 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
     window.location.href = `mailto:${email}`;
   };
 
-  const formatCPF = (value: string) => {
-    return value
-      .replace(/\D/g, '')
-      .replace(/(\d{3})(\d)/, '$1.$2')
-      .replace(/(\d{3})(\d)/, '$1.$2')
-      .replace(/(\d{3})(\d{1,2})/, '$1-$2')
-      .replace(/(-\d{2})\d+?$/, '$1');
+  const formatCPFOrCNPJ = (value: string) => {
+    const raw = value.replace(/\D/g, '');
+    if (raw.length <= 11) {
+      return raw
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d{1,2})/, '$1-$2')
+        .slice(0, 14);
+    } else {
+      return raw
+        .replace(/(\d{2})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1/$2')
+        .replace(/(\d{4})(\d{1,2})/, '$1-$2')
+        .slice(0, 18);
+    }
   };
 
   const formatPIS = (value: string) => {
@@ -253,9 +262,13 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
     if (!isAdmin) return;
     setErrors({});
 
-    if (formData.cpf && !/^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(formData.cpf)) {
-      setErrors({ cpf: 'Formato de CPF inválido' });
-      return;
+    if (formData.cpf) {
+      const isCpf = /^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(formData.cpf);
+      const isCnpj = /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/.test(formData.cpf);
+      if (!isCpf && !isCnpj) {
+        setErrors({ cpf: 'Formato de CPF ou CNPJ inválido' });
+        return;
+      }
     }
 
     // Check for duplicates
@@ -273,7 +286,7 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
     });
 
     if (isDuplicate) {
-      setErrors({ general: 'Já existe um cliente cadastrado com este nome ou CPF.' });
+      setErrors({ general: 'Já existe um cliente cadastrado com este nome ou CPF/CNPJ.' });
       return;
     }
 
@@ -696,14 +709,14 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-black/40 uppercase tracking-widest mb-1.5 ml-1">CPF</label>
+                    <label className="block text-[10px] font-bold text-black/40 uppercase tracking-widest mb-1.5 ml-1">CPF/CNPJ</label>
                     <div className="relative">
                       <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20" />
                       <input
                         type="text"
-                        placeholder="000.000.000-00"
+                        placeholder="000.000.000-00 ou 00.000.000/0000-00"
                         value={formData.cpf}
-                        onChange={(e) => setFormData({ ...formData, cpf: formatCPF(e.target.value) })}
+                        onChange={(e) => setFormData({ ...formData, cpf: formatCPFOrCNPJ(e.target.value) })}
                         className={cn(
                           "w-full pl-11 pr-4 py-3 bg-black/5 text-[#1a1a1a] rounded-2xl border outline-none transition-all font-medium",
                           errors.cpf ? "border-red-500 bg-red-50" : "border-transparent focus:bg-white focus:border-black/10"
@@ -999,7 +1012,7 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
                 {formData.cpf && (
                   <div className="flex items-center gap-3 text-sm text-[#1a1a1a] font-bold">
                     <FileText className="w-4 h-4 shrink-0" />
-                    <span>CPF: {formData.cpf}</span>
+                    <span>CPF/CNPJ: {formData.cpf}</span>
                   </div>
                 )}
                 {formData.birthDate && (

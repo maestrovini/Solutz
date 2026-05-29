@@ -355,7 +355,7 @@ export default function ProductManager() {
 
   const getClientContact = (id: string) => {
     const c = clients.find(cl => cl.id === id);
-    return c ? `${c.phone || ''} ${c.cpf ? '• CPF: '+c.cpf : ''}` : '';
+    return c ? `${c.phone || ''} ${c.cpf ? '• CPF/CNPJ: '+c.cpf : ''}` : '';
   };
 
   const getBankName = (id: string) => {
@@ -837,7 +837,7 @@ export default function ProductManager() {
                                 >
                                   <div>
                                     <span className="font-semibold text-black/80">{c.name}</span>
-                                    {c.cpf && <span className="text-[10px] text-black/40 ml-2">• CPF: {c.cpf}</span>}
+                                    {c.cpf && <span className="text-[10px] text-black/40 ml-2">• CPF/CNPJ: {c.cpf}</span>}
                                   </div>
                                   <Plus className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100" />
                                 </button>

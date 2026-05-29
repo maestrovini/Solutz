@@ -398,7 +398,7 @@ export default function ClientManager({ onOpenProcess, onCreateProcessForClient,
                       {client.cpf && (
                         <div className="flex items-center gap-3 text-sm text-[#1a1a1a] font-bold">
                           <FileText className="w-4 h-4 shrink-0" />
-                          <span>CPF: {client.cpf}</span>
+                          <span>CPF/CNPJ: {client.cpf}</span>
                         </div>
                       )}
                       {client.birthDate && (

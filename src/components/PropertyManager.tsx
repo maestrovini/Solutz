@@ -377,6 +377,11 @@ export default function PropertyManager({ onOpenProcess }: PropertyManagerProps)
                     <div className="bg-black/5 px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider border border-black/5 text-black/60">
                       {property.type}
                     </div>
+                    {property.isNew && (
+                      <div className="bg-sky-50 px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider border border-sky-100 text-sky-600">
+                        Novo
+                      </div>
+                    )}
                     {property.price && (
                       <div className="bg-emerald-50 px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider border border-emerald-100 text-emerald-600">
                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(property.price)}

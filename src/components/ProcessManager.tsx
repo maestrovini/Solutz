@@ -112,6 +112,24 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     return Number(value.replace(/\D/g, '')) / 100;
   };
 
+  const formatCPFOrCNPJ = (value: string) => {
+    const raw = value.replace(/\D/g, '');
+    if (raw.length <= 11) {
+      return raw
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d{1,2})/, '$1-$2')
+        .slice(0, 14);
+    } else {
+      return raw
+        .replace(/(\d{2})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1/$2')
+        .replace(/(\d{4})(\d{1,2})/, '$1-$2')
+        .slice(0, 18);
+    }
+  };
+
   const handleCurrencyChange = (field: 'purchaseValue' | 'financingValue' | 'dispatcherValue' | 'assistedPurchaseValue' | 'iqDebtValue', value: string) => {
     const numericValue = parseCurrency(value);
     setFormData({ ...formData, [field]: numericValue });
@@ -1914,11 +1932,11 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-bold uppercase tracking-wider text-black/40 mb-1">CPF</label>
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-black/40 mb-1">CPF/CNPJ</label>
                           <input
                             type="text"
                             value={entityFormData.cpf || ''}
-                            onChange={(e) => setEntityFormData({ ...entityFormData, cpf: e.target.value })}
+                            onChange={(e) => setEntityFormData({ ...entityFormData, cpf: formatCPFOrCNPJ(e.target.value) })}
                             className="w-full px-4 py-2 text-sm rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] outline-none focus:ring-2 focus:ring-black/5"
                           />
                         </div>
@@ -2053,7 +2071,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                             {client.cpf && (
                               <div className="flex items-center gap-3 text-sm text-black/60">
                                 <FileText className="w-4 h-4 shrink-0" />
-                                <span>CPF: {client.cpf}</span>
+                                <span>CPF/CNPJ: {client.cpf}</span>
                               </div>
                             )}
                             {client.birthDate && (
