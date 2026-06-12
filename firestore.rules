@@ -143,5 +143,9 @@ service cloud.firestore {
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
+
+    match /tags/{tagId} {
+      allow read, write: if isAuthenticated();
+    }
   }
 }

@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
-import { Client, Process, Bank, Broker, Agency } from '../types';
-import { Plus, Search, Trash2, Edit2, X, UserPlus, Phone, Mail, MapPin, Calendar, FileText, Filter, AlertCircle, TrendingUp, TrendingDown, CheckCircle2, Clock, XCircle, MessageCircle, Save, Building2, User as UserIcon, DollarSign, Users, FilePlus } from 'lucide-react';
+import { Client, Process, Bank, Broker, Agency, ClientTag } from '../types';
+import { Plus, Search, Trash2, Edit2, X, UserPlus, Phone, Mail, MapPin, Calendar, FileText, Filter, AlertCircle, TrendingUp, TrendingDown, CheckCircle2, Clock, XCircle, MessageCircle, Save, Building2, User as UserIcon, DollarSign, Users, FilePlus, Calculator, AlertTriangle, Tag } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/cn';
 import { hexToRgba } from '../utils/colors';
+import { TagsManagerModal } from './TagsManagerModal';
 
 interface ClientManagerProps {
   onOpenProcess?: (id: string) => void;
@@ -23,10 +24,11 @@ export default function ClientManager({ onOpenProcess, onCreateProcessForClient,
   const [banks, setBanks] = useState<Bank[]>([]);
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
+  const [allTags, setAllTags] = useState<ClientTag[]>([]);
+  const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
+  const [isTagsModalOpen, setIsTagsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<string>('');
   const { setTitle, setActions } = useHeader();
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [expandedClientId, setExpandedClientId] = useState<string | null>(null);
@@ -59,30 +61,27 @@ export default function ClientManager({ onOpenProcess, onCreateProcessForClient,
         >
           <Search className="w-5 h-5" />
         </button>
-        <button
-          onClick={() => setIsFilterOpen(prev => !prev)}
-          className={cn(
-            "p-2 rounded-lg transition-all border shadow-sm",
-            isFilterOpen
-              ? "bg-white text-black border-white" 
-              : "bg-white/10 text-white border-white/10 hover:bg-white/20"
-          )}
-          title="Filtros"
-        >
-          <Filter className="w-5 h-5" />
-        </button>
         {isAdmin && (
-          <button
-            onClick={() => onOpenClientModal?.()}
-            className="p-2 bg-white text-black border border-white/10 rounded-lg hover:bg-white/80 transition-colors shadow-sm"
-            title="Novo Cliente"
-          >
-            <UserPlus className="w-5 h-5" />
-          </button>
+          <>
+            <button
+              onClick={() => setIsTagsModalOpen(true)}
+              className="p-2 bg-white/10 text-white border border-white/10 rounded-lg hover:bg-white/20 transition-colors shadow-sm"
+              title="Gerenciar Tags"
+            >
+              <Tag className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => onOpenClientModal?.()}
+              className="p-2 bg-white text-black border border-white/10 rounded-lg hover:bg-white/80 transition-colors shadow-sm"
+              title="Novo Cliente"
+            >
+              <UserPlus className="w-5 h-5" />
+            </button>
+          </>
         )}
       </div>
     );
-  }, [isSearchOpen, searchTerm, isFilterOpen, isAdmin]);
+  }, [isSearchOpen, searchTerm, isAdmin]);
 
   useEffect(() => {
     if (initialSelectedClientId) {
@@ -106,12 +105,16 @@ export default function ClientManager({ onOpenProcess, onCreateProcessForClient,
     const unsubscribeAgencies = api.subscribeToCollection('agencies', (data) => {
       setAgencies((data as Agency[]).sort((a, b) => a.name.localeCompare(b.name)));
     });
+    const unsubscribeTags = api.subscribeToCollection('tags', (data) => {
+      setAllTags(data as ClientTag[]);
+    });
     return () => {
       unsubscribe();
       unsubscribeProcesses();
       unsubscribeBanks();
       unsubscribeBrokers();
       unsubscribeAgencies();
+      unsubscribeTags();
     };
   }, []);
 
@@ -135,10 +138,6 @@ export default function ClientManager({ onOpenProcess, onCreateProcessForClient,
             const updates: Partial<Client> = {
               approvedBanks: validBanks
             };
-
-            if (validBanks.length === 0 && client.status !== 'Vencido') {
-              (updates as any).status = 'Vencido';
-            }
 
             // Only update if there's a real change to avoid unnecessary writes
             try {
@@ -175,9 +174,9 @@ export default function ClientManager({ onOpenProcess, onCreateProcessForClient,
     const name = c.name || '';
     const email = c.email || '';
     const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = !statusFilter || c.status === statusFilter;
-    return matchesSearch && matchesStatus;
+                          email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesTag = !selectedTagId || (c.tags && c.tags.includes(selectedTagId));
+    return matchesSearch && matchesTag;
   });
 
   return (
@@ -204,47 +203,54 @@ export default function ClientManager({ onOpenProcess, onCreateProcessForClient,
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {isFilterOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden"
+      {allTags.length > 0 && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full scrollbar-none">
+          <span className="text-[10px] font-black uppercase tracking-widest text-black/30 shrink-0 mr-1 ml-1">Filtrar por:</span>
+          <button
+            onClick={() => setSelectedTagId(null)}
+            className={cn(
+              "px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all cursor-pointer select-none shrink-0",
+              !selectedTagId
+                ? "bg-[#1a1a1a] text-white border-transparent shadow-xs"
+                : "bg-white text-black/60 border-black/5 hover:border-black/10"
+            )}
           >
-            <div className="bg-white p-6 rounded-[24px] border border-black/5 shadow-sm space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-black/40 uppercase tracking-wider mb-3">Status de Crédito</label>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-4 py-3 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all appearance-none cursor-pointer"
-                >
-                  <option value="">Todos os Status</option>
-                  <option value="Aprovado">Aprovado</option>
-                  <option value="Condicionado">Condicionado</option>
-                  <option value="Negado">Negado</option>
-                  <option value="Vencido">Vencido</option>
-                </select>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            Todos
+          </button>
+          {allTags.map(tag => {
+            const isSelected = selectedTagId === tag.id;
+            return (
+              <button
+                key={tag.id}
+                onClick={() => setSelectedTagId(isSelected ? null : tag.id!)}
+                className={cn(
+                  "px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all shrink-0 cursor-pointer select-none flex items-center gap-1.5",
+                  isSelected
+                    ? "shadow-sm scale-102"
+                    : "bg-white text-black/60 border-black/5 hover:border-black/10"
+                )}
+                style={
+                  isSelected
+                    ? {
+                        backgroundColor: hexToRgba(tag.color, 0.15),
+                        color: tag.color,
+                        borderColor: hexToRgba(tag.color, 0.3)
+                      }
+                    : {}
+                }
+              >
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: tag.color }} />
+                {tag.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-2">
         <AnimatePresence mode="popLayout">
           {filteredClients.map((client) => {
             const isExpanded = expandedClientId === client.id;
-            const status = client.status || 'Avaliar';
-            const statusColors = {
-              'Aprovado': { bg: 'bg-green-50', text: 'text-green-600', icon: 'text-green-800', border: 'border-green-100', borderStrong: 'border-green-300', hex: '#10b981' },
-              'Condicionado': { bg: 'bg-amber-50', text: 'text-amber-600', icon: 'text-amber-800', border: 'border-amber-100', borderStrong: 'border-amber-300', hex: '#f59e0b' },
-              'Negado': { bg: 'bg-red-50', text: 'text-red-600', icon: 'text-red-800', border: 'border-red-100', borderStrong: 'border-red-300', hex: '#ef4444' },
-              'Vencido': { bg: 'bg-rose-50', text: 'text-rose-600', icon: 'text-rose-800', border: 'border-rose-100', borderStrong: 'border-rose-300', hex: '#f43f5e' },
-              'Avaliar': { bg: 'bg-blue-50', text: 'text-blue-600', icon: 'text-blue-800', border: 'border-blue-100', borderStrong: 'border-blue-300', hex: '#3b82f6' }
-            };
-            const currentStatusStyle = statusColors[status as keyof typeof statusColors];
 
             const buyerProcesses = processes.filter(p => 
               p.clientId === client.id || 
@@ -282,14 +288,14 @@ export default function ClientManager({ onOpenProcess, onCreateProcessForClient,
             const hasActiveProcess = activeProcesses.length > 0;
             const mainProcessId = hasActiveProcess ? activeProcesses[0].id : null;
 
-            const isCreditApproved = status === 'Aprovado' || (client.approvedBanks && client.approvedBanks.some(item => {
+            const isCreditApproved = client.approvedBanks && client.approvedBanks.length > 0 && client.approvedBanks.some(item => {
               if (!item.expirationDate) return true;
               const today = new Date();
               today.setHours(0, 0, 0, 0);
               const expDate = new Date(item.expirationDate);
               expDate.setHours(0, 0, 0, 0);
               return expDate >= today;
-            }));
+            });
             
             return (
               <motion.div
@@ -316,6 +322,27 @@ export default function ClientManager({ onOpenProcess, onCreateProcessForClient,
                       <h3 className="text-base font-bold text-[#1a1a1a] leading-tight truncate">
                         {client.name}
                       </h3>
+                      {client.tags && client.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1.5 max-w-full overflow-hidden">
+                          {client.tags.map(tagId => {
+                            const tag = allTags.find(t => t.id === tagId);
+                            if (!tag) return null;
+                            return (
+                              <span
+                                key={tagId}
+                                className="px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider truncate max-w-[120px] shadow-2xs border"
+                                style={{
+                                  backgroundColor: hexToRgba(tag.color, 0.15),
+                                  color: tag.color,
+                                  borderColor: hexToRgba(tag.color, 0.25)
+                                }}
+                              >
+                                {tag.name}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                       {client.phone && (
@@ -405,7 +432,7 @@ export default function ClientManager({ onOpenProcess, onCreateProcessForClient,
                         <div className="flex items-center gap-3 text-sm text-[#1a1a1a] font-bold">
                           <Calendar className="w-4 h-4 shrink-0" />
                           <span>Nascimento: {client.birthDate.includes('-') 
-                            ? new Date(client.birthDate).toLocaleDateString('pt-BR') 
+                            ? client.birthDate.split('-').reverse().join('/') 
                             : client.birthDate}</span>
                         </div>
                       )}
@@ -439,23 +466,6 @@ export default function ClientManager({ onOpenProcess, onCreateProcessForClient,
                           <span>Corretor: {brokers.find(b => b.id === client.brokerId)?.name || 'N/A'}</span>
                         </div>
                       )}
-                      <div className="flex items-center justify-between text-sm font-bold">
-                        <div className={cn(
-                          "flex items-center gap-3",
-                          client.status === 'Aprovado' && "text-green-600",
-                          client.status === 'Condicionado' && "text-amber-600",
-                          client.status === 'Negado' && "text-red-600",
-                          client.status === 'Vencido' && "text-rose-600",
-                          !client.status && "text-blue-600"
-                        )}>
-                          {client.status === 'Aprovado' && <CheckCircle2 className="w-4 h-4 shrink-0" />}
-                          {client.status === 'Condicionado' && <Clock className="w-4 h-4 shrink-0" />}
-                          {client.status === 'Negado' && <XCircle className="w-4 h-4 shrink-0" />}
-                          {client.status === 'Vencido' && <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />}
-                          {!client.status && <AlertCircle className="w-4 h-4 shrink-0" />}
-                          <span>{client.status || 'Avaliar'}</span>
-                        </div>
-                      </div>
                       
                       {client.approvedBanks && client.approvedBanks.length > 0 && (
                         <div className="space-y-2 pt-2 border-t border-black/5">
@@ -582,6 +592,12 @@ export default function ClientManager({ onOpenProcess, onCreateProcessForClient,
           </div>
         )}
       </AnimatePresence>
+
+      <TagsManagerModal
+        isOpen={isTagsModalOpen}
+        onClose={() => setIsTagsModalOpen(false)}
+        allTags={allTags}
+      />
     </div>
   );
 }

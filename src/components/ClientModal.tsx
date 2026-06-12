@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
-import { Client, Bank, Broker, Agency, Process } from '../types';
-import { X, Save, UserPlus, Phone, Mail, Calendar, CreditCard, Building2, UserCircle, Edit2, Trash2, CheckCircle2, Clock, XCircle, AlertCircle, DollarSign, Users, FileText, TrendingUp, TrendingDown, User as UserIcon, FilePlus, Search, Plus } from 'lucide-react';
+import { Client, Bank, Broker, Agency, Process, ClientTag } from '../types';
+import { X, Save, UserPlus, Phone, Mail, Calendar, CreditCard, Building2, UserCircle, Edit2, Trash2, CheckCircle2, Clock, XCircle, AlertCircle, DollarSign, Users, FileText, TrendingUp, TrendingDown, User as UserIcon, FilePlus, Search, Plus, Tag } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/cn';
 import { hexToRgba } from '../utils/colors';
+import { TagsManagerModal } from './TagsManagerModal';
 
 interface ClientModalProps {
   clientId?: string | null;
@@ -32,6 +33,8 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [processes, setProcesses] = useState<Process[]>([]);
   const [allClients, setAllClients] = useState<Client[]>([]);
+  const [allTags, setAllTags] = useState<ClientTag[]>([]);
+  const [isTagsModalOpen, setIsTagsModalOpen] = useState(false);
   const [errors, setErrors] = useState<{ cpf?: string; general?: string }>({});
 
   const [formData, setFormData] = useState({
@@ -45,11 +48,14 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
     income: 0,
     incomeReferenceMonth: '',
     hasFGTS: false,
+    simulation: false,
+    restrictions: false,
     maritalStatus: '' as 'Solteiro' | 'Casado' | 'Divorciado' | 'Viúvo' | 'União Estável' | '',
     brokerId: '',
     agencyId: '',
     status: '' as 'Aprovado' | 'Condicionado' | 'Negado' | 'Vencido' | '',
     approvedBanks: [] as { bankId: string; approvedValue: number; expirationDate: string }[],
+    tags: [] as string[],
   });
 
   useEffect(() => {
@@ -71,11 +77,14 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
         income: 0,
         incomeReferenceMonth: '',
         hasFGTS: false,
+        simulation: false,
+        restrictions: false,
         maritalStatus: '',
         brokerId: '',
         agencyId: '',
         status: '',
         approvedBanks: [],
+        tags: [],
       });
       return;
     }
@@ -85,6 +94,7 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
     const unsubAgencies = api.subscribeToCollection('agencies', (data) => setAgencies((data as Agency[]).sort((a, b) => a.name.localeCompare(b.name))));
     const unsubProcesses = api.subscribeToCollection('processes', (data) => setProcesses(data as Process[]));
     const unsubClients = api.subscribeToCollection('clients', (data) => setAllClients(data as Client[]));
+    const unsubTags = api.subscribeToCollection('tags', (data) => setAllTags(data as ClientTag[]));
     
     if (clientId) {
       setLoading(true);
@@ -104,11 +114,14 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
             income: client.income || 0,
             incomeReferenceMonth: client.incomeReferenceMonth || '',
             hasFGTS: !!client.hasFGTS,
+            simulation: !!client.simulation,
+            restrictions: !!client.restrictions,
             maritalStatus: client.maritalStatus || '',
             brokerId: client.brokerId || '',
             agencyId: client.agencyId || '',
             status: client.status || '',
             approvedBanks: client.approvedBanks || [],
+            tags: client.tags || [],
           });
         }
         setLoading(false);
@@ -126,6 +139,7 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
       unsubAgencies();
       unsubProcesses();
       unsubClients();
+      unsubTags();
     };
   }, [clientId, isOpen]);
 
@@ -338,8 +352,24 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
         setShowSuccessOptions(true);
         setIsEditing(false);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao salvar cliente:", error);
+      let errorMsg = 'Erro ao salvar cliente. Por favor, tente novamente.';
+      if (error instanceof Error) {
+        try {
+          const parsed = JSON.parse(error.message);
+          if (parsed && parsed.error) {
+            errorMsg = `Erro ao salvar cliente: ${parsed.error}`;
+          } else {
+            errorMsg = `Erro ao salvar cliente: ${error.message}`;
+          }
+        } catch (_) {
+          errorMsg = `Erro ao salvar cliente: ${error.message}`;
+        }
+      } else if (typeof error === 'string') {
+        errorMsg = error;
+      }
+      setErrors({ general: errorMsg });
     } finally {
       setLoading(false);
     }
@@ -750,6 +780,21 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
                       />
                     </div>
                   </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-black/40 uppercase tracking-widest mb-1.5 ml-1">Estado Civil</label>
+                    <select
+                      value={formData.maritalStatus}
+                      onChange={(e) => setFormData({ ...formData, maritalStatus: e.target.value as any })}
+                      className="w-full px-4 py-3 bg-black/5 text-[#1a1a1a] rounded-2xl border border-transparent focus:bg-white focus:border-black/10 outline-none transition-all font-medium appearance-none"
+                    >
+                      <option value="">Selecione...</option>
+                      <option value="Solteiro">Solteiro</option>
+                      <option value="Casado">Casado</option>
+                      <option value="Divorciado">Divorciado</option>
+                      <option value="Viúvo">Viúvo</option>
+                      <option value="União Estável">União Estável</option>
+                    </select>
+                  </div>
                 </div>
               </section>
 
@@ -801,7 +846,7 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
               <section className="space-y-4">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-1 h-4 bg-amber-500 rounded-full" />
-                  <h3 className="text-xs font-black text-black/40 uppercase tracking-widest">Finanças e Estado Civil</h3>
+                  <h3 className="text-xs font-black text-black/40 uppercase tracking-widest">Finanças</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -836,7 +881,7 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
                       />
                       <div className="flex-1">
                         <span className="text-sm font-bold text-[#1a1a1a]">Possui FGTS</span>
-                        <p className="text-[10px] text-black/40 font-medium uppercase tracking-widest">Saldo disponível para entrada</p>
+                        <p className="text-[10px] text-black/40 font-medium uppercase tracking-widest">Saldo para entrada</p>
                       </div>
                     </label>
                   </div>
@@ -862,35 +907,6 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
                         {agencies.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                       </select>
                     </div>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-black/40 uppercase tracking-widest mb-1.5 ml-1">Estado Civil</label>
-                    <select
-                      value={formData.maritalStatus}
-                      onChange={(e) => setFormData({ ...formData, maritalStatus: e.target.value as any })}
-                      className="w-full px-4 py-3 bg-black/5 text-[#1a1a1a] rounded-2xl border border-transparent focus:bg-white focus:border-black/10 outline-none transition-all font-medium appearance-none"
-                    >
-                      <option value="">Selecione...</option>
-                      <option value="Solteiro">Solteiro</option>
-                      <option value="Casado">Casado</option>
-                      <option value="Divorciado">Divorciado</option>
-                      <option value="Viúvo">Viúvo</option>
-                      <option value="União Estável">União Estável</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-black/40 uppercase tracking-widest mb-1.5 ml-1">Status da Avaliação</label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                      className="w-full px-4 py-3 bg-black/5 text-[#1a1a1a] rounded-2xl border border-transparent focus:bg-white focus:border-black/10 outline-none transition-all font-medium appearance-none"
-                    >
-                      <option value="">Selecione...</option>
-                      <option value="Aprovado">Aprovado</option>
-                      <option value="Condicionado">Condicionado</option>
-                      <option value="Negado">Negado</option>
-                      <option value="Vencido">Vencido</option>
-                    </select>
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-black/40 uppercase tracking-widest mb-1.5 ml-1">Corretor Responsável</label>
@@ -981,6 +997,64 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
                   )}
                 </div>
               </section>
+
+              <section className="space-y-4 pt-4 border-t border-black/5">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-4 bg-amber-500 rounded-full" />
+                    <h3 className="text-xs font-black text-black/40 uppercase tracking-widest">Tags de Segmentação</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsTagsModalOpen(true)}
+                    className="px-2.5 py-1 rounded-xl text-[10px] font-bold uppercase tracking-wider bg-black/10 hover:bg-black/20 text-black flex items-center gap-1.5 transition-all cursor-pointer select-none"
+                  >
+                    <Tag className="w-3 h-3" />
+                    Gerenciar Tags
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2 p-4 bg-black/5 rounded-[24px]">
+                      {allTags.map(tag => {
+                        const isSelected = (formData.tags || []).includes(tag.id!);
+                        return (
+                          <button
+                            type="button"
+                            key={tag.id}
+                            onClick={() => {
+                              const currentTags = formData.tags || [];
+                              const nextTags = isSelected
+                                ? currentTags.filter(id => id !== tag.id)
+                                : [...currentTags, tag.id!];
+                              setFormData({ ...formData, tags: nextTags });
+                            }}
+                            className={cn(
+                              "px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 flex items-center gap-1.5 cursor-pointer select-none",
+                              isSelected
+                                ? "shadow-sm scale-102 border-transparent"
+                                : "bg-white text-black/60 border-black/10 hover:border-black/20"
+                            )}
+                            style={
+                              isSelected
+                                ? {
+                                    backgroundColor: hexToRgba(tag.color, 0.15),
+                                    color: tag.color,
+                                    borderColor: hexToRgba(tag.color, 0.3)
+                                  }
+                                : {}
+                            }
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: tag.color }} />
+                            {tag.name}
+                          </button>
+                        );
+                      })}
+                  {allTags.length === 0 && (
+                    <div className="w-full text-center py-4 text-xs font-bold text-black/30">
+                      Nenhuma tag customizada criada ainda. Clique em "Gerenciar Tags" acima para criar as suas.
+                    </div>
+                  )}
+                </div>
+              </section>
             </form>
           ) : (
             <div className="p-8 space-y-6">
@@ -1019,7 +1093,7 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
                   <div className="flex items-center gap-3 text-sm text-[#1a1a1a] font-bold">
                     <Calendar className="w-4 h-4 shrink-0" />
                     <span>Nascimento: {formData.birthDate.includes('-') 
-                      ? new Date(formData.birthDate).toLocaleDateString('pt-BR') 
+                      ? formData.birthDate.split('-').reverse().join('/') 
                       : formData.birthDate}</span>
                   </div>
                 )}
@@ -1060,23 +1134,30 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
                     <span>Corretor: {brokers.find(b => b.id === formData.brokerId)?.name || 'N/A'}</span>
                   </div>
                 )}
-                <div className="flex items-center justify-between text-sm font-bold">
-                  <div className={cn(
-                    "flex items-center gap-3",
-                    formData.status === 'Aprovado' && "text-green-600",
-                    formData.status === 'Condicionado' && "text-amber-600",
-                    formData.status === 'Negado' && "text-red-600",
-                    formData.status === 'Vencido' && "text-rose-600",
-                    !formData.status && "text-blue-600"
-                  )}>
-                    {formData.status === 'Aprovado' && <CheckCircle2 className="w-4 h-4 shrink-0" />}
-                    {formData.status === 'Condicionado' && <Clock className="w-4 h-4 shrink-0" />}
-                    {formData.status === 'Negado' && <XCircle className="w-4 h-4 shrink-0" />}
-                    {formData.status === 'Vencido' && <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />}
-                    {!formData.status && <AlertCircle className="w-4 h-4 shrink-0" />}
-                    <span>{formData.status || 'Avaliar'}</span>
+                {formData.tags && formData.tags.length > 0 && (
+                  <div className="pt-2 border-t border-black/5 space-y-1.5 matches-tags">
+                    <p className="text-[10px] font-bold text-black/40 uppercase tracking-widest">Segmentação</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {formData.tags.map(tagId => {
+                        const tag = allTags.find(t => t.id === tagId);
+                        if (!tag) return null;
+                        return (
+                          <span
+                            key={tagId}
+                            className="px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider shadow-2xs border"
+                            style={{
+                              backgroundColor: hexToRgba(tag.color, 0.15),
+                              color: tag.color,
+                              borderColor: hexToRgba(tag.color, 0.25)
+                            }}
+                          >
+                            {tag.name}
+                          </span>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                )}
                 
                 {formData.approvedBanks && formData.approvedBanks.length > 0 && (
                   <div className="space-y-2 pt-4 border-t border-black/5">
@@ -1148,6 +1229,12 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
           )}
         </div>
       </motion.div>
+
+      <TagsManagerModal
+        isOpen={isTagsModalOpen}
+        onClose={() => setIsTagsModalOpen(false)}
+        allTags={allTags}
+      />
     </div>
   );
 }

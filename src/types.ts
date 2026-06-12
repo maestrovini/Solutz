@@ -15,6 +15,12 @@ export interface ApprovedBank {
   expirationDate: string;
 }
 
+export interface ClientTag {
+  id?: string;
+  name: string;
+  color: string; // format: Tailwind background color classes or HEX
+}
+
 export interface Client {
   id?: string;
   name: string;
@@ -31,7 +37,10 @@ export interface Client {
   brokerId?: string;
   agencyId?: string;
   status?: 'Aprovado' | 'Condicionado' | 'Negado' | 'Vencido';
+  simulation?: boolean;
+  restrictions?: boolean;
   approvedBanks?: ApprovedBank[];
+  tags?: string[]; // ID array matching ClientTag
   createdAt: string;
 }
 
@@ -93,6 +102,7 @@ export interface Process {
   signatureType?: 'Digital' | 'Física';
   brokerId: string;
   notes?: string;
+  commercialUserId?: string;
   updatedAt: string;
 }
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
-import { Process, Client, Bank, Agency, Broker, Participant, Notification, Property } from '../types';
+import { Process, Client, Bank, Agency, Broker, Participant, Notification, Property, UserProfile } from '../types';
 import { resolveParticipantName } from '../utils/participantUtils';
 import { Plus, Search, Trash2, Edit2, X, FileText, Clock, DollarSign, Building2, User, Users, CheckCircle2, Ban, Pause, AlertCircle, Save, Phone, Mail, MapPin, Calendar, Briefcase, Filter, Bell, ArrowUpDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -28,6 +28,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
+  const [users, setUsers] = useState<UserProfile[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPropertyModalOpen, setIsPropertyModalOpen] = useState(false);
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
@@ -90,6 +91,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     agency: '',
     signatureType: '' as 'Digital' | 'Física' | '',
     notes: '',
+    commercialUserId: '',
   });
 
   const stages = {
@@ -197,6 +199,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
         agency: '',
         signatureType: '' as 'Digital' | 'Física' | '',
         notes: '',
+        commercialUserId: '',
       });
       setIsModalOpen(true);
     }
@@ -362,6 +365,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                 agency: '',
                 signatureType: '' as 'Digital' | 'Física' | '',
                 notes: '',
+                commercialUserId: '',
               });
               setIsModalOpen(true);
             }}
@@ -394,6 +398,9 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     const unsubProperties = api.subscribeToCollection('properties', (data) => {
       setProperties((data as Property[]).sort((a, b) => a.address.localeCompare(b.address)));
     });
+    const unsubUsers = api.subscribeToCollection('users', (data) => {
+      setUsers((data as UserProfile[]).sort((a, b) => (a.displayName || a.username || '').localeCompare(b.displayName || b.username || '')));
+    });
 
     return () => {
       unsubProcesses();
@@ -402,6 +409,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
       unsubAgencies();
       unsubBrokers();
       unsubProperties();
+      unsubUsers();
     };
   }, []);
 
@@ -608,7 +616,8 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
         value: 0,
         agency: '',
         signatureType: '' as 'Digital' | 'Física' | '',
-        notes: '' 
+        notes: '',
+        commercialUserId: '',
       });
     } catch (error) {
       console.error("Erro ao salvar processo:", error);
@@ -1036,6 +1045,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
               agency: process.agency || '',
               signatureType: process.signatureType || '',
               notes: process.notes || '',
+              commercialUserId: process.commercialUserId || '',
             });
             setSelectedProcessForDetail(null);
             setIsModalOpen(true);
@@ -1099,6 +1109,27 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                           <span className="text-[10px] font-bold" style={{ color: bankColor }}>{getDaysInCurrentStage(process)}d</span>
                         </div>
                       )}
+                      {(() => {
+                        const commercialUser = process.commercialUserId
+                          ? users.find(u => (u.id === process.commercialUserId || u.uid === process.commercialUserId))
+                          : null;
+                        if (!commercialUser) return null;
+                        return (
+                          <div 
+                            className="h-8 px-2 flex items-center gap-1.5 rounded-lg border transition-all"
+                            title={`Comercial: ${commercialUser.displayName || commercialUser.username}`}
+                            style={{ 
+                              backgroundColor: hexToRgba(bankColor, 0.05),
+                              borderColor: hexToRgba(bankColor, 0.1)
+                            }}
+                          >
+                            <User className="w-3.5 h-3.5" style={{ color: bankColor }} />
+                            <span className="text-[10px] font-bold max-w-[100px] truncate" style={{ color: bankColor }}>
+                              {commercialUser.displayName || commercialUser.username}
+                            </span>
+                          </div>
+                        );
+                      })()}
                       {process.notifications?.some(n => {
                         const now = new Date();
                         const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -1328,6 +1359,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                               agency: process.agency || '',
                               signatureType: process.signatureType || '',
                               notes: process.notes || '',
+                              commercialUserId: process.commercialUserId || '',
                             });
                             setSelectedProcessForDetail(null);
                             onCloseDetail?.();
@@ -1526,6 +1558,17 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                       <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Interveniente Quitante</p>
                       <p className="text-sm font-bold text-[#1a1a1a]">
                         {getBankName(selectedProcessForDetail.iqBankId || '')} - {formatCurrency(selectedProcessForDetail.iqDebtValue || 0)}
+                      </p>
+                    </div>
+                  )}
+                  {selectedProcessForDetail.commercialUserId && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Comercial</p>
+                      <p className="text-sm font-bold text-[#1a1a1a]">
+                        {(() => {
+                          const user = users.find(u => (u.id === selectedProcessForDetail.commercialUserId || u.uid === selectedProcessForDetail.commercialUserId));
+                          return user ? (user.displayName || user.username) : 'Desconhecido';
+                        })()}
                       </p>
                     </div>
                   )}
@@ -2077,7 +2120,9 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                             {client.birthDate && (
                               <div className="flex items-center gap-3 text-sm text-black/60">
                                 <Calendar className="w-4 h-4 shrink-0" />
-                                <span>Nascimento: {new Date(client.birthDate).toLocaleDateString('pt-BR')}</span>
+                                <span>Nascimento: {client.birthDate.includes('-') 
+                                  ? client.birthDate.split('-').reverse().join('/') 
+                                  : client.birthDate}</span>
                               </div>
                             )}
                           </div>
@@ -2791,6 +2836,21 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                         </div>
                       </div>
                     )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-black/60 mb-1">Comercial</label>
+                    <select
+                      value={formData.commercialUserId || ''}
+                      onChange={(e) => setFormData({ ...formData, commercialUserId: e.target.value })}
+                      className="w-full px-4 py-2 text-sm rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] focus:ring-2 focus:ring-black/5 outline-none"
+                    >
+                      <option value="">Selecione um comercial</option>
+                      {users.map((u) => (
+                        <option key={u.id || u.uid} value={u.id || u.uid}>
+                          {u.displayName || u.username} {u.email ? `(${u.email})` : ''}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-black/60 mb-1">Observações</label>

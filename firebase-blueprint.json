@@ -28,9 +28,21 @@
         "cpf": { "type": "string", "description": "CPF" },
         "pis": { "type": "string", "description": "PIS" },
         "phone2": { "type": "string", "description": "Secondary phone" },
+        "tags": { "type": "array", "items": { "type": "string" }, "description": "Tag IDs associated with client" },
         "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
       },
       "required": ["name", "email"]
+    },
+    "ClientTag": {
+      "title": "ClientTag",
+      "description": "Customizable tag configuration",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Tag ID" },
+        "name": { "type": "string", "description": "Tag display name" },
+        "color": { "type": "string", "description": "Tag highlight color" }
+      },
+      "required": ["name", "color"]
     },
     "Process": {
       "title": "Process",
@@ -187,6 +199,10 @@
     "/products/{productId}": {
       "schema": "Product",
       "description": "Products"
+    },
+    "/tags/{tagId}": {
+      "schema": "ClientTag",
+      "description": "Customizable user-defined tags"
     }
   }
 }
