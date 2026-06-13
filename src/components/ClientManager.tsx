@@ -61,24 +61,20 @@ export default function ClientManager({ onOpenProcess, onCreateProcessForClient,
         >
           <Search className="w-5 h-5" />
         </button>
-        {isAdmin && (
-          <>
-            <button
-              onClick={() => setIsTagsModalOpen(true)}
-              className="p-2 bg-white/10 text-white border border-white/10 rounded-lg hover:bg-white/20 transition-colors shadow-sm"
-              title="Gerenciar Tags"
-            >
-              <Tag className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => onOpenClientModal?.()}
-              className="p-2 bg-white text-black border border-white/10 rounded-lg hover:bg-white/80 transition-colors shadow-sm"
-              title="Novo Cliente"
-            >
-              <UserPlus className="w-5 h-5" />
-            </button>
-          </>
-        )}
+        <button
+          onClick={() => setIsTagsModalOpen(true)}
+          className="p-2 bg-white/10 text-white border border-white/10 rounded-lg hover:bg-white/20 transition-colors shadow-sm"
+          title="Gerenciar Tags"
+        >
+          <Tag className="w-5 h-5" />
+        </button>
+        <button
+          onClick={() => onOpenClientModal?.()}
+          className="p-2 bg-white text-black border border-white/10 rounded-lg hover:bg-white/80 transition-colors shadow-sm"
+          title="Novo Cliente"
+        >
+          <UserPlus className="w-5 h-5" />
+        </button>
       </div>
     );
   }, [isSearchOpen, searchTerm, isAdmin]);
@@ -519,26 +515,26 @@ export default function ClientManager({ onOpenProcess, onCreateProcessForClient,
                         </div>
                       )}
                       
-                      {isAdmin && (
-                        <div className="pt-4 flex justify-end gap-2 border-t border-black/5" onClick={(e) => e.stopPropagation()}>
-                          <button 
-                            onClick={() => {
-                              if (client.id) onCreateProcessForClient?.(client.id);
-                            }}
-                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors"
-                            title="Novo Processo"
-                          >
-                            <FilePlus className="w-5 h-5" />
-                          </button>
-                          <button 
-                            onClick={() => {
-                              if (client.id) onOpenClientModal?.(client.id, true);
-                            }}
-                            className="p-2 text-black/60 hover:bg-black/5 rounded-xl transition-colors"
-                            title="Editar"
-                          >
-                            <Edit2 className="w-5 h-5" />
-                          </button>
+                      <div className="pt-4 flex justify-end gap-2 border-t border-black/5" onClick={(e) => e.stopPropagation()}>
+                        <button 
+                          onClick={() => {
+                            if (client.id) onCreateProcessForClient?.(client.id);
+                          }}
+                          className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors"
+                          title="Novo Processo"
+                        >
+                          <FilePlus className="w-5 h-5" />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            if (client.id) onOpenClientModal?.(client.id, true);
+                          }}
+                          className="p-2 text-black/60 hover:bg-black/5 rounded-xl transition-colors"
+                          title="Editar"
+                        >
+                          <Edit2 className="w-5 h-5" />
+                        </button>
+                        {isAdmin && (
                           <button 
                             onClick={() => setDeleteConfirmId(client.id!)}
                             className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
@@ -546,8 +542,8 @@ export default function ClientManager({ onOpenProcess, onCreateProcessForClient,
                           >
                             <Trash2 className="w-5 h-5" />
                           </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </motion.div>
                 )}

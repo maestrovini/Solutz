@@ -97,19 +97,17 @@ export default function AgencyManager() {
         >
           <Filter className="w-5 h-5" />
         </button>
-        {isAdmin && (
-          <button
-            onClick={() => {
-              setEditingAgency(null);
-              setFormData({ name: '', cnpj: '', email: '', phone: '', address: '' });
-              setIsModalOpen(true);
-            }}
-            className="p-2 bg-white text-black border border-white/10 rounded-lg hover:bg-white/80 transition-colors shadow-sm"
-            title="Nova Imobiliária"
-          >
-            <Plus className="w-5 h-5" />
-          </button>
-        )}
+        <button
+          onClick={() => {
+            setEditingAgency(null);
+            setFormData({ name: '', cnpj: '', email: '', phone: '', address: '' });
+            setIsModalOpen(true);
+          }}
+          className="p-2 bg-white text-black border border-white/10 rounded-lg hover:bg-white/80 transition-colors shadow-sm"
+          title="Nova Imobiliária"
+        >
+          <Plus className="w-5 h-5" />
+        </button>
       </div>
     );
   }, [isSearchOpen, searchTerm, isFilterOpen, isAdmin]);
@@ -370,25 +368,25 @@ export default function AgencyManager() {
                         </div>
                       )}
                       
-                      {isAdmin && (
-                        <div className="pt-4 flex justify-end gap-2 border-t border-black/5" onClick={(e) => e.stopPropagation()}>
-                          <button 
-                            onClick={() => {
-                              setEditingAgency(agency);
-                              setFormData({
-                                name: agency.name,
-                                cnpj: agency.cnpj || '',
-                                email: agency.email,
-                                phone: agency.phone,
-                                address: agency.address || '',
-                              });
-                              setIsModalOpen(true);
-                            }}
-                            className="p-2 text-black/60 hover:bg-black/5 rounded-xl transition-colors"
-                            title="Editar"
-                          >
-                            <Edit2 className="w-5 h-5" />
-                          </button>
+                      <div className="pt-4 flex justify-end gap-2 border-t border-black/5" onClick={(e) => e.stopPropagation()}>
+                        <button 
+                          onClick={() => {
+                            setEditingAgency(agency);
+                            setFormData({
+                              name: agency.name,
+                              cnpj: agency.cnpj || '',
+                              email: agency.email,
+                              phone: agency.phone,
+                              address: agency.address || '',
+                            });
+                            setIsModalOpen(true);
+                          }}
+                          className="p-2 text-black/60 hover:bg-black/5 rounded-xl transition-colors"
+                          title="Editar"
+                        >
+                          <Edit2 className="w-5 h-5" />
+                        </button>
+                        {isAdmin && (
                           <button 
                             onClick={() => setDeleteConfirmId(agency.id!)}
                             className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
@@ -396,8 +394,8 @@ export default function AgencyManager() {
                           >
                             <Trash2 className="w-5 h-5" />
                           </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </motion.div>
                 )}

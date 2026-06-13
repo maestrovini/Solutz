@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
-import { Client, Bank, Broker, Agency, Process, ClientTag } from '../types';
+import { Client, Bank, Broker, Agency, Process, ClientTag, UserProfile } from '../types';
 import { X, Save, UserPlus, Phone, Mail, Calendar, CreditCard, Building2, UserCircle, Edit2, Trash2, CheckCircle2, Clock, XCircle, AlertCircle, DollarSign, Users, FileText, TrendingUp, TrendingDown, User as UserIcon, FilePlus, Search, Plus, Tag } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
@@ -34,6 +34,7 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
   const [processes, setProcesses] = useState<Process[]>([]);
   const [allClients, setAllClients] = useState<Client[]>([]);
   const [allTags, setAllTags] = useState<ClientTag[]>([]);
+  const [users, setUsers] = useState<UserProfile[]>([]);
   const [isTagsModalOpen, setIsTagsModalOpen] = useState(false);
   const [errors, setErrors] = useState<{ cpf?: string; general?: string }>({});
 
@@ -56,6 +57,8 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
     status: '' as 'Aprovado' | 'Condicionado' | 'Negado' | 'Vencido' | '',
     approvedBanks: [] as { bankId: string; approvedValue: number; expirationDate: string }[],
     tags: [] as string[],
+    commercialUserId: '',
+    notes: '',
   });
 
   useEffect(() => {
@@ -85,6 +88,8 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
         status: '',
         approvedBanks: [],
         tags: [],
+        commercialUserId: '',
+        notes: '',
       });
       return;
     }
@@ -95,6 +100,7 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
     const unsubProcesses = api.subscribeToCollection('processes', (data) => setProcesses(data as Process[]));
     const unsubClients = api.subscribeToCollection('clients', (data) => setAllClients(data as Client[]));
     const unsubTags = api.subscribeToCollection('tags', (data) => setAllTags(data as ClientTag[]));
+    const unsubUsers = api.subscribeToCollection('users', (data) => setUsers(data as UserProfile[]));
     
     if (clientId) {
       setLoading(true);
@@ -122,6 +128,8 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
             status: client.status || '',
             approvedBanks: client.approvedBanks || [],
             tags: client.tags || [],
+            commercialUserId: client.commercialUserId || '',
+            notes: client.notes || '',
           });
         }
         setLoading(false);
@@ -140,6 +148,7 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
       unsubProcesses();
       unsubClients();
       unsubTags();
+      unsubUsers();
     };
   }, [clientId, isOpen]);
 
@@ -273,7 +282,6 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isAdmin) return;
     setErrors({});
 
     if (formData.cpf) {
@@ -451,7 +459,7 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
              </div>
           </div>
           <div className="flex items-center gap-2">
-            {!isEditing && !showSuccessOptions && isAdmin && (
+            {!isEditing && !showSuccessOptions && (
               <button
                 onClick={() => {
                   if (clientId) {
@@ -465,7 +473,7 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
                 <FilePlus className="w-5 h-5" />
               </button>
             )}
-            {!isEditing && isAdmin && (
+            {!isEditing && (
               <button
                 onClick={() => setIsEditing(true)}
                 className="w-11 h-11 flex items-center justify-center hover:bg-black/5 text-black/40 rounded-2xl transition-colors"
@@ -922,6 +930,20 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
                       </select>
                     </div>
                   </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-[10px] font-bold text-black/40 uppercase tracking-widest mb-1.5 ml-1">Comercial</label>
+                    <div className="relative">
+                      <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20" />
+                      <select
+                        value={formData.commercialUserId}
+                        onChange={(e) => setFormData({ ...formData, commercialUserId: e.target.value })}
+                        className="w-full pl-11 pr-4 py-3 bg-black/5 text-[#1a1a1a] rounded-xl border border-transparent focus:bg-white focus:border-black/10 outline-none transition-all font-medium appearance-none"
+                      >
+                        <option value="">Nenhum Vínculo</option>
+                        {users.map(u => <option key={u.id || u.uid} value={u.id || u.uid}>{u.displayName || u.username}</option>)}
+                      </select>
+                    </div>
+                  </div>
                 </div>
               </section>
 
@@ -1052,6 +1074,22 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
                   )}
                 </div>
               </section>
+
+              <section className="space-y-4 pt-4 border-t border-black/5">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-1 h-4 bg-violet-500 rounded-full" />
+                  <h3 className="text-xs font-black text-black/40 uppercase tracking-widest">Observações</h3>
+                </div>
+                <div>
+                  <textarea
+                    value={formData.notes || ''}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    placeholder="Adicione observações sobre o cliente..."
+                    rows={4}
+                    className="w-full px-4 py-3 bg-black/5 text-[#1a1a1a] rounded-2xl border border-transparent focus:bg-white focus:border-black/10 outline-none transition-all font-medium resize-none text-sm"
+                  />
+                </div>
+              </section>
             </form>
           ) : (
             <div className="p-8 space-y-6">
@@ -1131,6 +1169,12 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
                     <span>Corretor: {brokers.find(b => b.id === formData.brokerId)?.name || 'N/A'}</span>
                   </div>
                 )}
+                {formData.commercialUserId && (
+                  <div className="flex items-center gap-3 text-sm text-[#1a1a1a] font-bold">
+                    <UserIcon className="w-4 h-4 shrink-0" />
+                    <span>Comercial: {users.find(u => (u.id === formData.commercialUserId || u.uid === formData.commercialUserId))?.displayName || users.find(u => (u.id === formData.commercialUserId || u.uid === formData.commercialUserId))?.username || 'N/A'}</span>
+                  </div>
+                )}
                 {formData.tags && formData.tags.length > 0 && (
                   <div className="pt-2 border-t border-black/5 space-y-1.5 matches-tags">
                     <p className="text-[10px] font-bold text-black/40 uppercase tracking-widest">Tags</p>
@@ -1153,6 +1197,12 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
                         );
                       })}
                     </div>
+                  </div>
+                )}
+                {formData.notes && (
+                  <div className="pt-2 border-t border-black/5 space-y-1.5 matches-notes">
+                    <p className="text-[10px] font-bold text-black/40 uppercase tracking-widest">Observações</p>
+                    <p className="text-sm font-medium text-black/75 bg-black/5 p-4 rounded-2xl whitespace-pre-wrap leading-relaxed">{formData.notes}</p>
                   </div>
                 )}
                 

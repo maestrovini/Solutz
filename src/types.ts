@@ -41,6 +41,8 @@ export interface Client {
   restrictions?: boolean;
   approvedBanks?: ApprovedBank[];
   tags?: string[]; // ID array matching ClientTag
+  commercialUserId?: string;
+  notes?: string;
   createdAt: string;
 }
 

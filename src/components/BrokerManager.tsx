@@ -100,19 +100,17 @@ export default function BrokerManager({ onOpenClient, onOpenProcess }: BrokerMan
         >
           <Filter className="w-5 h-5" />
         </button>
-        {isAdmin && (
-          <button
-            onClick={() => {
-              setEditingBroker(null);
-              setFormData({ name: '', creci: '', email: '', phone: '', birthDate: '', agencyId: '', commercialId: '' });
-              setIsModalOpen(true);
-            }}
-            className="p-2 bg-white text-black border border-white/10 rounded-lg hover:bg-white/80 transition-colors shadow-sm"
-            title="Novo Corretor"
-          >
-            <Plus className="w-5 h-5" />
-          </button>
-        )}
+        <button
+          onClick={() => {
+            setEditingBroker(null);
+            setFormData({ name: '', creci: '', email: '', phone: '', birthDate: '', agencyId: '', commercialId: '' });
+            setIsModalOpen(true);
+          }}
+          className="p-2 bg-white text-black border border-white/10 rounded-lg hover:bg-white/80 transition-colors shadow-sm"
+          title="Novo Corretor"
+        >
+          <Plus className="w-5 h-5" />
+        </button>
       </div>
     );
   }, [isSearchOpen, searchTerm, isFilterOpen, isAdmin]);
@@ -449,27 +447,27 @@ export default function BrokerManager({ onOpenClient, onOpenProcess }: BrokerMan
                         </div>
                       )}
                       
-                      {isAdmin && (
-                        <div className="pt-4 flex justify-end gap-2 border-t border-black/5" onClick={(e) => e.stopPropagation()}>
-                          <button 
-                            onClick={() => {
-                              setEditingBroker(broker);
-                              setFormData({
-                                name: broker.name,
-                                creci: broker.creci,
-                                email: broker.email,
-                                phone: broker.phone,
-                                birthDate: broker.birthDate || '',
-                                agencyId: broker.agencyId || '',
-                                commercialId: broker.commercialId || '',
-                              });
-                              setIsModalOpen(true);
-                            }}
-                            className="p-2 text-black/60 hover:bg-black/5 rounded-xl transition-colors"
-                            title="Editar"
-                          >
-                            <Edit2 className="w-5 h-5" />
-                          </button>
+                      <div className="pt-4 flex justify-end gap-2 border-t border-black/5" onClick={(e) => e.stopPropagation()}>
+                        <button 
+                          onClick={() => {
+                            setEditingBroker(broker);
+                            setFormData({
+                              name: broker.name,
+                              creci: broker.creci,
+                              email: broker.email,
+                              phone: broker.phone,
+                              birthDate: broker.birthDate || '',
+                              agencyId: broker.agencyId || '',
+                              commercialId: broker.commercialId || '',
+                            });
+                            setIsModalOpen(true);
+                          }}
+                          className="p-2 text-black/60 hover:bg-black/5 rounded-xl transition-colors"
+                          title="Editar"
+                        >
+                          <Edit2 className="w-5 h-5" />
+                        </button>
+                        {isAdmin && (
                           <button 
                             onClick={() => setDeleteConfirmId(broker.id!)}
                             className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
@@ -477,8 +475,8 @@ export default function BrokerManager({ onOpenClient, onOpenProcess }: BrokerMan
                           >
                             <Trash2 className="w-5 h-5" />
                           </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </motion.div>
                 )}
