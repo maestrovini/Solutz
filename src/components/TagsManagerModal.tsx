@@ -89,7 +89,7 @@ export function TagsManagerModal({ isOpen, onClose, allTags }: TagsManagerModalP
         <div className="p-6 border-b border-black/5 flex items-center justify-between animate-fade-in">
           <div>
             <h3 className="text-lg font-black tracking-tight">Gerenciar Tags Customizadas</h3>
-            <p className="text-xs text-black/40 font-bold uppercase tracking-wider mt-0.5">Segmentação de Clientes</p>
+            <p className="text-xs text-black/40 font-bold uppercase tracking-wider mt-0.5">Tags de Clientes</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-black/5 rounded-full transition-colors cursor-pointer">
             <X className="w-5 h-5" />

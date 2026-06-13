@@ -133,6 +133,7 @@ export interface Broker {
   phone: string;
   birthDate?: string;
   agencyId?: string;
+  commercialId?: string;
   createdAt: string;
 }
 

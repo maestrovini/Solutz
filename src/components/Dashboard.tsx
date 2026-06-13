@@ -5,6 +5,7 @@ import { resolveParticipantName } from '../utils/participantUtils';
 import { Users, Building2, User, ChevronDown, ChevronUp, Trophy, TrendingUp, Award, BarChart3, Star, Layers, Landmark, Cake, CalendarDays, AlertCircle, Bell, CheckCircle2, DollarSign, Activity, MapPin, Flame, Search, SlidersHorizontal, Map, Percent, Home, ZoomIn, ZoomOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
+import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/cn';
 import { capitalizeName } from '../utils/stringUtils';
 
@@ -185,6 +186,7 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
   const [performancePeriod, setPerformancePeriod] = useState<'6m' | '1y' | 'all'>('6m');
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const { setTitle, setActions } = useHeader();
+  const { user } = useAuth();
 
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -404,9 +406,10 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
   }, [chartData, chartTab]);
 
   useEffect(() => {
-    setTitle('Dashboard Solutz');
+    const userName = user?.displayName || user?.username || 'Usuário';
+    setTitle(`${userName}, bem vindo a Solutz!`);
     setActions(null);
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     const unsubClients = api.subscribeToCollection('clients', (data) => {

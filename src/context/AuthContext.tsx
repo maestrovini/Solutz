@@ -39,11 +39,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await api.set('users', 'admin_solutz_root', {
             username: 'Solutz',
             password: 'Solutz@dmin',
-            displayName: 'Administrador Solutz',
+            displayName: 'Admin',
             role: 'admin',
             uid: 'admin_solutz'
           });
           console.log('Admin user created successfully');
+        } else if (rootAdmin.displayName === 'Administrador Solutz' || rootAdmin.displayName === 'Administrador') {
+          await api.update('users', 'admin_solutz_root', {
+            displayName: 'Admin'
+          });
+          console.log('Admin user display name migrated to Admin');
+          
+          // Also check if current user in state represents this admin and update it so they see it immediately
+          const savedAuth = localStorage.getItem('solutz_auth');
+          if (savedAuth) {
+            const parsed = JSON.parse(savedAuth) as UserProfile;
+            if (parsed.id === 'admin_solutz_root' || parsed.uid === 'admin_solutz' || parsed.username === 'Solutz') {
+              parsed.displayName = 'Admin';
+              setUser(parsed);
+              localStorage.setItem('solutz_auth', JSON.stringify(parsed));
+            }
+          }
         }
       } catch (error) {
         console.error('Error ensuring admin:', error);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
-import { Broker, Agency, Process, Client } from '../types';
+import { Broker, Agency, Process, Client, UserProfile } from '../types';
 import { Plus, Search, Trash2, Edit2, X, User, Phone, Mail, FileText, Building2, Filter, TrendingUp, AlertCircle, Save, MessageCircle, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
@@ -28,6 +28,7 @@ export default function BrokerManager({ onOpenClient, onOpenProcess }: BrokerMan
   const [editingBroker, setEditingBroker] = useState<Broker | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [expandedBrokerId, setExpandedBrokerId] = useState<string | null>(null);
+  const [users, setUsers] = useState<UserProfile[]>([]);
   const [formData, setFormData] = useState({
     name: '',
     creci: '',
@@ -35,6 +36,7 @@ export default function BrokerManager({ onOpenClient, onOpenProcess }: BrokerMan
     phone: '',
     birthDate: '',
     agencyId: '',
+    commercialId: '',
   });
 
   const handleWhatsApp = (phone: string) => {
@@ -102,7 +104,7 @@ export default function BrokerManager({ onOpenClient, onOpenProcess }: BrokerMan
           <button
             onClick={() => {
               setEditingBroker(null);
-              setFormData({ name: '', creci: '', email: '', phone: '', birthDate: '', agencyId: '' });
+              setFormData({ name: '', creci: '', email: '', phone: '', birthDate: '', agencyId: '', commercialId: '' });
               setIsModalOpen(true);
             }}
             className="p-2 bg-white text-black border border-white/10 rounded-lg hover:bg-white/80 transition-colors shadow-sm"
@@ -128,12 +130,16 @@ export default function BrokerManager({ onOpenClient, onOpenProcess }: BrokerMan
     const unsubClients = api.subscribeToCollection('clients', (data) => {
       setClients(data as Client[]);
     });
+    const unsubUsers = api.subscribeToCollection('users', (data) => {
+      setUsers((data as UserProfile[]).sort((a, b) => (a.displayName || a.username || '').localeCompare(b.displayName || b.username || '')));
+    });
 
     return () => {
       unsubBrokers();
       unsubAgencies();
       unsubProcesses();
       unsubClients();
+      unsubUsers();
     };
   }, []);
 
@@ -173,7 +179,7 @@ export default function BrokerManager({ onOpenClient, onOpenProcess }: BrokerMan
       }
       setIsModalOpen(false);
       setEditingBroker(null);
-      setFormData({ name: '', creci: '', email: '', phone: '', birthDate: '', agencyId: '' });
+      setFormData({ name: '', creci: '', email: '', phone: '', birthDate: '', agencyId: '', commercialId: '' });
     } catch (error) {
       console.error("Erro ao salvar corretor:", error);
     }
@@ -190,6 +196,11 @@ export default function BrokerManager({ onOpenClient, onOpenProcess }: BrokerMan
 
   const getAgencyName = (id: string) => {
     return agencies.find(a => a.id === id)?.name || 'Autônomo';
+  };
+
+  const getCommercialName = (id: string) => {
+    const user = users.find(u => u.uid === id || u.id === id);
+    return user ? (user.displayName || user.username) : 'N/A';
   };
 
   const filteredBrokers = brokers.filter(b => {
@@ -362,10 +373,16 @@ export default function BrokerManager({ onOpenClient, onOpenProcess }: BrokerMan
                         <FileText className="w-4 h-4 shrink-0" />
                         <span>CRECI: {broker.creci}</span>
                       </div>
-                      <div className="flex items-center gap-3 text-sm text-black/60">
+                       <div className="flex items-center gap-3 text-sm text-black/60">
                         <Building2 className="w-4 h-4 shrink-0" />
                         <span>Imobiliária: {getAgencyName(broker.agencyId || '')}</span>
                       </div>
+                      {broker.commercialId && (
+                        <div className="flex items-center gap-3 text-sm text-black/60">
+                          <User className="w-4 h-4 shrink-0" />
+                          <span>Comercial: {getCommercialName(broker.commercialId)}</span>
+                        </div>
+                      )}
                       
                       <div className="flex items-center gap-3 text-sm text-emerald-600 font-bold">
                         <FileText className="w-4 h-4 shrink-0" />
@@ -444,6 +461,7 @@ export default function BrokerManager({ onOpenClient, onOpenProcess }: BrokerMan
                                 phone: broker.phone,
                                 birthDate: broker.birthDate || '',
                                 agencyId: broker.agencyId || '',
+                                commercialId: broker.commercialId || '',
                               });
                               setIsModalOpen(true);
                             }}
@@ -571,6 +589,19 @@ export default function BrokerManager({ onOpenClient, onOpenProcess }: BrokerMan
                         <option value="">Autônomo</option>
                         {agencies.map(agency => (
                           <option key={agency.id} value={agency.id}>{agency.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-black/60 mb-1">Comercial</label>
+                      <select
+                        value={formData.commercialId}
+                        onChange={(e) => setFormData({ ...formData, commercialId: e.target.value })}
+                        className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all appearance-none cursor-pointer"
+                      >
+                        <option value="">Nenhum comercial selecionado</option>
+                        {users.map(u => (
+                          <option key={u.id || u.uid} value={u.uid || u.id}>{u.displayName || u.username}</option>
                         ))}
                       </select>
                     </div>

@@ -925,84 +925,81 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
                 </div>
               </section>
 
-              <section className="space-y-4">
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-1 h-4 bg-emerald-500 rounded-full" />
-                    <h3 className="text-xs font-black text-black/40 uppercase tracking-widest">Aprovação de Crédito</h3>
+              {banks.length > 0 && (
+                <section className="space-y-4">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1 h-4 bg-emerald-500 rounded-full" />
+                      <h3 className="text-xs font-black text-black/40 uppercase tracking-widest">Aprovação de Crédito</h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAddBank}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-black/5 text-black/60 rounded-xl hover:bg-black/10 transition-all text-[10px] font-bold uppercase tracking-widest"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Adicionar Banco
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleAddBank}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-black/5 text-black/60 rounded-xl hover:bg-black/10 transition-all text-[10px] font-bold uppercase tracking-widest"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    Adicionar Banco
-                  </button>
-                </div>
-                
-                <div className="space-y-3">
-                  {formData.approvedBanks.map((item, index) => (
-                    <div key={index} className="p-4 bg-white border border-black/10 rounded-[28px] space-y-4 relative">
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveBank(index)}
-                        className="absolute right-4 top-4 p-1 hover:bg-red-50 text-red-400 rounded-lg transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-[10px] font-bold text-black/40 uppercase tracking-widest mb-1.5 ml-1">Instituição Financeira</label>
-                          <select
-                            value={item.bankId}
-                            onChange={(e) => handleUpdateBank(index, 'bankId', e.target.value)}
-                            className="w-full px-4 py-2.5 bg-black/5 text-[#1a1a1a] rounded-xl border border-transparent focus:bg-white focus:border-black/10 outline-none transition-all text-sm font-bold"
-                          >
-                            <option value="">Selecione um banco...</option>
-                            {banks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-bold text-black/40 uppercase tracking-widest mb-1.5 ml-1">Valor Aprovado</label>
-                          <input
-                            type="text"
-                            value={formatCurrencyInput(item.approvedValue)}
-                            onChange={(e) => handleUpdateBank(index, 'approvedValue', parseCurrencyInput(e.target.value))}
-                            className="w-full px-4 py-2.5 bg-black/5 text-[#1a1a1a] rounded-xl border border-transparent focus:bg-white focus:border-black/10 outline-none transition-all text-sm font-bold"
-                          />
-                        </div>
-                        <div className="md:col-span-2">
-                          <label className="block text-[10px] font-bold text-black/40 uppercase tracking-widest mb-1.5 ml-1">Vencimento da Aprovação</label>
-                          <div className="relative">
-                            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20" />
+                  
+                  <div className="space-y-3">
+                    {formData.approvedBanks.map((item, index) => (
+                      <div key={index} className="p-4 bg-white border border-black/10 rounded-[28px] space-y-4 relative">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveBank(index)}
+                          className="absolute right-4 top-4 p-1 hover:bg-red-50 text-red-400 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[10px] font-bold text-black/40 uppercase tracking-widest mb-1.5 ml-1">Instituição Financeira</label>
+                            <select
+                              value={item.bankId}
+                              onChange={(e) => handleUpdateBank(index, 'bankId', e.target.value)}
+                              className="w-full px-4 py-2.5 bg-black/5 text-[#1a1a1a] rounded-xl border border-transparent focus:bg-white focus:border-black/10 outline-none transition-all text-sm font-bold"
+                            >
+                              <option value="">Selecione um banco...</option>
+                              {banks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-black/40 uppercase tracking-widest mb-1.5 ml-1">Valor Aprovado</label>
                             <input
                               type="text"
-                              placeholder="DD/MM/AAAA"
-                              value={item.expirationDate.includes('-') ? item.expirationDate.split('-').reverse().join('/') : item.expirationDate}
-                              onChange={(e) => handleUpdateBank(index, 'expirationDate', formatBirthDate(e.target.value))}
-                              className="w-full pl-11 pr-4 py-2.5 bg-black/5 text-[#1a1a1a] rounded-xl border border-transparent focus:bg-white focus:border-black/10 outline-none transition-all text-sm font-bold"
+                              value={formatCurrencyInput(item.approvedValue)}
+                              onChange={(e) => handleUpdateBank(index, 'approvedValue', parseCurrencyInput(e.target.value))}
+                              className="w-full px-4 py-2.5 bg-black/5 text-[#1a1a1a] rounded-xl border border-transparent focus:bg-white focus:border-black/10 outline-none transition-all text-sm font-bold"
                             />
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="block text-[10px] font-bold text-black/40 uppercase tracking-widest mb-1.5 ml-1">Vencimento da Aprovação</label>
+                            <div className="relative">
+                              <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black/20" />
+                              <input
+                               type="text"
+                               placeholder="DD/MM/AAAA"
+                               value={item.expirationDate.includes('-') ? item.expirationDate.split('-').reverse().join('/') : item.expirationDate}
+                               onChange={(e) => handleUpdateBank(index, 'expirationDate', formatBirthDate(e.target.value))}
+                               className="w-full pl-11 pr-4 py-2.5 bg-black/5 text-[#1a1a1a] rounded-xl border border-transparent focus:bg-white focus:border-black/10 outline-none transition-all text-sm font-bold"
+                             />
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                  {formData.approvedBanks.length === 0 && (
-                    <div className="text-center py-8 border-2 border-dashed border-black/5 rounded-[32px]">
-                      <Building2 className="w-8 h-8 text-black/10 mx-auto mb-2" />
-                      <p className="text-xs font-bold text-black/20 uppercase tracking-widest">Nenhum banco selecionado</p>
-                    </div>
-                  )}
-                </div>
-              </section>
+                    ))}
+                    {/* No placeholder as requested */}
+                  </div>
+                </section>
+              )}
 
               <section className="space-y-4 pt-4 border-t border-black/5">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <div className="w-1 h-4 bg-amber-500 rounded-full" />
-                    <h3 className="text-xs font-black text-black/40 uppercase tracking-widest">Tags de Segmentação</h3>
+                    <h3 className="text-xs font-black text-black/40 uppercase tracking-widest">Tags</h3>
                   </div>
                   <button
                     type="button"
@@ -1028,7 +1025,7 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
                               setFormData({ ...formData, tags: nextTags });
                             }}
                             className={cn(
-                              "px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 flex items-center gap-1.5 cursor-pointer select-none",
+                              "px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider transition-all border shrink-0 flex items-center gap-1 cursor-pointer select-none",
                               isSelected
                                 ? "shadow-sm scale-102 border-transparent"
                                 : "bg-white text-black/60 border-black/10 hover:border-black/20"
@@ -1136,7 +1133,7 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
                 )}
                 {formData.tags && formData.tags.length > 0 && (
                   <div className="pt-2 border-t border-black/5 space-y-1.5 matches-tags">
-                    <p className="text-[10px] font-bold text-black/40 uppercase tracking-widest">Segmentação</p>
+                    <p className="text-[10px] font-bold text-black/40 uppercase tracking-widest">Tags</p>
                     <div className="flex flex-wrap gap-1.5">
                       {formData.tags.map(tagId => {
                         const tag = allTags.find(t => t.id === tagId);
