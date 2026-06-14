@@ -404,6 +404,14 @@ export default function ClientManager({ onOpenProcess, onCreateProcessForClient,
                     className="overflow-hidden"
                   >
                     <div className="mt-4 pt-4 border-t border-black/5 space-y-3">
+                      {client.notes && (
+                        <div className="pb-3 border-b border-black/5 space-y-1.5">
+                          <p className="text-[10px] font-bold text-black/40 uppercase tracking-widest">Observações</p>
+                          <p className="text-xs font-medium text-[#1a1a1a]/80 bg-black/5 p-3 rounded-xl whitespace-pre-wrap leading-relaxed">
+                            {client.notes}
+                          </p>
+                        </div>
+                      )}
                       <div className="flex items-center gap-3 text-sm text-[#1a1a1a] font-bold">
                         <Mail className="w-4 h-4 shrink-0" />
                         <span className="truncate">{client.email}</span>
