@@ -47,9 +47,12 @@ export default function Layout({ children, activeTab, setActiveTab }: LayoutProp
     { id: 'banks', label: 'Bancos', icon: Landmark },
     ...(isAdmin ? [
       { id: 'finance', label: 'Financeiro', icon: BarChart3 },
+      { id: 'analyst', label: 'Analista', icon: BarChart3 },
       { id: 'reports', label: 'Relatórios', icon: BarChart3 },
       { id: 'users', label: 'Usuários', icon: Shield }
-    ] : []),
+    ] : [
+      { id: 'analyst', label: 'Analista', icon: BarChart3 }
+    ]),
   ];
 
   const SidebarContent = () => (

@@ -11,6 +11,7 @@ import { hexToRgba, getContrastColor } from '../utils/colors';
 import { capitalizeName } from '../utils/stringUtils';
 import PropertyModal from './PropertyModal';
 import ClientModal from './ClientModal';
+import BrokerModal from './BrokerModal';
 
 interface ProcessManagerProps {
   initialSelectedProcessId?: string | null;
@@ -21,7 +22,8 @@ interface ProcessManagerProps {
 }
 
 export default function ProcessManager({ initialSelectedProcessId, initialNewProcessClientId, initialNewProcessRole, onCloseDetail, onOpenClient }: ProcessManagerProps) {
-  const { isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
+  const canEditProcesses = isAdmin || user?.role === 'user';
   const [processes, setProcesses] = useState<Process[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
@@ -32,6 +34,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPropertyModalOpen, setIsPropertyModalOpen] = useState(false);
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
+  const [isBrokerModalOpen, setIsBrokerModalOpen] = useState(false);
   const [currentClientRole, setCurrentClientRole] = useState<'buyer' | 'seller'>('buyer');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [editingProcess, setEditingProcess] = useState<Process | null>(null);
@@ -337,7 +340,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
         >
           <ArrowUpDown className="w-5 h-5" />
         </button>
-        {isAdmin && (
+        {canEditProcesses && (
           <button
             onClick={() => {
               setEditingProcess(null);
@@ -377,7 +380,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
         )}
       </div>
     );
-  }, [isSearchOpen, searchTerm, isFilterOpen, filters, isSortOpen, sortOrder, isAdmin, sortedProcesses.length]);
+  }, [isSearchOpen, searchTerm, isFilterOpen, filters, isSortOpen, sortOrder, user, isAdmin, sortedProcesses.length]);
 
   useEffect(() => {
     const unsubProcesses = api.subscribeToCollection('processes', (data) => {
@@ -1307,70 +1310,72 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
 
                   {/* Actions */}
                   <div className="flex items-center gap-1">
+                    {canEditProcesses && (
+                      <button 
+                        onClick={() => {
+                          setEditingNotificationId(null);
+                          setNotificationData({ date: '', reason: '' });
+                          setIsNotificationModalOpen(true);
+                        }}
+                        className="p-2 hover:bg-black/5 rounded-full text-black/40"
+                        title="Criar Notificação"
+                      >
+                        <Bell className="w-5 h-5" />
+                      </button>
+                    )}
                     {isAdmin && (
-                      <>
-                        <button 
-                          onClick={() => {
-                            setEditingNotificationId(null);
-                            setNotificationData({ date: '', reason: '' });
-                            setIsNotificationModalOpen(true);
-                          }}
-                          className="p-2 hover:bg-black/5 rounded-full text-black/40"
-                          title="Criar Notificação"
-                        >
-                          <Bell className="w-5 h-5" />
-                        </button>
-                        <button 
-                          onClick={() => {
-                            setDeleteConfirmId(selectedProcessForDetail.id!);
-                            setSelectedProcessForDetail(null);
-                            onCloseDetail?.();
-                          }}
-                          className="p-2 hover:bg-red-50 text-red-500 rounded-full transition-colors"
-                          title="Excluir"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                        <button 
-                          onClick={() => {
-                            const process = selectedProcessForDetail;
-                            setEditingProcess(process);
-                            setFormData({
-                              clientId: process.clientId,
-                              participants: process.participants || [],
-                              type: process.type,
-                              status: process.status,
-                              stage: process.stage,
-                              bankId: process.bankId || '',
-                              propertyId: process.propertyId || '',
-                              purchaseValue: process.purchaseValue || 0,
-                              financingValue: process.financingValue || 0,
-                              financingType: process.financingType || 'SBPE',
-                              isAssistedPurchase: process.isAssistedPurchase || false,
-                              assistedPurchaseValue: process.assistedPurchaseValue || 0,
-                              hasDispatcher: process.hasDispatcher || false,
-                              dispatcherValue: process.dispatcherValue || 0,
-                              isDispatcherPaid: process.isDispatcherPaid || false,
-                              dispatcherPaymentDate: process.dispatcherPaymentDate || new Date().toISOString().split('T')[0],
-                              hasIQ: process.hasIQ || false,
-                              iqBankId: process.iqBankId || '',
-                              iqDebtValue: process.iqDebtValue || 0,
-                              value: process.value,
-                              agency: process.agency || '',
-                              signatureType: process.signatureType || '',
-                              notes: process.notes || '',
-                              commercialUserId: process.commercialUserId || '',
-                            });
-                            setSelectedProcessForDetail(null);
-                            onCloseDetail?.();
-                            setIsModalOpen(true);
-                          }} 
-                          className="p-2 hover:bg-black/5 rounded-full text-black/40"
-                          title="Editar"
-                        >
-                          <Edit2 className="w-5 h-5" />
-                        </button>
-                      </>
+                      <button 
+                        onClick={() => {
+                          setDeleteConfirmId(selectedProcessForDetail.id!);
+                          setSelectedProcessForDetail(null);
+                          onCloseDetail?.();
+                        }}
+                        className="p-2 hover:bg-red-50 text-red-500 rounded-full transition-colors"
+                        title="Excluir"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    )}
+                    {canEditProcesses && (
+                      <button 
+                        onClick={() => {
+                          const process = selectedProcessForDetail;
+                          setEditingProcess(process);
+                          setFormData({
+                            clientId: process.clientId,
+                            participants: process.participants || [],
+                            type: process.type,
+                            status: process.status,
+                            stage: process.stage,
+                            bankId: process.bankId || '',
+                            propertyId: process.propertyId || '',
+                            purchaseValue: process.purchaseValue || 0,
+                            financingValue: process.financingValue || 0,
+                            financingType: process.financingType || 'SBPE',
+                            isAssistedPurchase: process.isAssistedPurchase || false,
+                            assistedPurchaseValue: process.assistedPurchaseValue || 0,
+                            hasDispatcher: process.hasDispatcher || false,
+                            dispatcherValue: process.dispatcherValue || 0,
+                            isDispatcherPaid: process.isDispatcherPaid || false,
+                            dispatcherPaymentDate: process.dispatcherPaymentDate || new Date().toISOString().split('T')[0],
+                            hasIQ: process.hasIQ || false,
+                            iqBankId: process.iqBankId || '',
+                            iqDebtValue: process.iqDebtValue || 0,
+                            value: process.value,
+                            agency: process.agency || '',
+                            signatureType: process.signatureType || '',
+                            notes: process.notes || '',
+                            commercialUserId: process.commercialUserId || '',
+                          });
+                          setSelectedProcessForDetail(null);
+                          onCloseDetail?.();
+                          setIsModalOpen(true);
+                        }} 
+                        className="p-2 hover:bg-black/5 rounded-full text-black/40"
+                        title="Editar"
+                      >
+                        <Edit2 className="w-5 h-5" />
+                      </button>
                     )}
                     <button 
                       onClick={() => {
@@ -1635,10 +1640,10 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                                   <div 
                                     className={cn(
                                       "flex-1 pt-0.5 group/stage",
-                                      isAdmin && "cursor-pointer"
+                                      canEditProcesses && "cursor-pointer"
                                     )}
                                     onClick={() => {
-                                      if (!isAdmin) return;
+                                      if (!canEditProcesses) return;
                                       if (item.type === 'dispatcher') {
                                         setEditingHistoryDate({
                                           type: 'dispatcher',
@@ -1662,7 +1667,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                                   >
                                     <div className="flex items-center gap-2">
                                       <p className="text-sm font-bold text-[#1a1a1a]">{ (item as any).stage }</p>
-                                      {isAdmin && <Edit2 className="w-3 h-3 text-black/10 opacity-0 group-hover/stage:opacity-100 transition-opacity" />}
+                                      {canEditProcesses && <Edit2 className="w-3 h-3 text-black/10 opacity-0 group-hover/stage:opacity-100 transition-opacity" />}
                                     </div>
                                     <p className="text-[10px] font-medium text-black/40 uppercase tracking-wider">
                                       {new Date(item.date + (item.type === 'dispatcher' ? 'T12:00:00' : '')).toLocaleDateString('pt-BR', {
@@ -1687,7 +1692,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                                       <div 
                                         className="flex-1 cursor-pointer group/date"
                                         onClick={() => {
-                                          if (!isAdmin) return;
+                                          if (!canEditProcesses) return;
                                           const notif = item as Notification;
                                           setEditingHistoryDate({
                                             type: 'notification',
@@ -1704,7 +1709,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                                               const [y, m, d] = item.date.split('-');
                                               return `${d}/${m}/${y}`;
                                             })()}
-                                            {isAdmin && <Edit2 className="w-2 h-2" />}
+                                            {canEditProcesses && <Edit2 className="w-2 h-2" />}
                                           </span>
                                         </div>
                                         <p className="text-xs text-black/60 mt-1">{(item as any).reason}</p>
@@ -1716,7 +1721,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                                           })()}
                                         </p>
                                       </div>
-                                      {isAdmin && (
+                                      {canEditProcesses && (
                                         <div className="flex items-center gap-1">
                                           <button 
                                             onClick={() => {
@@ -2467,7 +2472,20 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
 
                       {/* Corretores */}
                       <div className="space-y-2">
-                        <label className="block text-sm font-medium text-black/60">Corretores</label>
+                        <label className="block text-sm font-medium text-black/60 flex items-center justify-between">
+                          Corretores
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsBrokerModalOpen(true);
+                            }}
+                            className="flex items-center gap-1 text-black/40 hover:text-black transition-colors"
+                            title="Cadastrar Novo Corretor"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Novo</span>
+                          </button>
+                        </label>
                         <div className="relative">
                           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black/40" />
                           <input
@@ -2922,6 +2940,19 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
             onSuccess={(client) => {
               addParticipant(currentClientRole, client.id!, client.name);
               setIsClientModalOpen(false);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isBrokerModalOpen && (
+          <BrokerModal
+            isOpen={isBrokerModalOpen}
+            onClose={() => setIsBrokerModalOpen(false)}
+            onSuccess={(broker) => {
+              addParticipant('broker', broker.id!, broker.name);
+              setIsBrokerModalOpen(false);
             }}
           />
         )}

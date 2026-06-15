@@ -10,6 +10,7 @@ import BrokerManager from './components/BrokerManager';
 import PropertyManager from './components/PropertyManager';
 import UserManager from './components/UserManager';
 import FinanceManager from './components/FinanceManager';
+import AnalystManager from './components/AnalystManager';
 import { ReportsManager } from './components/ReportsManager';
 import ClientModal from './components/ClientModal';
 import { HeaderProvider } from './context/HeaderContext';
@@ -29,6 +30,7 @@ function AppContent() {
   const [newProcessRole, setNewProcessRole] = useState<'buyer' | 'seller' | null>(null);
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
   const [isClientModalEdit, setIsClientModalEdit] = useState(false);
+  const [isClientModalSimulation, setIsClientModalSimulation] = useState(false);
   
   const [processes, setProcesses] = useState<Process[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -77,9 +79,10 @@ function AppContent() {
     setActiveTab('clients');
   };
 
-  const handleOpenClientModal = (id: string, isEdit: boolean = false) => {
+  const handleOpenClientModal = (id: string | null, isEdit: boolean = false, isSimulation: boolean = false) => {
     setSelectedClientId(id);
     setIsClientModalEdit(isEdit);
+    setIsClientModalSimulation(isSimulation);
     setIsClientModalOpen(true);
   };
 
@@ -157,6 +160,8 @@ function AppContent() {
         return <BankManager />;
       case 'finance':
         return isAdmin ? <FinanceManager /> : <Dashboard />;
+      case 'analyst':
+        return <AnalystManager />;
       case 'reports':
         return isAdmin ? (
           <ReportsManager 
@@ -181,11 +186,13 @@ function AppContent() {
         isOpen={isClientModalOpen}
         clientId={selectedClientId}
         initialIsEditing={isClientModalEdit}
+        initialSimulation={isClientModalSimulation}
         onCreateProcessForClient={handleCreateProcessForClient}
         onClose={() => {
           setIsClientModalOpen(false);
           setSelectedClientId(null);
           setIsClientModalEdit(false);
+          setIsClientModalSimulation(false);
         }}
       />
     </HeaderProvider>

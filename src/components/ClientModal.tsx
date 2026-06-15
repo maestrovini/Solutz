@@ -15,9 +15,10 @@ interface ClientModalProps {
   onSuccess?: (client: Client) => void;
   onCreateProcessForClient?: (clientId: string, role?: 'buyer' | 'seller') => void;
   initialIsEditing?: boolean;
+  initialSimulation?: boolean;
 }
 
-export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCreateProcessForClient, initialIsEditing }: ClientModalProps) {
+export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCreateProcessForClient, initialIsEditing, initialSimulation }: ClientModalProps) {
   const { isAdmin } = useAuth();
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -151,6 +152,49 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
       unsubUsers();
     };
   }, [clientId, isOpen]);
+
+  // Auto-select or auto-create "Simulação" tag when creating a client under simulation mode
+  useEffect(() => {
+    if (isOpen && !clientId && initialSimulation && allTags.length > 0) {
+      const simulacaoTag = allTags.find(tag => tag.name.trim().toLowerCase() === 'simulação' || tag.name.trim().toLowerCase() === 'simulacao');
+      if (simulacaoTag && simulacaoTag.id) {
+        setFormData(prev => {
+          if (!prev.tags.includes(simulacaoTag.id!)) {
+            return {
+              ...prev,
+              simulation: true,
+              tags: [...prev.tags, simulacaoTag.id!]
+            };
+          }
+          return {
+            ...prev,
+            simulation: true
+          };
+        });
+      } else {
+        // Tag doesn't exist, let's auto-create it in Firestore
+        api.create('tags', { name: 'Simulação', color: '#f59e0b' }).then(newTag => {
+          if (newTag && newTag.id) {
+            setFormData(prev => {
+              if (!prev.tags.includes(newTag.id)) {
+                return {
+                  ...prev,
+                  simulation: true,
+                  tags: [...prev.tags, newTag.id]
+                };
+              }
+              return {
+                ...prev,
+                simulation: true
+              };
+            });
+          }
+        }).catch(err => {
+          console.error("Erro ao criar tag Simulação:", err);
+        });
+      }
+    }
+  }, [allTags, isOpen, clientId, initialSimulation]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
