@@ -693,23 +693,12 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white p-5 rounded-xl border border-black/5 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:shadow-md transition-all duration-300"
+        className="flex justify-start mb-2"
       >
-        <div className="flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 shrink-0">
-            <UserPlus className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-black/40 uppercase tracking-widest block mb-0.5">Atendimento</span>
-            <span className="text-sm font-extrabold text-[#1a1a1a] block leading-none">Iniciar Novo Processo</span>
-            <span className="text-[9px] text-black/30 font-medium mt-1 block leading-tight">Cadastre um cliente com pré-configuração para simulação</span>
-          </div>
-        </div>
         <button
           onClick={() => onOpenClient?.(null, true, true)}
-          className="w-full sm:w-auto px-6 py-3 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-amber-500/10 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+          className="w-full sm:w-auto px-10 py-4 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-black text-sm sm:text-base uppercase tracking-widest rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-amber-500/10 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
         >
-          <Activity className="w-4 h-4 animate-pulse" />
           Iniciar Atendimento
         </button>
       </motion.div>
