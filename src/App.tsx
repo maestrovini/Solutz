@@ -12,6 +12,7 @@ import UserManager from './components/UserManager';
 import FinanceManager from './components/FinanceManager';
 import AnalystManager from './components/AnalystManager';
 import { ReportsManager } from './components/ReportsManager';
+import DocumentManager from './components/DocumentManager';
 import ClientModal from './components/ClientModal';
 import { HeaderProvider } from './context/HeaderContext';
 import { AuthProvider } from './context/AuthContext';
@@ -217,6 +218,8 @@ function AppContent() {
         );
       case 'products':
         return <ProductManager />;
+      case 'documents':
+        return <DocumentManager />;
       case 'banks':
         return <BankManager />;
       case 'finance':
