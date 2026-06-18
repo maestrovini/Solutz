@@ -6,6 +6,7 @@ import { Users, Building2, User, ChevronDown, ChevronUp, Trophy, TrendingUp, Awa
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { cn } from '../utils/cn';
 import { capitalizeName } from '../utils/stringUtils';
 
@@ -187,6 +188,7 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const { setTitle, setActions } = useHeader();
   const { user } = useAuth();
+  const { hasPushPermission, requestPushPermission } = useToast();
 
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -430,7 +432,7 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
     const unsubProperties = api.subscribeToCollection('properties', (data) => {
       const props = data as Property[];
       setProperties(props);
-      if (loading) setLoading(false);
+      setLoading(false);
     });
 
     return () => {
@@ -441,7 +443,7 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
       unsubBrokers();
       unsubProperties();
     };
-  }, [loading]);
+  }, []);
 
   // 1. Filter out only selected city properties
   const realPropertiesInPoa = useMemo(() => {
@@ -603,6 +605,32 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
     });
   };
 
+  const normalizeDate = (dateStr: string): string => {
+    if (!dateStr) return '';
+    let trimmed = dateStr.trim();
+    if (trimmed.includes('T')) {
+      trimmed = trimmed.split('T')[0];
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+
+    const normalizedDelimiters = trimmed.replace(/[\/.]/g, '-');
+    const parts = normalizedDelimiters.split('-');
+    
+    if (parts.length === 3) {
+      if (parts[2].length === 4) {
+        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      }
+      if (parts[0].length === 4) {
+        return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+      }
+      if (parts[2].length === 2) {
+        const year = parseInt(parts[2], 10) > 50 ? `19${parts[2]}` : `20${parts[2]}`;
+        return `${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      }
+    }
+    return trimmed;
+  };
+
   const getCategorizedNotifications = () => {
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -614,30 +642,34 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
     } = { hoje: [], futuras: [], pendentes: [], concluidas: [] };
 
     processes.forEach(p => {
-      if (Array.isArray(p.notifications)) {
+      if (p && Array.isArray(p.notifications)) {
         p.notifications.forEach(n => {
+          if (!n) return;
           const buyers = Array.isArray(p.participants)
             ? p.participants.filter(part => part.type === 'buyer').map(part => resolveParticipantName(part, clients, brokers, agencies)).join(', ')
             : '';
           const client = clients.find(c => c.id === p.clientId);
           const clientName = buyers || client?.name || 'Cliente Desconhecido';
 
+          const rawDate = n.date || '';
+          const normalized = normalizeDate(rawDate) || today;
+
           const notification = {
             processId: p.id!,
             notificationId: n.id,
             clientId: p.clientId,
             clientName,
-            reason: n.reason,
-            date: n.date,
+            reason: n.reason || 'Notificação',
+            date: normalized,
             completed: n.completed || false
           };
 
           if (n.completed) {
             categorized.concluidas.push(notification);
           } else {
-            if (n.date === today) {
+            if (normalized === today) {
               categorized.hoje.push(notification);
-            } else if (n.date > today) {
+            } else if (normalized > today) {
               categorized.futuras.push(notification);
             } else {
               categorized.pendentes.push(notification);
@@ -648,11 +680,11 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
     });
 
     // Sort active columns: oldest first (longest overdue) so they can address old pending items first
-    categorized.pendentes.sort((a, b) => a.date.localeCompare(b.date));
-    categorized.hoje.sort((a, b) => a.date.localeCompare(b.date));
-    categorized.futuras.sort((a, b) => a.date.localeCompare(b.date));
+    categorized.pendentes.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    categorized.hoje.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    categorized.futuras.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     // Sort completed columns: newest completed date or latest date first
-    categorized.concluidas.sort((a, b) => b.date.localeCompare(a.date));
+    categorized.concluidas.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
     return categorized;
   };
@@ -823,6 +855,19 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
                 <p className="text-[10px] text-black/40 uppercase tracking-wider mt-1">Acompanhamento de processos</p>
               </div>
             </div>
+
+            {hasPushPermission ? (
+              <span className="flex items-center gap-1 text-[10px] bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full border border-emerald-500/20 font-bold self-start sm:self-auto select-none">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> PUSH ATIVO
+              </span>
+            ) : (
+              <button
+                onClick={requestPushPermission}
+                className="flex items-center gap-1.5 text-xs bg-black text-white px-3 py-1.5 rounded-full hover:bg-black/80 transition-all font-bold self-start sm:self-auto active:scale-95 shadow-sm hover:shadow"
+              >
+                <Bell className="w-3.5 h-3.5 text-amber-400 fill-amber-400" /> Ativar Alertas Push
+              </button>
+            )}
           </div>
 
           <div className="max-h-[320px] overflow-y-auto pr-2 custom-scrollbar flex-1">
@@ -841,6 +886,11 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
                   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
                   const isToday = n.date === today;
                   const isPending = n.date < today;
+
+                  const dateParts = (n.date || '').split('-');
+                  const displayDay = dateParts[2] || '01';
+                  const displayMonthIdx = dateParts[1] ? parseInt(dateParts[1], 10) - 1 : 0;
+                  const displayMonthName = monthsNames[displayMonthIdx] || '---';
 
                   return (
                     <div 
@@ -865,9 +915,9 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
                         }}
                         title="Ver Processos"
                       >
-                        <span className="text-base font-bold leading-none">{n.date.split('-')[2]}</span>
+                        <span className="text-base font-bold leading-none">{displayDay}</span>
                         <span className="text-[7px] font-bold uppercase tracking-tighter opacity-80">
-                          {monthsNames[parseInt(n.date.split('-')[1]) - 1]}
+                          {displayMonthName}
                         </span>
                       </div>
 

@@ -69,7 +69,7 @@ export default function Layout({ children, activeTab, setActiveTab }: LayoutProp
         </button>
       </div>
 
-      <nav className="flex-1 space-y-2">
+      <nav className="flex-1 overflow-y-auto space-y-2 min-h-0 pr-1 sidebar-scrollbar">
         {navItems.map((item) => (
           <button
             key={item.id}

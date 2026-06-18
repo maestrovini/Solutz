@@ -15,6 +15,7 @@ import { ReportsManager } from './components/ReportsManager';
 import ClientModal from './components/ClientModal';
 import { HeaderProvider } from './context/HeaderContext';
 import { AuthProvider } from './context/AuthContext';
+import { ToastProvider, useToast } from './context/ToastContext';
 import { api } from './api';
 import { Process, Client, Bank, Agency, Broker, Property, Product } from './types';
 
@@ -61,6 +62,66 @@ function AppContent() {
       unsubProducts();
     };
   }, [user]);
+
+  const prevProcessesRef = React.useRef<Process[] | null>(null);
+  const { showToast } = useToast();
+
+  useEffect(() => {
+    if (processes.length > 0) {
+      if (prevProcessesRef.current === null) {
+        prevProcessesRef.current = processes;
+        return;
+      }
+
+      processes.forEach((currProcess) => {
+        const prevProcess = prevProcessesRef.current?.find((p) => p.id === currProcess.id);
+        
+        if (prevProcess) {
+          // 1. Check for STAGE change
+          if (currProcess.stage !== prevProcess.stage) {
+            const client = clients.find((c) => c.id === currProcess.clientId);
+            const clientName = client ? client.name : 'Cliente';
+            
+            showToast({
+              type: currProcess.stage === 'Finalizado' ? 'success' : 'status',
+              title: currProcess.stage === 'Finalizado' ? 'Processo Finalizado! 🎉' : 'Atualização de Etapa',
+              description: currProcess.stage === 'Finalizado' 
+                ? `O processo de ${clientName} foi concluído e finalizado!` 
+                : `O processo avançou para a etapa: "${currProcess.stage}".`,
+              clientName,
+              oldValue: prevProcess.stage,
+              newValue: currProcess.stage,
+            });
+          }
+
+          // 2. Check for STATUS change (sales process status or credit approval)
+          if (currProcess.status !== prevProcess.status) {
+            const client = clients.find((c) => c.id === currProcess.clientId);
+            const clientName = client ? client.name : 'Cliente';
+            
+            // Check if it is a credit approval/approved state
+            const isApproved = currProcess.status.toLowerCase().includes('aprov') || 
+                               currProcess.stage.toLowerCase() === 'aprovado' ||
+                               currProcess.status.toLowerCase().includes('liber') ||
+                               currProcess.status.toLowerCase().includes('concl');
+            
+            showToast({
+              type: isApproved ? 'credit' : 'info',
+              title: isApproved ? 'Crédito Aprovado! 💳' : 'Status do Processo Atualizado',
+              description: `O status do processo de ${clientName} mudou para "${currProcess.status}".`,
+              clientName,
+              oldValue: prevProcess.status,
+              newValue: currProcess.status,
+            });
+          }
+        }
+      });
+
+      prevProcessesRef.current = processes;
+    } else {
+      prevProcessesRef.current = processes;
+    }
+  }, [processes, clients, showToast]);
 
   if (loading) {
     return (
@@ -202,7 +263,9 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <ToastProvider>
+        <AppContent />
+      </ToastProvider>
     </AuthProvider>
   );
 }
