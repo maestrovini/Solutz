@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../api';
 import { Client, Process, Agency, Broker, Bank, Participant, Property } from '../types';
 import { resolveParticipantName } from '../utils/participantUtils';
-import { Users, Building2, User, ChevronDown, ChevronUp, Trophy, TrendingUp, Award, BarChart3, Star, Layers, Landmark, Cake, CalendarDays, AlertCircle, Bell, CheckCircle2, DollarSign, Activity, MapPin, Flame, Search, SlidersHorizontal, Map, Percent, Home, ZoomIn, ZoomOut, UserPlus } from 'lucide-react';
+import { Users, Building2, User, ChevronDown, ChevronUp, Trophy, TrendingUp, Award, BarChart3, Star, Layers, Landmark, Cake, CalendarDays, AlertCircle, Bell, CheckCircle2, DollarSign, Activity, MapPin, Flame, Search, SlidersHorizontal, Map, Percent, Home, ZoomIn, ZoomOut, UserPlus, RotateCcw, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
 import { useAuth } from '../context/AuthContext';
@@ -607,30 +607,34 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const categorized: {
-      hoje: { processId: string, notificationId: string, clientId?: string, clientName: string, reason: string, date: string }[],
-      futuras: { processId: string, notificationId: string, clientId?: string, clientName: string, reason: string, date: string }[],
-      pendentes: { processId: string, notificationId: string, clientId?: string, clientName: string, reason: string, date: string }[]
-    } = { hoje: [], futuras: [], pendentes: [] };
+      hoje: { processId: string, notificationId: string, clientId?: string, clientName: string, reason: string, date: string, completed?: boolean }[],
+      futuras: { processId: string, notificationId: string, clientId?: string, clientName: string, reason: string, date: string, completed?: boolean }[],
+      pendentes: { processId: string, notificationId: string, clientId?: string, clientName: string, reason: string, date: string, completed?: boolean }[],
+      concluidas: { processId: string, notificationId: string, clientId?: string, clientName: string, reason: string, date: string, completed?: boolean }[]
+    } = { hoje: [], futuras: [], pendentes: [], concluidas: [] };
 
     processes.forEach(p => {
       if (Array.isArray(p.notifications)) {
         p.notifications.forEach(n => {
-          if (!n.completed) {
-            const buyers = Array.isArray(p.participants)
-              ? p.participants.filter(part => part.type === 'buyer').map(part => resolveParticipantName(part, clients, brokers, agencies)).join(', ')
-              : '';
-            const client = clients.find(c => c.id === p.clientId);
-            const clientName = buyers || client?.name || 'Cliente Desconhecido';
+          const buyers = Array.isArray(p.participants)
+            ? p.participants.filter(part => part.type === 'buyer').map(part => resolveParticipantName(part, clients, brokers, agencies)).join(', ')
+            : '';
+          const client = clients.find(c => c.id === p.clientId);
+          const clientName = buyers || client?.name || 'Cliente Desconhecido';
 
-            const notification = {
-              processId: p.id!,
-              notificationId: n.id,
-              clientId: p.clientId,
-              clientName,
-              reason: n.reason,
-              date: n.date
-            };
+          const notification = {
+            processId: p.id!,
+            notificationId: n.id,
+            clientId: p.clientId,
+            clientName,
+            reason: n.reason,
+            date: n.date,
+            completed: n.completed || false
+          };
 
+          if (n.completed) {
+            categorized.concluidas.push(notification);
+          } else {
             if (n.date === today) {
               categorized.hoje.push(notification);
             } else if (n.date > today) {
@@ -642,6 +646,13 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
         });
       }
     });
+
+    // Sort active columns: oldest first (longest overdue) so they can address old pending items first
+    categorized.pendentes.sort((a, b) => a.date.localeCompare(b.date));
+    categorized.hoje.sort((a, b) => a.date.localeCompare(b.date));
+    categorized.futuras.sort((a, b) => a.date.localeCompare(b.date));
+    // Sort completed columns: newest completed date or latest date first
+    categorized.concluidas.sort((a, b) => b.date.localeCompare(a.date));
 
     return categorized;
   };
@@ -660,6 +671,38 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
       });
     } catch (error) {
       console.error('Erro ao concluir notificação:', error);
+    }
+  };
+
+  const handleReactivateNotification = async (processId: string, notificationId: string) => {
+    const process = processes.find(p => p.id === processId);
+    if (!process || !process.notifications) return;
+
+    const updatedNotifications = process.notifications.map(n => 
+      n.id === notificationId ? { ...n, completed: false } : n
+    );
+
+    try {
+      await api.update('processes', processId, {
+        notifications: updatedNotifications
+      });
+    } catch (error) {
+      console.error('Erro ao reativar notificação:', error);
+    }
+  };
+
+  const handleDeleteNotification = async (processId: string, notificationId: string) => {
+    const process = processes.find(p => p.id === processId);
+    if (!process || !process.notifications) return;
+
+    const updatedNotifications = process.notifications.filter(n => n.id !== notificationId);
+
+    try {
+      await api.update('processes', processId, {
+        notifications: updatedNotifications
+      });
+    } catch (error) {
+      console.error('Erro ao excluir notificação:', error);
     }
   };
 
@@ -762,15 +805,16 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
 
 
       {/* Dynamic Grid for alerts and other modules below */}
-      <div className={cn("grid grid-cols-1 gap-4", allNotifications.length > 0 && "lg:grid-cols-2")}>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Notifications Column */}
-        {allNotifications.length > 0 && (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white p-6 rounded-[24px] shadow-sm border border-black/5"
-          >
-            <div className="flex items-center gap-3 mb-4">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white p-6 rounded-[24px] shadow-sm border border-black/5 flex flex-col"
+        >
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+            <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-black rounded-xl flex items-center justify-center text-white shadow-lg shadow-black/20">
                 <Bell className="w-5 h-5" />
               </div>
@@ -779,7 +823,18 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
                 <p className="text-[10px] text-black/40 uppercase tracking-wider mt-1">Acompanhamento de processos</p>
               </div>
             </div>
-            <div className="max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
+          </div>
+
+          <div className="max-h-[320px] overflow-y-auto pr-2 custom-scrollbar flex-1">
+            {allNotifications.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center h-full">
+                <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-500 mb-3 shadow-sm">
+                  <CheckCircle2 className="w-6 h-6" />
+                </div>
+                <p className="text-sm font-bold text-[#1a1a1a]">Fascinante! Tudo em dia.</p>
+                <p className="text-[11px] text-black/40 mt-1">Você não possui notificações pendentes no momento.</p>
+              </div>
+            ) : (
               <div className="grid grid-cols-1 gap-3">
                 {allNotifications.map((n) => {
                   const now = new Date();
@@ -844,7 +899,7 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
                             setConcludeConfirm({ processId: n.processId, notificationId: n.notificationId });
                           }}
                           className={cn(
-                            "p-1.5 rounded-lg transition-all hover:scale-105",
+                            "p-1.5 rounded-lg transition-all hover:scale-105 cursor-pointer",
                             isToday ? "bg-amber-500 text-white hover:bg-amber-600" :
                             isPending ? "bg-red-500 text-white hover:bg-red-600" :
                             "bg-emerald-500 text-white hover:bg-emerald-600"
@@ -858,9 +913,9 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
                   );
                 })}
               </div>
-            </div>
-          </motion.div>
-        )}
+            )}
+          </div>
+        </motion.div>
 
         {/* Birthdays Section */}
         <div className="bg-white p-6 rounded-[24px] shadow-sm border border-black/5">
