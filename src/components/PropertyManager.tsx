@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
-import { Property, Process } from '../types';
+import { Property, Process, Bank } from '../types';
 import { Plus, Search, Trash2, Edit2, X, MapPin, Filter, AlertCircle, Save, Hash, Globe, Layout, FileText, ArrowUpDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
@@ -29,6 +29,7 @@ export default function PropertyManager({ onOpenProcess }: PropertyManagerProps)
   const { isAdmin } = useAuth();
   const [properties, setProperties] = useState<Property[]>([]);
   const [processes, setProcesses] = useState<Process[]>([]);
+  const [banks, setBanks] = useState<Bank[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -113,9 +114,14 @@ export default function PropertyManager({ onOpenProcess }: PropertyManagerProps)
       setProcesses(data as Process[]);
     });
 
+    const unsubBanks = api.subscribeToCollection('banks', (data) => {
+      setBanks(data as Bank[]);
+    });
+
     return () => {
       unsubProperties();
       unsubProcesses();
+      unsubBanks();
     };
   }, []);
 
@@ -373,20 +379,48 @@ export default function PropertyManager({ onOpenProcess }: PropertyManagerProps)
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-1.5">
-                    <div className="bg-black/5 px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider border border-black/5 text-black/60">
-                      {property.type}
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex flex-wrap gap-1.5">
+                      <div className="bg-black/5 px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider border border-black/5 text-black/60">
+                        {property.type}
+                      </div>
+                      {property.isNew && (
+                        <div className="bg-sky-50 px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider border border-sky-100 text-sky-600">
+                          Novo
+                        </div>
+                      )}
+                      {property.price && (
+                        <div className="bg-emerald-50 px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider border border-emerald-100 text-emerald-600">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(property.price)}
+                        </div>
+                      )}
                     </div>
-                    {property.isNew && (
-                      <div className="bg-sky-50 px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider border border-sky-100 text-sky-600">
-                        Novo
-                      </div>
-                    )}
-                    {property.price && (
-                      <div className="bg-emerald-50 px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider border border-emerald-100 text-emerald-600">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(property.price)}
-                      </div>
-                    )}
+
+                    {property.valuationBankId && (() => {
+                      const bank = banks.find(b => b.id === property.valuationBankId);
+                      if (!bank) return null;
+                      return (
+                        <div 
+                          className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/[0.03] border border-black/5 text-black/60 hover:bg-black/5 transition-colors inline-flex ml-auto text-[8px] font-bold uppercase"
+                          title={`Banco da Avaliação: ${bank.name}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                          }}
+                        >
+                          {bank.logoUrl ? (
+                            <img 
+                              src={bank.logoUrl} 
+                              alt={bank.name} 
+                              className="h-3.5 w-3.5 object-contain rounded-sm"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <span className="text-[7px] text-black/40">{bank.name.substring(0, 3)}</span>
+                          )}
+                          <span>{bank.name}</span>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   <AnimatePresence>

@@ -154,6 +154,7 @@ export interface Property {
   price?: number; // Valor
   type: 'Casa' | 'Apartamento' | 'Terreno' | 'Comercial';
   isNew?: boolean;
+  valuationBankId?: string; // Banco da avaliação
   createdAt: string;
   updatedAt: string;
 }

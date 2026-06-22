@@ -136,6 +136,7 @@
         "registrationNumber": { "type": "string", "description": "Property registration number (Matrícula)" },
         "additionalInfo": { "type": "string", "description": "Additional information" },
         "price": { "type": "number", "description": "Property price (Valor)" },
+        "valuationBankId": { "type": "string", "description": "Associated Valuation Bank ID" },
         "type": { "type": "string", "enum": ["Casa", "Apartamento", "Terreno", "Comercial"], "description": "Property type" },
         "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
         "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp" }
@@ -165,6 +166,18 @@
         "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
       },
       "required": ["clientId", "name", "bankId", "category", "value", "status", "stage"]
+    },
+    "PushSubscription": {
+      "title": "PushSubscription",
+      "description": "User web push notifications subscriptions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Subscription doc ID" },
+        "userId": { "type": "string", "description": "Subscribed User ID" },
+        "subscription": { "type": "object", "description": "Raw push registration details from browser" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Subscription timestamp" }
+      },
+      "required": ["userId", "subscription"]
     }
   },
   "firestore": {
@@ -203,6 +216,10 @@
     "/tags/{tagId}": {
       "schema": "ClientTag",
       "description": "Customizable user-defined tags"
+    },
+    "/push_subscriptions/{subId}": {
+      "schema": "PushSubscription",
+      "description": "Stores user push subscription objects for webpush notifications"
     }
   }
 }

@@ -22,6 +22,7 @@ import { Process, Client, Bank, Agency, Broker, Property, Product } from './type
 
 import { useAuth } from './context/AuthContext';
 import Login from './components/Login';
+import { notificationService } from './services/notificationService';
 
 function AppContent() {
   const { user, loading, isAdmin } = useAuth();
@@ -93,6 +94,15 @@ function AppContent() {
               oldValue: prevProcess.stage,
               newValue: currProcess.stage,
             });
+
+            // Dispatch system-wide Web Push notification via background Service Worker
+            notificationService.broadcastNotification(
+              currProcess.stage === 'Finalizado' ? 'Processo Finalizado! 🎉' : 'Atualização de Etapa',
+              currProcess.stage === 'Finalizado'
+                ? `O processo de ${clientName} foi concluído e finalizado!`
+                : `O processo de ${clientName} avançou para a etapa: "${currProcess.stage}".`,
+              '/'
+            ).catch(err => console.error('Push notification failed on stage change:', err));
           }
 
           // 2. Check for STATUS change (sales process status or credit approval)
@@ -114,6 +124,13 @@ function AppContent() {
               oldValue: prevProcess.status,
               newValue: currProcess.status,
             });
+
+            // Dispatch system-wide Web Push notification via background Service Worker
+            notificationService.broadcastNotification(
+              isApproved ? 'Crédito Aprovado! 💳' : 'Status do Processo Atualizado',
+              `O status do processo de ${clientName} mudou para "${currProcess.status}".`,
+              '/'
+            ).catch(err => console.error('Push notification failed on status change:', err));
           }
         }
       });

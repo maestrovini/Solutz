@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
-import { Property } from '../types';
+import { Property, Bank } from '../types';
 import { X, Save, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { capitalizeName } from '../utils/stringUtils';
@@ -28,6 +28,7 @@ export default function PropertyModal({ isOpen, onClose, onSuccess, property }: 
   const [states, setStates] = useState<IBGEState[]>([]);
   const [cities, setCities] = useState<IBGECity[]>([]);
   const [loadingCities, setLoadingCities] = useState(false);
+  const [banks, setBanks] = useState<Bank[]>([]);
 
   const [formData, setFormData] = useState({
     address: '',
@@ -43,6 +44,7 @@ export default function PropertyModal({ isOpen, onClose, onSuccess, property }: 
     price: '',
     type: 'Casa' as Property['type'],
     isNew: false,
+    valuationBankId: '',
   });
 
   useEffect(() => {
@@ -62,6 +64,7 @@ export default function PropertyModal({ isOpen, onClose, onSuccess, property }: 
           price: property.price ? (property.price * 100).toString() : '',
           type: property.type,
           isNew: property.isNew || false,
+          valuationBankId: property.valuationBankId || '',
         });
       } else {
         setFormData({
@@ -78,10 +81,20 @@ export default function PropertyModal({ isOpen, onClose, onSuccess, property }: 
           price: '',
           type: 'Casa',
           isNew: false,
+          valuationBankId: '',
         });
       }
     }
   }, [isOpen, property]);
+
+  useEffect(() => {
+    if (isOpen) {
+      const unsubBanks = api.subscribeToCollection('banks', (data) => setBanks(data as Bank[]));
+      return () => {
+        unsubBanks();
+      };
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -345,6 +358,20 @@ export default function PropertyModal({ isOpen, onClose, onSuccess, property }: 
                   className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all"
                   placeholder="R$ 0,00"
                 />
+              </div>
+
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-black/60 mb-1">Banco da Avaliação</label>
+                <select
+                  value={formData.valuationBankId}
+                  onChange={(e) => setFormData({ ...formData, valuationBankId: e.target.value })}
+                  className="w-full px-4 py-3 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all cursor-pointer text-xs font-semibold"
+                >
+                  <option value="">Selecione o banco da avaliação...</option>
+                  {banks.map(b => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="col-span-2">

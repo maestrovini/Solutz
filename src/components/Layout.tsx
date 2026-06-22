@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { auth, signInWithPopup, googleProvider, onAuthStateChanged, User, db, doc, getDoc, setDoc } from '../firebase';
 import { UserProfile } from '../types';
-import { LogOut, Home, Users, FileText, Building2, Menu, X, User as UserIcon, Landmark, LogIn, Shield, BarChart3, Package, FileSignature } from 'lucide-react';
+import { LogOut, Home, Users, FileText, Building2, Menu, X, User as UserIcon, Landmark, LogIn, Shield, BarChart3, Package, FileSignature, Bell } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/cn';
+import NotificationModal from './NotificationModal';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -16,6 +17,7 @@ interface LayoutProps {
 export default function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
   const { user, loading, isAdmin, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const { title, actions } = useHeader();
 
   const handleLogout = () => {
@@ -155,6 +157,20 @@ export default function Layout({ children, activeTab, setActiveTab }: LayoutProp
           </div>
           <div className="flex items-center gap-2">
             {actions}
+            {user && user.uid !== 'public-guest' && (
+              <button 
+                onClick={() => setIsNotificationModalOpen(true)}
+                className="relative rounded-2xl p-2.5 bg-white/10 hover:bg-white/15 text-white transition-all hover:scale-105 active:scale-95 border border-white/5 shadow-sm ml-2 cursor-pointer flex items-center justify-center"
+                title="Configurar Notificações Push"
+              >
+                <Bell className="w-5.5 h-5.5 text-white" />
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-black animate-pulse" />
+              </button>
+            )}
+            <NotificationModal 
+              isOpen={isNotificationModalOpen}
+              onClose={() => setIsNotificationModalOpen(false)}
+            />
           </div>
         </header>
 
