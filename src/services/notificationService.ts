@@ -55,26 +55,17 @@ export const notificationService = {
       throw new Error('Permission for notifications was denied.');
     }
 
-    // Get service worker registration
-    let registration = await navigator.serviceWorker.getRegistration();
-    if (!registration) {
-      registration = await navigator.serviceWorker.register('/sw.js');
-    }
+    // Register / Update Service Worker
+    await navigator.serviceWorker.register('/sw.js');
 
-    // Retrieve or wait for service worker active state
-    if (registration.installing) {
-      await new Promise<void>((resolve) => {
-        registration!.installing!.addEventListener('statechange', (e) => {
-          if ((e.target as any).state === 'activated') resolve();
-        });
-      });
-    }
+    // Wait natively for service worker to be ready and active (safest and most robust on iOS Safari)
+    const registration = await navigator.serviceWorker.ready;
 
     // Fetch VAPID public key
     const publicKey = await this.getPublicKey();
     const applicationServerKey = urlBase64ToUint8Array(publicKey);
 
-    // Subscribe to push manager page
+    // Subscribe to push manager stage
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey
@@ -90,11 +81,36 @@ export const notificationService = {
    * Saves the subscription details into Firestore
    */
   async saveSubscriptionToFirestore(userId: string, subscription: PushSubscription): Promise<void> {
-    // Generate a unique standard ID based on endpoint to avoid duplication
-    const subscriptionId = btoa(subscription.endpoint).substring(0, 50).replace(/[/+=]/g, '_');
+    // Generate a unique standard ID based on endpoint to avoid duplication (failsafe replace instead of btoa)
+    const cleanedEndpoint = subscription.endpoint.replace(/[^a-zA-Z0-9]/g, '_');
+    const subscriptionId = cleanedEndpoint.substring(Math.max(0, cleanedEndpoint.length - 80));
     
-    // Format raw JSON representing push criteria
-    const rawSubscriptionJson = JSON.parse(JSON.stringify(subscription));
+    // Safely extract subscription keys
+    let rawSubscriptionJson: any = {
+      endpoint: subscription.endpoint,
+    };
+
+    try {
+      if (subscription && typeof subscription.toJSON === 'function') {
+        rawSubscriptionJson = subscription.toJSON();
+      } else {
+        // Safe manual fallback extraction
+        const p256dh = subscription.getKey ? subscription.getKey('p256dh') : null;
+        const auth = subscription.getKey ? subscription.getKey('auth') : null;
+        rawSubscriptionJson.keys = {
+          p256dh: p256dh ? btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dh)))) : '',
+          auth: auth ? btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(auth)))) : ''
+        };
+      }
+    } catch (e) {
+      console.warn('[PUSH SERVICE] JSON extraction fallback:', e);
+      const p256dh = subscription.getKey ? subscription.getKey('p256dh') : null;
+      const auth = subscription.getKey ? subscription.getKey('auth') : null;
+      rawSubscriptionJson.keys = {
+        p256dh: p256dh ? btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dh)))) : '',
+        auth: auth ? btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(auth)))) : ''
+      };
+    }
 
     await setDoc(doc(db, 'push_subscriptions', subscriptionId), {
       id: subscriptionId,
@@ -125,7 +141,8 @@ export const notificationService = {
 
     const subscription = await registration.pushManager.getSubscription();
     if (subscription) {
-      const subscriptionId = btoa(subscription.endpoint).substring(0, 50).replace(/[/+=]/g, '_');
+      const cleanedEndpoint = subscription.endpoint.replace(/[^a-zA-Z0-9]/g, '_');
+      const subscriptionId = cleanedEndpoint.substring(Math.max(0, cleanedEndpoint.length - 80));
       
       // Unsubscribe from browser push services
       await subscription.unsubscribe();
