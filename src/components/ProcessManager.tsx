@@ -49,7 +49,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
   const [sortOrder, setSortOrder] = useState('updated-desc');
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const [editingNotificationId, setEditingNotificationId] = useState<string | null>(null);
-  const [editingHistoryDate, setEditingHistoryDate] = useState<{ type: 'stage' | 'notification' | 'dispatcher', index?: number, id?: string, date: string, label: string } | null>(null);
+  const [editingHistoryDate, setEditingHistoryDate] = useState<{ type: 'stage' | 'notification' | 'dispatcher' | 'commission', index?: number, id?: string, date: string, label: string } | null>(null);
   const [notificationData, setNotificationData] = useState({
     date: '',
     reason: ''
@@ -87,6 +87,9 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     dispatcherValue: 0,
     isDispatcherPaid: false,
     dispatcherPaymentDate: new Date().toISOString().split('T')[0],
+    commissionValue: 0,
+    isCommissionPaid: false,
+    commissionPaymentDate: new Date().toISOString().split('T')[0],
     hasIQ: false,
     iqBankId: '',
     iqDebtValue: 0,
@@ -135,7 +138,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     }
   };
 
-  const handleCurrencyChange = (field: 'purchaseValue' | 'financingValue' | 'dispatcherValue' | 'assistedPurchaseValue' | 'iqDebtValue', value: string) => {
+  const handleCurrencyChange = (field: 'purchaseValue' | 'financingValue' | 'dispatcherValue' | 'assistedPurchaseValue' | 'iqDebtValue' | 'commissionValue', value: string) => {
     const numericValue = parseCurrency(value);
     setFormData({ ...formData, [field]: numericValue });
   };
@@ -195,6 +198,9 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
         dispatcherValue: 0,
         isDispatcherPaid: false,
         dispatcherPaymentDate: new Date().toISOString().split('T')[0],
+        commissionValue: 0,
+        isCommissionPaid: false,
+        commissionPaymentDate: new Date().toISOString().split('T')[0],
         hasIQ: false,
         iqBankId: '',
         iqDebtValue: 0,
@@ -361,6 +367,9 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                 dispatcherValue: 0,
                 isDispatcherPaid: false,
                 dispatcherPaymentDate: new Date().toISOString().split('T')[0],
+                commissionValue: 0,
+                isCommissionPaid: false,
+                commissionPaymentDate: new Date().toISOString().split('T')[0],
                 hasIQ: false,
                 iqBankId: '',
                 iqDebtValue: 0,
@@ -435,6 +444,8 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
       updatedProcess.stageHistory = history;
     } else if (editingHistoryDate.type === 'dispatcher') {
       updatedProcess.dispatcherPaymentDate = editingHistoryDate.date;
+    } else if (editingHistoryDate.type === 'commission') {
+      updatedProcess.commissionPaymentDate = editingHistoryDate.date;
     } else if (editingHistoryDate.type === 'notification' && editingHistoryDate.id) {
       updatedProcess.notifications = (updatedProcess.notifications || []).map(n => 
         n.id === editingHistoryDate.id ? { ...n, date: editingHistoryDate.date } : n
@@ -613,6 +624,9 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
         dispatcherValue: 0,
         isDispatcherPaid: false,
         dispatcherPaymentDate: new Date().toISOString().split('T')[0],
+        commissionValue: 0,
+        isCommissionPaid: false,
+        commissionPaymentDate: new Date().toISOString().split('T')[0],
         hasIQ: false,
         iqBankId: '',
         iqDebtValue: 0,
@@ -1041,6 +1055,9 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
               dispatcherValue: process.dispatcherValue || 0,
               isDispatcherPaid: process.isDispatcherPaid || false,
               dispatcherPaymentDate: process.dispatcherPaymentDate || new Date().toISOString().split('T')[0],
+              commissionValue: process.commissionValue || 0,
+              isCommissionPaid: process.isCommissionPaid || false,
+              commissionPaymentDate: process.commissionPaymentDate || new Date().toISOString().split('T')[0],
               hasIQ: process.hasIQ || false,
               iqBankId: process.iqBankId || '',
               iqDebtValue: process.iqDebtValue || 0,
@@ -1063,9 +1080,13 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
               layout
               key={process.id}
               onClick={() => openDetailModal(process)}
-              className="bg-white p-4 rounded-[24px] shadow-sm border hover:shadow-md transition-all relative cursor-pointer"
+              className={cn(
+                "p-4 rounded-[24px] shadow-sm border hover:shadow-md transition-all relative cursor-pointer",
+                !process.isCommissionPaid && "bg-white"
+              )}
               style={{ 
-                borderColor: hexToRgba(bankColor, 0.3)
+                backgroundColor: process.isCommissionPaid ? hexToRgba(bankColor, 0.12) : undefined,
+                borderColor: process.isCommissionPaid ? hexToRgba(bankColor, 0.4) : hexToRgba(bankColor, 0.3)
               }}
             >
               <div className="w-full space-y-2.5">
@@ -1358,6 +1379,9 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                             dispatcherValue: process.dispatcherValue || 0,
                             isDispatcherPaid: process.isDispatcherPaid || false,
                             dispatcherPaymentDate: process.dispatcherPaymentDate || new Date().toISOString().split('T')[0],
+                            commissionValue: process.commissionValue || 0,
+                            isCommissionPaid: process.isCommissionPaid || false,
+                            commissionPaymentDate: process.commissionPaymentDate || new Date().toISOString().split('T')[0],
                             hasIQ: process.hasIQ || false,
                             iqBankId: process.iqBankId || '',
                             iqDebtValue: process.iqDebtValue || 0,
@@ -1558,6 +1582,17 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                       <p className="text-sm font-bold text-[#1a1a1a]">{formatCurrency(selectedProcessForDetail.dispatcherValue || 0)}</p>
                     </div>
                   )}
+                  {Boolean(selectedProcessForDetail.commissionValue) && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Comissão</p>
+                      <p className="text-sm font-bold text-[#1a1a1a]">
+                        {formatCurrency(selectedProcessForDetail.commissionValue || 0)}
+                        {selectedProcessForDetail.isCommissionPaid && (
+                          <span className="ml-2 text-xs text-emerald-600 font-medium">(Pago)</span>
+                        )}
+                      </p>
+                    </div>
+                  )}
                   {selectedProcessForDetail.hasIQ && (
                     <div className="space-y-1">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Interveniente Quitante</p>
@@ -1601,6 +1636,11 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                           stage: `Despachante - ${formatCurrency(selectedProcessForDetail.dispatcherValue || 0)}`,
                           date: selectedProcessForDetail.dispatcherPaymentDate,
                           type: 'dispatcher' as const
+                        }] : []),
+                        ...(selectedProcessForDetail.isCommissionPaid && selectedProcessForDetail.commissionPaymentDate ? [{
+                          stage: `Comissão - ${formatCurrency(selectedProcessForDetail.commissionValue || 0)}`,
+                          date: selectedProcessForDetail.commissionPaymentDate,
+                          type: 'commission' as const
                         }] : [])
                       ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -1619,7 +1659,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                               {i !== timelineData.length - 1 && (
                                 <div className="absolute left-[11px] top-6 bottom-[-16px] w-px bg-black/5" />
                               )}
-                              {item.type === 'stage' || item.type === 'dispatcher' ? (
+                              {item.type === 'stage' || item.type === 'dispatcher' || item.type === 'commission' ? (
                                 <>
                                   <div 
                                     className={cn(
@@ -1627,7 +1667,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                                     )}
                                     style={{
                                       backgroundColor: (() => {
-                                        if (item.type === 'dispatcher') return '#10b981';
+                                        if (item.type === 'dispatcher' || item.type === 'commission') return '#10b981';
                                         const stageName = (item as any).stage;
                                         const idx = allStages.indexOf(stageName);
                                         const bank = banks.find(b => b.id === selectedProcessForDetail.bankId);
@@ -1644,9 +1684,9 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                                     )}
                                     onClick={() => {
                                       if (!canEditProcesses) return;
-                                      if (item.type === 'dispatcher') {
+                                      if (item.type === 'dispatcher' || item.type === 'commission') {
                                         setEditingHistoryDate({
-                                          type: 'dispatcher',
+                                          type: item.type,
                                           date: item.date,
                                           label: item.stage
                                         });
@@ -1670,11 +1710,11 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                                       {canEditProcesses && <Edit2 className="w-3 h-3 text-black/10 opacity-0 group-hover/stage:opacity-100 transition-opacity" />}
                                     </div>
                                     <p className="text-[10px] font-medium text-black/40 uppercase tracking-wider">
-                                      {new Date(item.date + (item.type === 'dispatcher' ? 'T12:00:00' : '')).toLocaleDateString('pt-BR', {
+                                      {new Date(item.date + (item.type === 'dispatcher' || item.type === 'commission' ? 'T12:00:00' : '')).toLocaleDateString('pt-BR', {
                                         day: '2-digit',
                                         month: 'long',
                                         year: 'numeric',
-                                        ...(item.type !== 'dispatcher' && {
+                                        ...(item.type !== 'dispatcher' && item.type !== 'commission' && {
                                           hour: '2-digit',
                                           minute: '2-digit'
                                         })
@@ -2854,6 +2894,46 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                         </div>
                       </div>
                     )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-black/5">
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-2 cursor-pointer group">
+                        <div className="relative flex items-center justify-center">
+                          <input
+                            type="checkbox"
+                            checked={formData.isCommissionPaid || false}
+                            onChange={() => {
+                              const isPaid = !formData.isCommissionPaid;
+                              setFormData({ 
+                                ...formData, 
+                                isCommissionPaid: isPaid,
+                                commissionPaymentDate: isPaid ? new Date().toISOString().split('T')[0] : formData.commissionPaymentDate
+                              });
+                            }}
+                            className="sr-only"
+                          />
+                          <div className={cn(
+                            "w-5 h-5 rounded-md border-2 transition-all flex items-center justify-center",
+                            formData.isCommissionPaid 
+                              ? "bg-emerald-500 border-emerald-500" 
+                              : "bg-[#f5f5f0] border-black/10 group-hover:border-black/20"
+                          )}>
+                            {formData.isCommissionPaid && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                          </div>
+                        </div>
+                        <span className="text-sm font-medium text-black/60">Comissão Paga</span>
+                      </label>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-black/60 mb-1">Valor da Comissão</label>
+                      <input
+                        type="text"
+                        value={formatCurrency(formData.commissionValue || 0)}
+                        onChange={(e) => handleCurrencyChange('commissionValue', e.target.value)}
+                        className="w-full px-4 py-2 text-sm rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] focus:ring-2 focus:ring-black/5 outline-none"
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-black/60 mb-1">Comercial</label>

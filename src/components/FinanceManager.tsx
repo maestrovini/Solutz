@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Wallet, Search, Filter, ArrowUpRight, ArrowDownRight, DollarSign, Calendar, FileText } from 'lucide-react';
+import { Wallet, Search, Filter, ArrowUpRight, ArrowDownRight, DollarSign, Calendar, FileText, Percent } from 'lucide-react';
 import { api } from '../api';
 import { Process, Client } from '../types';
 import { useHeader } from '../context/HeaderContext';
@@ -55,37 +55,76 @@ export default function FinanceManager() {
     return client ? client.name : 'Cliente não encontrado';
   };
 
-  const filteredProcesses = processes
-    .filter(p => {
-      if (!p.hasDispatcher || !p.isDispatcherPaid) return false;
-      
+  const allTransactions = processes.flatMap(p => {
+    const items: Array<{
+      id: string;
+      clientName: string;
+      type: 'dispatcher' | 'commission';
+      typeLabel: string;
+      value: number;
+      paymentDate?: string;
+    }> = [];
+
+    const clientName = getProcessClients(p);
+
+    if (p.hasDispatcher && p.isDispatcherPaid) {
+      items.push({
+        id: `${p.id}-dispatcher`,
+        clientName,
+        type: 'dispatcher',
+        typeLabel: 'Despachante',
+        value: p.dispatcherValue || 0,
+        paymentDate: p.dispatcherPaymentDate,
+      });
+    }
+
+    if (p.isCommissionPaid) {
+      items.push({
+        id: `${p.id}-commission`,
+        clientName,
+        type: 'commission',
+        typeLabel: 'Comissão',
+        value: p.commissionValue || 0,
+        paymentDate: p.commissionPaymentDate,
+      });
+    }
+
+    return items;
+  });
+
+  const filteredTransactions = allTransactions
+    .filter(t => {
       if (timeFilter === 'all') return true;
-      
-      if (!p.dispatcherPaymentDate) return false;
-      
-      const paymentDate = new Date(p.dispatcherPaymentDate + 'T12:00:00');
-      
+      if (!t.paymentDate) return false;
+
+      const paymentDate = new Date(t.paymentDate + 'T12:00:00');
+
       if (timeFilter === 'year') {
         return paymentDate.getFullYear() === selectedYear;
       }
-      
+
       if (timeFilter === 'month') {
-        return paymentDate.getFullYear() === selectedYear && 
+        return paymentDate.getFullYear() === selectedYear &&
                paymentDate.getMonth() === selectedMonth;
       }
-      
+
       return true;
     })
     .sort((a, b) => {
-      const dateA = a.dispatcherPaymentDate || '';
-      const dateB = b.dispatcherPaymentDate || '';
+      const dateA = a.paymentDate || '';
+      const dateB = b.paymentDate || '';
       return dateB.localeCompare(dateA);
     });
 
-  const totals = filteredProcesses.reduce((acc, p) => ({
-    dispatcher: acc.dispatcher + (p.dispatcherValue || 0),
-    total: acc.total + (p.dispatcherValue || 0)
-  }), { dispatcher: 0, total: 0 });
+  const totals = filteredTransactions.reduce((acc, t) => {
+    if (t.type === 'dispatcher') {
+      acc.dispatcher += t.value;
+    } else if (t.type === 'commission') {
+      acc.commission += t.value;
+    }
+    acc.total += t.value;
+    return acc;
+  }, { dispatcher: 0, commission: 0, total: 0 });
 
   return (
     <div className="space-y-6 pb-20">
@@ -166,7 +205,7 @@ export default function FinanceManager() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -179,6 +218,23 @@ export default function FinanceManager() {
             <div>
               <p className="text-[9px] font-bold uppercase tracking-wider text-black/40">Total Despachante</p>
               <p className="text-xl font-bold text-[#1a1a1a]">{formatCurrency(totals.dispatcher)}</p>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-white p-4 rounded-[24px] border border-black/5 shadow-sm"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center">
+              <Percent className="w-5 h-5 text-emerald-600" />
+            </div>
+            <div>
+              <p className="text-[9px] font-bold uppercase tracking-wider text-black/40">Total Comissão</p>
+              <p className="text-xl font-bold text-[#1a1a1a]">{formatCurrency(totals.commission)}</p>
             </div>
           </div>
         </motion.div>
@@ -207,29 +263,34 @@ export default function FinanceManager() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-black/5">
-                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-black/40">Cliente</th>
+                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-black/40">Lançamento / Cliente</th>
                 <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-black/40 text-right">Pagamento</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-black/5">
-              {filteredProcesses.map((p) => (
-                <tr key={p.id} className="hover:bg-black/5 transition-colors group">
+              {filteredTransactions.map((t) => (
+                <tr key={t.id} className="hover:bg-black/5 transition-colors group">
                   <td className="px-6 py-4">
-                    <span className="text-sm font-bold text-[#1a1a1a]">{getProcessClients(p)}</span>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-[#1a1a1a]">{t.typeLabel}</span>
+                      {t.clientName && (
+                        <span className="text-[11px] font-medium text-black/50">{t.clientName}</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex flex-col">
                       <span className="text-sm font-bold text-[#1a1a1a]">
-                        {formatCurrency(p.dispatcherValue || 0)}
+                        {formatCurrency(t.value)}
                       </span>
                       <span className="text-[10px] text-black/40 font-medium">
-                        {p.dispatcherPaymentDate ? new Date(p.dispatcherPaymentDate + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}
+                        {t.paymentDate ? new Date(t.paymentDate + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}
                       </span>
                     </div>
                   </td>
                 </tr>
               ))}
-              {filteredProcesses.length === 0 && (
+              {filteredTransactions.length === 0 && (
                 <tr>
                   <td colSpan={2} className="px-6 py-12 text-center text-black/20 italic text-sm">
                     Nenhum registro financeiro encontrado.
@@ -243,3 +304,4 @@ export default function FinanceManager() {
     </div>
   );
 }
+

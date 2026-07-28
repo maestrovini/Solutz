@@ -96,6 +96,9 @@ export interface Process {
   dispatcherValue?: number;
   isDispatcherPaid?: boolean;
   dispatcherPaymentDate?: string;
+  commissionValue?: number;
+  isCommissionPaid?: boolean;
+  commissionPaymentDate?: string;
   hasIQ?: boolean;
   iqBankId?: string;
   iqDebtValue?: number;
