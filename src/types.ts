@@ -182,3 +182,12 @@ export interface Product {
   updatedAt: string;
 }
 
+export interface FinancialEntry {
+  id?: string;
+  type: 'receita' | 'despesa';
+  name: string;
+  value: number;
+  date: string;
+  createdAt?: string;
+}
+

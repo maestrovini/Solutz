@@ -18,7 +18,7 @@ export const api = {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       callback(data);
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, collectionName);
+      console.error(`Error subscribing to ${collectionName}:`, error);
     });
   },
   async getData() {
