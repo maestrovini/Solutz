@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { Process, Client, Bank, Agency, Broker, Participant, Notification, Property, UserProfile } from '../types';
 import { resolveParticipantName } from '../utils/participantUtils';
-import { Plus, Search, Trash2, Edit2, X, FileText, Clock, DollarSign, Building2, User, Users, CheckCircle2, Ban, Pause, AlertCircle, Save, Phone, Mail, MapPin, Calendar, Briefcase, Filter, Bell, ArrowUpDown } from 'lucide-react';
+import { Plus, Search, Trash2, Edit2, X, FileText, Clock, DollarSign, Building2, User, Users, CheckCircle2, Ban, Pause, AlertCircle, Save, Phone, Mail, MapPin, Calendar, Briefcase, Filter, Bell, ArrowUpDown, Pen, Fingerprint } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
 import { useAuth } from '../context/AuthContext';
@@ -1089,15 +1089,15 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                 borderColor: process.isCommissionPaid ? hexToRgba(bankColor, 0.4) : hexToRgba(bankColor, 0.3)
               }}
             >
-              <div className="w-full space-y-2.5">
-                <div className="flex justify-between items-start">
-                  <div className="space-y-0.5">
+              <div className="w-full space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="space-y-0.5 min-w-0 flex-1">
                     <p className="text-[9px] font-bold uppercase tracking-wider text-black/40">Compradores</p>
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-0.5">
                       {buyers.length > 0 ? buyers.map((p, i) => (
                           <div 
                             key={i}
-                            className="text-sm font-semibold text-[#1a1a1a]"
+                            className="text-sm font-semibold text-[#1a1a1a] truncate"
                           >
                             {getParticipantName(p)}
                           </div>
@@ -1105,32 +1105,32 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-end gap-1 sm:gap-1.5 flex-wrap sm:flex-nowrap shrink-0">
                     {/* Days in stage counter or Finish date */}
                     <div className="flex items-center gap-1">
                       {process.stage === 'Finalizado' ? (
                         <div 
-                          className="h-8 px-2 flex items-center gap-1.5 rounded-lg border transition-colors" 
+                          className="h-6.5 sm:h-8 px-1.5 sm:px-2 flex items-center gap-1 sm:gap-1.5 rounded-lg border transition-colors" 
                           title="Data de Finalização"
                           style={{ 
                             backgroundColor: hexToRgba(bankColor, 0.05),
                             borderColor: hexToRgba(bankColor, 0.1)
                           }}
                         >
-                          <Calendar className="w-3.5 h-3.5" style={{ color: bankColor }} />
-                          <span className="text-[10px] font-bold" style={{ color: bankColor }}>{getFinishedDate(process)}</span>
+                          <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5" style={{ color: bankColor }} />
+                          <span className="text-[9px] sm:text-[10px] font-bold" style={{ color: bankColor }}>{getFinishedDate(process)}</span>
                         </div>
                       ) : (
                         <div 
-                          className="h-8 px-2 flex items-center gap-1.5 rounded-lg border transition-colors" 
+                          className="h-6.5 sm:h-8 px-1.5 sm:px-2 flex items-center gap-1 sm:gap-1.5 rounded-lg border transition-colors" 
                           title="Dias na etapa atual"
                           style={{ 
                             backgroundColor: hexToRgba(bankColor, 0.05),
                             borderColor: hexToRgba(bankColor, 0.1)
                           }}
                         >
-                          <Clock className="w-3.5 h-3.5" style={{ color: bankColor }} />
-                          <span className="text-[10px] font-bold" style={{ color: bankColor }}>{getDaysInCurrentStage(process)}d</span>
+                          <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5" style={{ color: bankColor }} />
+                          <span className="text-[9px] sm:text-[10px] font-bold" style={{ color: bankColor }}>{getDaysInCurrentStage(process)}d</span>
                         </div>
                       )}
                       {(() => {
@@ -1140,15 +1140,15 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                         if (!commercialUser) return null;
                         return (
                           <div 
-                            className="h-8 px-2 flex items-center gap-1.5 rounded-lg border transition-all"
+                            className="h-6.5 sm:h-8 px-1.5 sm:px-2 flex items-center gap-1 sm:gap-1.5 rounded-lg border transition-all"
                             title={`Comercial: ${commercialUser.displayName || commercialUser.username}`}
                             style={{ 
                               backgroundColor: hexToRgba(bankColor, 0.05),
                               borderColor: hexToRgba(bankColor, 0.1)
                             }}
                           >
-                            <User className="w-3.5 h-3.5" style={{ color: bankColor }} />
-                            <span className="text-[10px] font-bold max-w-[100px] truncate" style={{ color: bankColor }}>
+                            <User className="w-3 h-3 sm:w-3.5 sm:h-3.5" style={{ color: bankColor }} />
+                            <span className="text-[9px] sm:text-[10px] font-bold max-w-[70px] sm:max-w-[100px] truncate" style={{ color: bankColor }}>
                               {commercialUser.displayName || commercialUser.username}
                             </span>
                           </div>
@@ -1160,23 +1160,41 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                         return n.date >= today;
                       }) && (
                         <div 
-                          className="h-8 w-8 flex items-center justify-center rounded-lg border transition-colors" 
+                          className="h-6.5 w-6.5 sm:h-8 sm:w-8 flex items-center justify-center rounded-lg border transition-colors shrink-0" 
                           title="Possui notificações ativas"
                           style={{ 
                             backgroundColor: hexToRgba(bankColor, 0.05),
                             borderColor: hexToRgba(bankColor, 0.1)
                           }}
                         >
-                          <Bell className="w-3.5 h-3.5" style={{ color: bankColor, fill: hexToRgba(bankColor, 0.2) }} />
+                          <Bell className="w-3 h-3 sm:w-3.5 sm:h-3.5" style={{ color: bankColor, fill: hexToRgba(bankColor, 0.2) }} />
                         </div>
                       )}
                     </div>
+
+                    {/* Signature Type Icon - Left side of Bank Logo */}
+                    {process.signatureType && (
+                      <div 
+                        className="h-6.5 w-6.5 sm:h-8 sm:w-8 flex items-center justify-center rounded-lg border transition-colors shrink-0" 
+                        title={`Assinatura ${process.signatureType}`}
+                        style={{ 
+                          backgroundColor: hexToRgba(bankColor, 0.05),
+                          borderColor: hexToRgba(bankColor, 0.1)
+                        }}
+                      >
+                        {process.signatureType === 'Física' ? (
+                          <Pen className="w-3 h-3 sm:w-3.5 sm:h-3.5" style={{ color: bankColor }} />
+                        ) : (
+                          <Fingerprint className="w-3 h-3 sm:w-3.5 sm:h-3.5" style={{ color: bankColor }} />
+                        )}
+                      </div>
+                    )}
 
                     {/* Bank Logo - Top Right */}
                     {(() => {
                       const bankLogo = banks.find(b => b.id === process.bankId)?.logoUrl;
                       return process.bankId && bankLogo ? (
-                        <div className="h-8 w-8 bg-black/5 rounded-lg overflow-hidden shrink-0">
+                        <div className="h-6.5 w-6.5 sm:h-8 sm:w-8 bg-black/5 rounded-lg overflow-hidden shrink-0">
                           <img 
                             src={bankLogo} 
                             alt="Bank" 
@@ -1295,6 +1313,18 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                 <div className="flex items-center justify-between">
                   {/* Bank, Type and Stage */}
                   <div className="flex items-center gap-3 bg-black/5 p-3 rounded-2xl">
+                    {selectedProcessForDetail.signatureType && (
+                      <div 
+                        className="h-10 w-10 bg-white rounded-xl flex items-center justify-center shrink-0 shadow-sm border border-black/5"
+                        title={`Assinatura ${selectedProcessForDetail.signatureType}`}
+                      >
+                        {selectedProcessForDetail.signatureType === 'Física' ? (
+                          <Pen className="w-5 h-5 text-black/70" />
+                        ) : (
+                          <Fingerprint className="w-5 h-5 text-black/70" />
+                        )}
+                      </div>
+                    )}
                     {(() => {
                       const bankLogo = banks.find(b => b.id === selectedProcessForDetail.bankId)?.logoUrl;
                       return selectedProcessForDetail.bankId && bankLogo ? (
