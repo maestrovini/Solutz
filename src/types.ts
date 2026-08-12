@@ -99,6 +99,7 @@ export interface Process {
   commissionValue?: number;
   isCommissionPaid?: boolean;
   commissionPaymentDate?: string;
+  isSellerPaid?: boolean;
   hasIQ?: boolean;
   iqBankId?: string;
   iqDebtValue?: number;

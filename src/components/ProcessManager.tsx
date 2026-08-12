@@ -90,6 +90,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     commissionValue: 0,
     isCommissionPaid: false,
     commissionPaymentDate: new Date().toISOString().split('T')[0],
+    isSellerPaid: false,
     hasIQ: false,
     iqBankId: '',
     iqDebtValue: 0,
@@ -201,6 +202,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
         commissionValue: 0,
         isCommissionPaid: false,
         commissionPaymentDate: new Date().toISOString().split('T')[0],
+        isSellerPaid: false,
         hasIQ: false,
         iqBankId: '',
         iqDebtValue: 0,
@@ -370,6 +372,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                 commissionValue: 0,
                 isCommissionPaid: false,
                 commissionPaymentDate: new Date().toISOString().split('T')[0],
+                isSellerPaid: false,
                 hasIQ: false,
                 iqBankId: '',
                 iqDebtValue: 0,
@@ -627,6 +630,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
         commissionValue: 0,
         isCommissionPaid: false,
         commissionPaymentDate: new Date().toISOString().split('T')[0],
+        isSellerPaid: false,
         hasIQ: false,
         iqBankId: '',
         iqDebtValue: 0,
@@ -1058,6 +1062,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
               commissionValue: process.commissionValue || 0,
               isCommissionPaid: process.isCommissionPaid || false,
               commissionPaymentDate: process.commissionPaymentDate || new Date().toISOString().split('T')[0],
+              isSellerPaid: process.isSellerPaid || false,
               hasIQ: process.hasIQ || false,
               iqBankId: process.iqBankId || '',
               iqDebtValue: process.iqDebtValue || 0,
@@ -1171,6 +1176,20 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                         </div>
                       )}
                     </div>
+
+                    {/* Seller Payment Icon - Left side of Signature Type Icon */}
+                    {process.isSellerPaid && (
+                      <div 
+                        className="h-6.5 w-6.5 sm:h-8 sm:w-8 flex items-center justify-center rounded-lg border transition-colors shrink-0" 
+                        title="Pagamento Vendedor realizado"
+                        style={{ 
+                          backgroundColor: hexToRgba(bankColor, 0.05),
+                          borderColor: hexToRgba(bankColor, 0.1)
+                        }}
+                      >
+                        <DollarSign className="w-3 h-3 sm:w-3.5 sm:h-3.5" style={{ color: bankColor }} />
+                      </div>
+                    )}
 
                     {/* Signature Type Icon - Left side of Bank Logo */}
                     {process.signatureType && (
@@ -1313,6 +1332,14 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                 <div className="flex items-center justify-between">
                   {/* Bank, Type and Stage */}
                   <div className="flex items-center gap-3 bg-black/5 p-3 rounded-2xl">
+                    {selectedProcessForDetail.isSellerPaid && (
+                      <div 
+                        className="h-10 w-10 bg-white rounded-xl flex items-center justify-center shrink-0 shadow-sm border border-black/5"
+                        title="Pagamento Vendedor realizado"
+                      >
+                        <DollarSign className="w-5 h-5 text-black/70" />
+                      </div>
+                    )}
                     {selectedProcessForDetail.signatureType && (
                       <div 
                         className="h-10 w-10 bg-white rounded-xl flex items-center justify-center shrink-0 shadow-sm border border-black/5"
@@ -1346,6 +1373,11 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                       {selectedProcessForDetail.agency && (
                         <p className="text-[9px] font-bold text-emerald-600 uppercase mt-0.5">
                           Agência: {selectedProcessForDetail.agency}
+                        </p>
+                      )}
+                      {selectedProcessForDetail.isSellerPaid && (
+                        <p className="text-[9px] font-bold text-emerald-600 uppercase mt-0.5">
+                          Pagamento Vendedor: Ok
                         </p>
                       )}
                       {selectedProcessForDetail.signatureType && (
@@ -1412,6 +1444,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                             commissionValue: process.commissionValue || 0,
                             isCommissionPaid: process.isCommissionPaid || false,
                             commissionPaymentDate: process.commissionPaymentDate || new Date().toISOString().split('T')[0],
+                            isSellerPaid: process.isSellerPaid || false,
                             hasIQ: process.hasIQ || false,
                             iqBankId: process.iqBankId || '',
                             iqDebtValue: process.iqDebtValue || 0,
@@ -2964,6 +2997,27 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                         className="w-full px-4 py-2 text-sm rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] focus:ring-2 focus:ring-black/5 outline-none"
                       />
                     </div>
+                  </div>
+                  <div>
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                      <div className="relative flex items-center justify-center">
+                        <input
+                          type="checkbox"
+                          checked={formData.isSellerPaid || false}
+                          onChange={() => setFormData({ ...formData, isSellerPaid: !formData.isSellerPaid })}
+                          className="sr-only"
+                        />
+                        <div className={cn(
+                          "w-5 h-5 rounded-md border-2 transition-all flex items-center justify-center",
+                          formData.isSellerPaid 
+                            ? "bg-emerald-500 border-emerald-500" 
+                            : "bg-[#f5f5f0] border-black/10 group-hover:border-black/20"
+                        )}>
+                          {formData.isSellerPaid && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                        </div>
+                      </div>
+                      <span className="text-sm font-medium text-black/60">Pagamento Vendedor</span>
+                    </label>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-black/60 mb-1">Comercial</label>
