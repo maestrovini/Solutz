@@ -13,6 +13,7 @@ import FinanceManager from './components/FinanceManager';
 import AnalystManager from './components/AnalystManager';
 import { ReportsManager } from './components/ReportsManager';
 import DocumentManager from './components/DocumentManager';
+import CostsManager from './components/CostsManager';
 import ClientModal from './components/ClientModal';
 import { HeaderProvider } from './context/HeaderContext';
 import { AuthProvider } from './context/AuthContext';
@@ -239,6 +240,15 @@ function AppContent() {
         return <DocumentManager />;
       case 'banks':
         return <BankManager />;
+      case 'costs':
+        return (
+          <CostsManager 
+            processes={processes}
+            clients={clients}
+            banks={banks}
+            properties={properties}
+          />
+        );
       case 'finance':
         return isAdmin ? <FinanceManager /> : <Dashboard />;
       case 'analyst':

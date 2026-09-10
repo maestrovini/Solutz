@@ -192,3 +192,27 @@ export interface FinancialEntry {
   createdAt?: string;
 }
 
+export interface CostSimulation {
+  id?: string;
+  title: string;
+  clientName?: string;
+  processId?: string;
+  propertyValue: number;
+  financingValue: number;
+  state: string;
+  city: string;
+  itbiRate: number;
+  isFirstPropertySFH: boolean;
+  isPoaReducedRateEligible?: boolean;
+  operationType: 'Financiamento' | 'À Vista';
+  bankId?: string;
+  bankFee: number;
+  dispatcherFee: number;
+  certificatesFee: number;
+  itbiValue: number;
+  registryValue: number;
+  deedValue: number;
+  totalCosts: number;
+  createdAt: string;
+}
+
