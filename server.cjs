@@ -30,7 +30,29 @@ var import_config = require("dotenv/config");
 var import_web_push = __toESM(require("web-push"), 1);
 var app = (0, import_express.default)();
 var PORT = 3e3;
-app.use(import_express.default.json());
+app.use(import_express.default.json({ limit: "25mb" }));
+app.use(import_express.default.urlencoded({ extended: true, limit: "25mb" }));
+app.post("/api/upload-logo", (req, res) => {
+  try {
+    const { dataUrl } = req.body;
+    if (!dataUrl) {
+      return res.status(400).json({ error: "dataUrl is required" });
+    }
+    const base64Data = dataUrl.replace(/^data:image\/\w+;base64,/, "");
+    const buffer = Buffer.from(base64Data, "base64");
+    const publicDir = import_path.default.join(process.cwd(), "public");
+    if (!import_fs.default.existsSync(publicDir)) {
+      import_fs.default.mkdirSync(publicDir, { recursive: true });
+    }
+    import_fs.default.writeFileSync(import_path.default.join(publicDir, "logo.png"), buffer);
+    import_fs.default.writeFileSync(import_path.default.join(publicDir, "logo.jpg"), buffer);
+    import_fs.default.writeFileSync(import_path.default.join(publicDir, "logo-icon.png"), buffer);
+    res.json({ success: true, timestamp: Date.now() });
+  } catch (error) {
+    console.error("[LOGO] Error saving logo:", error);
+    res.status(500).json({ error: "Failed to save logo" });
+  }
+});
 var vapidKeys;
 var keysPath = import_path.default.join(process.cwd(), "vapid-keys.json");
 try {
