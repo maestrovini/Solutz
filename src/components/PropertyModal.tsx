@@ -40,6 +40,7 @@ export default function PropertyModal({ isOpen, onClose, onSuccess, property }: 
     state: '',
     zone: '',
     registrationNumber: '',
+    municipalRegistration: '',
     additionalInfo: '',
     price: '',
     type: 'Casa' as Property['type'],
@@ -60,6 +61,7 @@ export default function PropertyModal({ isOpen, onClose, onSuccess, property }: 
           state: property.state,
           zone: property.zone || '',
           registrationNumber: property.registrationNumber || '',
+          municipalRegistration: property.municipalRegistration || '',
           additionalInfo: property.additionalInfo || '',
           price: property.price ? (property.price * 100).toString() : '',
           type: property.type,
@@ -77,6 +79,7 @@ export default function PropertyModal({ isOpen, onClose, onSuccess, property }: 
           state: '',
           zone: '',
           registrationNumber: '',
+          municipalRegistration: '',
           additionalInfo: '',
           price: '',
           type: 'Casa',
@@ -232,6 +235,17 @@ export default function PropertyModal({ isOpen, onClose, onSuccess, property }: 
                   onChange={(e) => setFormData({ ...formData, zone: e.target.value })}
                   className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all"
                   placeholder="Nº da Zona"
+                />
+              </div>
+
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-black/60 mb-1">Inscrição Imobiliária</label>
+                <input
+                  type="text"
+                  value={formData.municipalRegistration}
+                  onChange={(e) => setFormData({ ...formData, municipalRegistration: e.target.value })}
+                  className="w-full px-4 py-2 bg-[#f5f5f0] text-[#1a1a1a] rounded-xl border border-black/10 focus:ring-2 focus:ring-black/5 outline-none transition-all"
+                  placeholder="Nº da Inscrição Imobiliária / IPTU"
                 />
               </div>
 

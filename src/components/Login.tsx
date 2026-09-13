@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LogIn, Shield, Lock, User } from 'lucide-react';
+import { LogIn, Lock, User } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export default function Login() {
@@ -35,8 +35,13 @@ export default function Login() {
         className="w-full max-w-md"
       >
         <div className="flex flex-col items-center mb-8">
-          <div className="w-20 h-20 bg-black rounded-[24px] flex items-center justify-center text-white shadow-2xl mb-4 rotate-3">
-            <Shield className="w-10 h-10" />
+          <div className="w-24 h-24 bg-black rounded-[28px] p-2 flex items-center justify-center shadow-2xl mb-4 border border-black/10 overflow-hidden shadow-black/25">
+            <img 
+              src="/logo.png" 
+              alt="Solutz" 
+              className="w-full h-full object-contain"
+              referrerPolicy="no-referrer"
+            />
           </div>
           <h1 className="text-3xl font-black text-[#1a1a1a] tracking-tight">SOLUTZ</h1>
           <p className="text-black/40 font-medium mt-1">Gestão de Processos e Crédito</p>

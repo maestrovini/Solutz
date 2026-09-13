@@ -159,7 +159,8 @@ export default function PropertyManager({ onOpenProcess }: PropertyManagerProps)
     const matchesSearch = p.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          p.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (p.neighborhood && p.neighborhood.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                         (p.registrationNumber && p.registrationNumber.toLowerCase().includes(searchTerm.toLowerCase()));
+                         (p.registrationNumber && p.registrationNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                         (p.municipalRegistration && p.municipalRegistration.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesType = !typeFilter || p.type === typeFilter;
     const matchesCity = !cityFilter || p.city.toLowerCase() === cityFilter.toLowerCase();
     const matchesNeighborhood = !neighborhoodFilter || (p.neighborhood && p.neighborhood.toLowerCase() === neighborhoodFilter.toLowerCase());
@@ -442,6 +443,12 @@ export default function PropertyManager({ onOpenProcess }: PropertyManagerProps)
                             <div className="space-y-1">
                               <p className="text-[10px] font-bold text-black/40 uppercase tracking-widest">Zona</p>
                               <p className="text-sm font-bold text-[#1a1a1a]">{property.zone}</p>
+                            </div>
+                          )}
+                          {property.municipalRegistration && (
+                            <div className="space-y-1 col-span-2">
+                              <p className="text-[10px] font-bold text-black/40 uppercase tracking-widest">Inscrição Imobiliária</p>
+                              <p className="text-sm font-bold text-[#1a1a1a]">{property.municipalRegistration}</p>
                             </div>
                           )}
                           {property.complement && (

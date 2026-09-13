@@ -154,6 +154,7 @@ export interface Property {
   state: string;
   zone?: string;
   registrationNumber?: string; // Matrícula
+  municipalRegistration?: string; // Inscrição Imobiliária
   additionalInfo?: string; // Informações
   price?: number; // Valor
   type: 'Casa' | 'Apartamento' | 'Terreno' | 'Comercial';

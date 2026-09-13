@@ -61,10 +61,15 @@ export default function Layout({ children, activeTab, setActiveTab }: LayoutProp
     <>
       <div className="flex items-center justify-between mb-12">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/10">
-            <Building2 className="text-white w-6 h-6" />
+          <div className="w-10 h-10 bg-black rounded-xl flex items-center justify-center border border-white/20 overflow-hidden shrink-0 p-1 shadow-inner">
+            <img 
+              src="/logo.png" 
+              alt="Solutz" 
+              className="w-full h-full object-contain"
+              referrerPolicy="no-referrer"
+            />
           </div>
-          <span className="font-sans font-bold text-2xl text-white">Solutz</span>
+          <span className="font-sans font-bold text-2xl text-white tracking-tight">Solutz</span>
         </div>
         <button onClick={() => setIsMenuOpen(false)} className="text-white md:hidden">
           <X />
@@ -148,10 +153,18 @@ export default function Layout({ children, activeTab, setActiveTab }: LayoutProp
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Bar */}
         <header className="bg-black p-4 flex items-center justify-between sticky top-0 z-[60] shadow-md shrink-0">
-          <div className="flex items-center gap-4">
-            <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="text-white md:hidden">
+          <div className="flex items-center gap-3 min-w-0">
+            <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="text-white md:hidden p-1 -ml-1">
               {isMenuOpen ? <X /> : <Menu />}
             </button>
+            <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center border border-white/20 overflow-hidden shrink-0 md:hidden p-0.5">
+              <img 
+                src="/logo.png" 
+                alt="Solutz" 
+                className="w-full h-full object-contain"
+                referrerPolicy="no-referrer"
+              />
+            </div>
             <h2 className="text-white font-sans font-bold text-xl truncate">{title}</h2>
           </div>
           <div className="flex items-center gap-2">

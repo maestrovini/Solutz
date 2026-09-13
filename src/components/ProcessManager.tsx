@@ -1569,8 +1569,8 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                             <p className="text-xs text-black/60">
                               {property.neighborhood ? `${capitalizeName(property.neighborhood)}, ` : ''}{capitalizeName(property.city)} - {property.state}
                             </p>
-                            {(property.registrationNumber || property.zone) && (
-                              <div className="flex gap-3 pt-1">
+                            {(property.registrationNumber || property.zone || property.municipalRegistration) && (
+                              <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1">
                                 {property.registrationNumber && (
                                   <p className="text-[10px] font-bold text-black/40 uppercase tracking-wider">
                                     Matrícula: <span className="text-black/60">{property.registrationNumber}</span>
@@ -1579,6 +1579,11 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                                 {property.zone && (
                                   <p className="text-[10px] font-bold text-black/40 uppercase tracking-wider">
                                     Zona: <span className="text-black/60">{property.zone}</span>
+                                  </p>
+                                )}
+                                {property.municipalRegistration && (
+                                  <p className="text-[10px] font-bold text-black/40 uppercase tracking-wider">
+                                    Inscrição: <span className="text-black/60">{property.municipalRegistration}</span>
                                   </p>
                                 )}
                               </div>

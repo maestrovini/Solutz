@@ -78,6 +78,7 @@ export default function DocumentManager() {
     compradorFGTS: 'Não',
     imovelEndereco: '',
     imovelMatricula: '',
+    imovelInscricaoMunicipal: '',
     imovelValor: '0',
     imovelTipo: 'Apartamento',
     bancoNome: '',
@@ -185,6 +186,7 @@ export default function DocumentManager() {
           imovelValor: automaticProcess?.purchaseValue ? automaticProcess.purchaseValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : prev.imovelValor,
           imovelEndereco: matchedProperty ? `${matchedProperty.address}, ${matchedProperty.number || ''} ${matchedProperty.complement || ''} - ${matchedProperty.neighborhood || ''} - ${matchedProperty.city}/${matchedProperty.state}` : prev.imovelEndereco,
           imovelMatricula: matchedProperty?.registrationNumber || prev.imovelMatricula,
+          imovelInscricaoMunicipal: matchedProperty?.municipalRegistration || prev.imovelInscricaoMunicipal,
           imovelTipo: matchedProperty?.type || prev.imovelTipo,
           bancoNome: matchedBank?.name || prev.bancoNome,
           bancoFinanciamentoTipo: automaticProcess?.financingType || prev.bancoFinanciamentoTipo,
@@ -294,6 +296,7 @@ export default function DocumentManager() {
           fgts: formFields.compradorFGTS,
           imovel_endereco: formFields.imovelEndereco,
           imovel_matricula: formFields.imovelMatricula,
+          imovel_inscricao_municipal: formFields.imovelInscricaoMunicipal,
           imovel_valor: formFields.imovelValor,
           imovel_tipo: formFields.imovelTipo,
           banco: formFields.bancoNome,
@@ -1133,6 +1136,17 @@ export default function DocumentManager() {
                   onChange={(e) => setFormFields(prev => ({ ...prev, imovelMatricula: e.target.value }))}
                   className="w-full text-xs font-semibold bg-white border border-black/10 px-3 py-2.5 rounded-xl focus:outline-none focus:ring-1 focus:ring-black"
                   placeholder="Número de Registro de Matrícula"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-black/40 uppercase mb-1">Inscrição Imobiliária</label>
+                <input
+                  type="text"
+                  value={formFields.imovelInscricaoMunicipal}
+                  onChange={(e) => setFormFields(prev => ({ ...prev, imovelInscricaoMunicipal: e.target.value }))}
+                  className="w-full text-xs font-semibold bg-white border border-black/10 px-3 py-2.5 rounded-xl focus:outline-none focus:ring-1 focus:ring-black"
+                  placeholder="Número de Inscrição Imobiliária / IPTU"
                 />
               </div>
 

@@ -8,7 +8,34 @@ import webpush from 'web-push';
 const app = express();
 const PORT = 3000;
 
-app.use(express.json());
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
+
+// Endpoint to receive and save the authentic logo directly to public/
+app.post('/api/upload-logo', (req, res) => {
+  try {
+    const { dataUrl } = req.body;
+    if (!dataUrl) {
+      return res.status(400).json({ error: 'dataUrl is required' });
+    }
+    const base64Data = dataUrl.replace(/^data:image\/\w+;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+    
+    const publicDir = path.join(process.cwd(), 'public');
+    if (!fs.existsSync(publicDir)) {
+      fs.mkdirSync(publicDir, { recursive: true });
+    }
+    
+    fs.writeFileSync(path.join(publicDir, 'logo.png'), buffer);
+    fs.writeFileSync(path.join(publicDir, 'logo.jpg'), buffer);
+    fs.writeFileSync(path.join(publicDir, 'logo-icon.png'), buffer);
+    
+    res.json({ success: true, timestamp: Date.now() });
+  } catch (error) {
+    console.error('[LOGO] Error saving logo:', error);
+    res.status(500).json({ error: 'Failed to save logo' });
+  }
+});
 
 // Stable VAPID Keys setup for Push Notifications
 let vapidKeys: { publicKey: string; privateKey: string };
