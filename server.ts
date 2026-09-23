@@ -131,6 +131,20 @@ app.post('/api/push/send-multiple', async (req, res) => {
   });
 });
 
+// PWA Manifest and Service Worker routes with exact required MIME types
+app.get(['/manifest.json', '/manifest.webmanifest'], (req, res) => {
+  res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.sendFile(path.join(process.cwd(), 'public', 'manifest.json'));
+});
+
+app.get('/sw.js', (req, res) => {
+  res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+  res.setHeader('Service-Worker-Allowed', '/');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.sendFile(path.join(process.cwd(), 'public', 'sw.js'));
+});
+
 async function startServer() {
   const distPath = path.join(process.cwd(), 'dist');
   const hasBuild = fs.existsSync(path.join(distPath, 'index.html'));

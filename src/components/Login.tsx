@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { LogIn, Lock, User } from 'lucide-react';
 import { motion } from 'motion/react';
+import { PWAInstallButton } from './PWAInstallButton';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -113,6 +114,10 @@ export default function Login() {
               )}
             </button>
           </form>
+
+          <div className="mt-5 pt-4 border-t border-black/5 flex flex-col items-center justify-center">
+            <PWAInstallButton />
+          </div>
         </div>
 
         <div className="mt-8 text-center">
