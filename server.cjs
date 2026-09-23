@@ -128,6 +128,17 @@ app.post("/api/push/send-multiple", async (req, res) => {
     failures
   });
 });
+app.get(["/manifest.json", "/manifest.webmanifest"], (req, res) => {
+  res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  res.sendFile(import_path.default.join(process.cwd(), "public", "manifest.json"));
+});
+app.get("/sw.js", (req, res) => {
+  res.setHeader("Content-Type", "application/javascript; charset=utf-8");
+  res.setHeader("Service-Worker-Allowed", "/");
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.sendFile(import_path.default.join(process.cwd(), "public", "sw.js"));
+});
 async function startServer() {
   const distPath = import_path.default.join(process.cwd(), "dist");
   const hasBuild = import_fs.default.existsSync(import_path.default.join(distPath, "index.html"));
