@@ -6,7 +6,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/cn';
-import { PWAInstallButton } from './PWAInstallButton';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -98,10 +97,8 @@ export default function Layout({ children, activeTab, setActiveTab }: LayoutProp
         ))}
       </nav>
 
-      <div className="mt-auto pt-4 border-t border-white/10 space-y-2">
-        <PWAInstallButton variant="sidebar-item" />
-        
-        <div className="flex items-center gap-3 mb-2 px-2 pt-2">
+      <div className="mt-auto pt-6 border-t border-white/10">
+        <div className="flex items-center gap-3 mb-4 px-2">
           <div className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center text-white font-bold border border-white/10">
             {user?.displayName?.[0] || 'V'}
           </div>
@@ -171,7 +168,6 @@ export default function Layout({ children, activeTab, setActiveTab }: LayoutProp
             <h2 className="text-white font-sans font-bold text-xl truncate">{title}</h2>
           </div>
           <div className="flex items-center gap-2">
-            <PWAInstallButton className="hidden sm:inline-flex" />
             {actions}
           </div>
         </header>
