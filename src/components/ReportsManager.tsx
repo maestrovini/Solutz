@@ -134,7 +134,7 @@ export const ReportsManager: React.FC<ReportsManagerProps> = ({
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
   };
 
-  const stages = ['Aprovado', 'Vistoria', 'Documentos', 'Conformidade', 'Recursos', 'Contrato', 'ITBI', 'Registro', 'Finalizado'];
+  const stages = ['Aprovado', 'Vistoria', 'Documentos', 'Conformidade', 'Recursos', 'Contrato', 'ITBI', 'Registro', 'Pag Vend', 'Finalizado'];
   
   const stageConfig: Record<string, { color: string }> = {
     'Aprovado': { color: '#f0fdf4' },
@@ -145,6 +145,7 @@ export const ReportsManager: React.FC<ReportsManagerProps> = ({
     'Contrato': { color: '#86efac' },
     'ITBI': { color: '#4ade80' },
     'Registro': { color: '#22c55e' },
+    'Pag Vend': { color: '#15803d' },
     'Finalizado': { color: '#16a34a' },
   };
 

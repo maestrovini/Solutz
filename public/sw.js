@@ -1,6 +1,6 @@
 // Service Worker for Solutz PWA (Offline Support + Push Notifications)
 
-const CACHE_NAME = 'solutz-pwa-v1';
+const CACHE_NAME = 'solutz-pwa-v2';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',

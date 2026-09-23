@@ -271,7 +271,7 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
   const monthsNames = useMemo(() => ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'], []);
 
   const kpis = useMemo(() => {
-    const activeStages = ['Vistoria', 'Documentos', 'Conformidade', 'Recursos', 'Contrato', 'ITBI', 'Registro'];
+    const activeStages = ['Vistoria', 'Documentos', 'Conformidade', 'Recursos', 'Contrato', 'ITBI', 'Registro', 'Pag Vend'];
     const active = processes.filter(p => activeStages.includes(p.stage) && p.status !== 'Cancelado');
     const finalized = processes.filter(p => p.stage === 'Finalizado');
     

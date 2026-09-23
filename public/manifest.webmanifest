@@ -3,12 +3,16 @@
   "name": "Solutz - Gestão Imobiliária",
   "short_name": "Solutz",
   "description": "Sistema completo para gestão de clientes, processos de venda e aprovação de crédito imobiliário.",
+  "lang": "pt-BR",
+  "dir": "ltr",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait-primary",
+  "display_override": ["standalone", "window-controls-overlay", "minimal-ui"],
+  "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",
+  "prefer_related_applications": false,
   "categories": ["business", "finance", "productivity"],
   "icons": [
     {
