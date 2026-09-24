@@ -12,6 +12,7 @@ import { capitalizeName } from '../utils/stringUtils';
 import PropertyModal from './PropertyModal';
 import ClientModal from './ClientModal';
 import BrokerModal from './BrokerModal';
+import { syncAllApprovedClientsAndProcesses, isDateExpired } from '../services/approvalProcessService';
 
 interface ProcessManagerProps {
   initialSelectedProcessId?: string | null;
@@ -281,6 +282,31 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     return searchMatch && bankMatch && typeMatch && stageMatch && brokerMatch && agencyMatch && financingTypeMatch;
   });
 
+  const getProcessExpirationTimestamp = (p: Process): number => {
+    let expDate = p.approvalExpirationDate;
+    if (!expDate && p.clientId) {
+      const client = clients.find(c => c.id === p.clientId);
+      const matchingBank = client?.approvedBanks?.find(b => b.bankId === p.bankId) || client?.approvedBanks?.[0];
+      expDate = matchingBank?.expirationDate;
+    }
+    if (!expDate || !expDate.trim()) return Infinity;
+    let normalized = expDate.trim();
+    if (normalized.includes('/')) {
+      const parts = normalized.split('/');
+      if (parts.length === 3) {
+        if (parts[0].length === 4) {
+          normalized = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+        } else {
+          normalized = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+        }
+      }
+    } else if (normalized.includes('T')) {
+      normalized = normalized.split('T')[0];
+    }
+    const time = new Date(normalized).getTime();
+    return isNaN(time) ? Infinity : time;
+  };
+
   const sortedProcesses = [...filteredProcesses].sort((a, b) => {
     switch (sortOrder) {
       case 'value-desc':
@@ -296,6 +322,20 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
       }
       case 'stage-asc': {
         return allStages.indexOf(a.stage) - allStages.indexOf(b.stage);
+      }
+      case 'approval-asc': {
+        const timeA = getProcessExpirationTimestamp(a);
+        const timeB = getProcessExpirationTimestamp(b);
+        if (timeA === timeB) return 0;
+        return timeA - timeB;
+      }
+      case 'approval-desc': {
+        const timeA = getProcessExpirationTimestamp(a);
+        const timeB = getProcessExpirationTimestamp(b);
+        if (timeA === Infinity && timeB === Infinity) return 0;
+        if (timeA === Infinity) return 1;
+        if (timeB === Infinity) return -1;
+        return timeB - timeA;
       }
       default: // updated-desc
         return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime();
@@ -427,6 +467,12 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
       unsubUsers();
     };
   }, []);
+
+  useEffect(() => {
+    if (clients.length > 0 && processes.length > 0) {
+      syncAllApprovedClientsAndProcesses(clients, processes, agencies, brokers);
+    }
+  }, [clients.length, processes.length, filters.stage]);
 
   const handleUpdateHistoryDate = async () => {
     if (!selectedProcessForDetail || !editingHistoryDate) return;
@@ -806,7 +852,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
   return (
     <div className="space-y-6">
       {/* Stage Filter Bar */}
-      <div className="grid grid-cols-10 gap-1 bg-white p-1 rounded-xl border border-black/5 shadow-sm">
+      <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5 bg-white p-1.5 rounded-2xl border border-black/5 shadow-sm">
         {allStages.map((s) => {
           const isSelected = filters.stage === s;
           
@@ -814,15 +860,16 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
             <button
               key={s}
               type="button"
+              title={`Filtrar por etapa: ${s}`}
               onClick={() => setFilters({ ...filters, stage: isSelected ? '' : s })}
               className={cn(
-                "h-5 flex items-center justify-start rounded-md transition-all border px-1.5 outline-none truncate",
+                "h-6 sm:h-7 flex items-center justify-center rounded-xl transition-all border px-1 outline-none text-center",
                 isSelected 
-                  ? "bg-black text-white border-transparent shadow-sm ring-1 ring-black/10 ring-offset-1 scale-[1.02] z-10" 
-                  : "bg-[#f3f4f6] text-black/30 border-transparent hover:bg-black/5"
+                  ? "bg-black text-white border-transparent shadow-sm ring-1 ring-black/10 ring-offset-1 scale-[1.02] z-10 font-bold" 
+                  : "bg-[#f3f4f6] text-black/70 border-transparent hover:bg-black/10 hover:text-black font-semibold"
               )}
             >
-              <span className="text-[6.5px] font-bold uppercase tracking-tighter transition-colors">
+              <span className="text-[7.5px] sm:text-[8.5px] md:text-[9px] font-bold uppercase tracking-tight truncate transition-colors">
                 {s}
               </span>
             </button>
@@ -1025,6 +1072,28 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                 )}
               >
                 Mais Recentes
+              </button>
+              <button
+                onClick={() => setSortOrder('approval-asc')}
+                className={cn(
+                  "px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border",
+                  sortOrder === 'approval-asc'
+                    ? "bg-black text-white border-black"
+                    : "bg-[#f5f5f0] text-black/40 border-transparent hover:bg-black/5"
+                )}
+              >
+                Validade Aprovação: Mais Próxima
+              </button>
+              <button
+                onClick={() => setSortOrder('approval-desc')}
+                className={cn(
+                  "px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border",
+                  sortOrder === 'approval-desc'
+                    ? "bg-black text-white border-black"
+                    : "bg-[#f5f5f0] text-black/40 border-transparent hover:bg-black/5"
+                )}
+              >
+                Validade Aprovação: Mais Distante
               </button>
             </div>
           </motion.div>
@@ -1269,8 +1338,22 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                   )}
                 </div>
 
+                {(process.stage === 'Aprovado' || sortOrder.startsWith('approval')) && (() => {
+                  const client = clients.find(c => c.id === process.clientId);
+                  const matchingBank = client?.approvedBanks?.find(b => b.bankId === process.bankId) || client?.approvedBanks?.[0];
+                  const expDate = process.approvalExpirationDate || matchingBank?.expirationDate;
+                  if (!expDate) return null;
+                  const formatted = expDate.includes('-') ? expDate.split('-').reverse().join('/') : expDate;
+                  return (
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-700 bg-amber-50/80 px-2 py-1 rounded-lg border border-amber-200/60 w-fit">
+                      <Clock className="w-3 h-3 text-amber-600 shrink-0" />
+                      <span>Validade da Aprovação: {formatted}</span>
+                    </div>
+                  );
+                })()}
+
                 {/* Segmented Progress Bar */}
-                <div className="grid grid-cols-10 gap-1">
+                <div className="grid grid-cols-5 sm:grid-cols-10 gap-1">
                   {allStages.map((s, idx) => {
                     const isCurrent = s === process.stage;
                     const stageIdx = allStages.indexOf(s);
@@ -1283,25 +1366,28 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                     const opacity = opacities[idx] || 1;
                     
                     const bgColor = hexToRgba(baseColor, opacity);
-                    const textColor = opacity > 0.5 ? getContrastColor(baseColor) : 'rgba(0, 0, 0, 0.6)';
-                    const borderColor = hexToRgba(baseColor, opacity + 0.1);
+                    const textColor = opacity > 0.45 ? getContrastColor(baseColor) : '#1a1a1a';
+                    const borderColor = hexToRgba(baseColor, opacity + 0.15);
 
                     return (
                       <div 
                         key={s}
+                        title={`Etapa: ${s}${isCurrent ? ' (Atual)' : isPast ? ' (Concluída)' : ''}`}
                         className={cn(
-                          "h-5 flex items-center justify-start rounded-md transition-all border px-1.5",
-                          (isCurrent || isPast) ? "" : "text-black/20 border-black/5 bg-[#f5f5f0]/50",
-                          isCurrent && "shadow-sm ring-1"
+                          "h-5.5 sm:h-6 md:h-6.5 flex items-center justify-center rounded-lg transition-all border px-0.5 text-center",
+                          (isCurrent || isPast) ? "" : "text-black/50 border-black/10 bg-[#f5f5f0]",
+                          isCurrent && "shadow-sm ring-1 ring-black/15"
                         )}
                         style={{ 
                           backgroundColor: (isCurrent || isPast) ? bgColor : undefined,
                           color: (isCurrent || isPast) ? textColor : undefined,
                           borderColor: (isCurrent || isPast) ? borderColor : undefined,
-                          boxShadow: isCurrent ? `0 0 0 2px ${hexToRgba(baseColor, 0.2)}` : undefined
+                          boxShadow: isCurrent ? `0 0 0 2px ${hexToRgba(baseColor, 0.25)}` : undefined
                         }}
                       >
-                        <span className="text-[6.5px] font-bold uppercase truncate tracking-tighter">{s}</span>
+                        <span className="text-[7px] sm:text-[7.5px] md:text-[8.5px] lg:text-[9px] font-bold uppercase truncate tracking-tight">
+                          {s}
+                        </span>
                       </div>
                     );
                   })}
@@ -1386,9 +1472,24 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                           Assinatura: {selectedProcessForDetail.signatureType}
                         </p>
                       )}
-                      <p className="text-[10px] font-medium text-black/40 uppercase tracking-widest mt-0.5">
-                        {selectedProcessForDetail.stage}
-                      </p>
+                      <div className="mt-1">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-black uppercase tracking-wider bg-black/5 text-[#1a1a1a] border border-black/10">
+                          Etapa: {selectedProcessForDetail.stage}
+                        </span>
+                      </div>
+                      {selectedProcessForDetail.stage === 'Aprovado' && (() => {
+                        const client = clients.find(c => c.id === selectedProcessForDetail.clientId);
+                        const matchingBank = client?.approvedBanks?.find(b => b.bankId === selectedProcessForDetail.bankId) || client?.approvedBanks?.[0];
+                        const expDate = selectedProcessForDetail.approvalExpirationDate || matchingBank?.expirationDate;
+                        if (!expDate) return null;
+                        const formatted = expDate.includes('-') ? expDate.split('-').reverse().join('/') : expDate;
+                        return (
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200/60 w-fit mt-1.5">
+                            <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                            <span>Validade da Aprovação: {formatted}</span>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
 

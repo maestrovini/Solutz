@@ -6,7 +6,6 @@ import { Users, Building2, User, ChevronDown, ChevronUp, Trophy, TrendingUp, Awa
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
 import { useAuth } from '../context/AuthContext';
-import { useToast } from '../context/ToastContext';
 import { cn } from '../utils/cn';
 import { capitalizeName } from '../utils/stringUtils';
 
@@ -188,7 +187,6 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const { setTitle, setActions } = useHeader();
   const { user } = useAuth();
-  const { hasPushPermission, requestPushPermission } = useToast();
 
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -855,19 +853,6 @@ export default function Dashboard({ onOpenProcess, onOpenClient }: DashboardProp
                 <p className="text-[10px] text-black/40 uppercase tracking-wider mt-1">Acompanhamento de processos</p>
               </div>
             </div>
-
-            {hasPushPermission ? (
-              <span className="flex items-center gap-1 text-[10px] bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full border border-emerald-500/20 font-bold self-start sm:self-auto select-none">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> PUSH ATIVO
-              </span>
-            ) : (
-              <button
-                onClick={requestPushPermission}
-                className="flex items-center gap-1.5 text-xs bg-black text-white px-3 py-1.5 rounded-full hover:bg-black/80 transition-all font-bold self-start sm:self-auto active:scale-95 shadow-sm hover:shadow"
-              >
-                <Bell className="w-3.5 h-3.5 text-amber-400 fill-amber-400" /> Ativar Alertas Push
-              </button>
-            )}
           </div>
 
           <div className="max-h-[320px] overflow-y-auto pr-2 custom-scrollbar flex-1">

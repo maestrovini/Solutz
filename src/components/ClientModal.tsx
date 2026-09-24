@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/cn';
 import { hexToRgba } from '../utils/colors';
 import { TagsManagerModal } from './TagsManagerModal';
+import { createProcessForApprovedClient, getValidApprovedBanks, hasActiveProcess } from '../services/approvalProcessService';
 
 interface ClientModalProps {
   clientId?: string | null;
@@ -392,6 +393,12 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
       if (clientId) {
         await api.update('clients', clientId, clientData);
         const updatedClient = { ...clientData, id: clientId, createdAt } as Client;
+
+        // Auto create process in 'Aprovado' if client has valid approved bank and no active process
+        if (getValidApprovedBanks(updatedClient).length > 0 && !hasActiveProcess(clientId, processes)) {
+          await createProcessForApprovedClient(updatedClient, agencies, brokers);
+        }
+
         onSuccess?.(updatedClient);
         setNewClientId(clientId);
         setShowSuccessOptions(true);
@@ -399,7 +406,14 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
       } else {
         const fullClientData = { ...clientData, createdAt: new Date().toISOString() };
         const result = await api.create('clients', fullClientData);
-        onSuccess?.(result as Client);
+        const createdClient = result as Client;
+
+        // Auto create process in 'Aprovado' if client has valid approved bank and no active process
+        if (getValidApprovedBanks(createdClient).length > 0 && !hasActiveProcess(result.id, processes)) {
+          await createProcessForApprovedClient(createdClient, agencies, brokers);
+        }
+
+        onSuccess?.(createdClient);
         setNewClientId(result.id);
         setShowSuccessOptions(true);
         setIsEditing(false);

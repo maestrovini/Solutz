@@ -109,6 +109,7 @@ export interface Process {
   brokerId: string;
   notes?: string;
   commercialUserId?: string;
+  approvalExpirationDate?: string;
   updatedAt: string;
 }
 

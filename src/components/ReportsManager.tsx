@@ -125,10 +125,21 @@ export const ReportsManager: React.FC<ReportsManagerProps> = ({
     return filtered;
   }, [processes, periodType, selectedMonth, selectedYear, selectedBank, selectedType, selectedStage, selectedBroker, selectedAgency, brokers, excludeBank, excludeType, excludeStage, excludeBroker, excludeAgency, excludePeriod]);
 
-  // Totals
+  // Totals - desconsidera a etapa 'Aprovado' (exceto se o usuário tiver filtrado explicitamente por ela)
+  const consideredProcesses = useMemo(() => {
+    if (selectedStage === 'Aprovado' && !excludeStage) {
+      return filteredProcesses;
+    }
+    return filteredProcesses.filter(p => p.stage !== 'Aprovado');
+  }, [filteredProcesses, selectedStage, excludeStage]);
+
   const totalValue = useMemo(() => {
-    return filteredProcesses.reduce((acc, p) => acc + (p.financingValue || p.value || 0), 0);
-  }, [filteredProcesses]);
+    return consideredProcesses.reduce((acc, p) => acc + (p.financingValue || p.value || 0), 0);
+  }, [consideredProcesses]);
+
+  const totalProcessesCount = useMemo(() => {
+    return consideredProcesses.length;
+  }, [consideredProcesses]);
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
@@ -159,7 +170,7 @@ export const ReportsManager: React.FC<ReportsManagerProps> = ({
   };
 
   const getBankStats = (bankId: string) => {
-    const bankProcesses = filteredProcesses.filter(p => p.bankId === bankId);
+    const bankProcesses = consideredProcesses.filter(p => p.bankId === bankId);
     const totalFinancing = bankProcesses.reduce((sum, p) => sum + (p.financingValue || 0), 0);
     return {
       count: bankProcesses.length,
@@ -169,7 +180,7 @@ export const ReportsManager: React.FC<ReportsManagerProps> = ({
 
   const getTopPerformers = () => {
     const agencyStats = agencies.map(agency => {
-      const agencyProcesses = filteredProcesses.filter(p => 
+      const agencyProcesses = consideredProcesses.filter(p => 
         p.participants?.some(part => part.type === 'agency' && part.id === agency.id)
       );
       const count = agencyProcesses.length;
@@ -178,7 +189,7 @@ export const ReportsManager: React.FC<ReportsManagerProps> = ({
     });
 
     const brokerStats = brokers.map(broker => {
-      const brokerProcesses = filteredProcesses.filter(p => 
+      const brokerProcesses = consideredProcesses.filter(p => 
         p.participants?.some(part => part.type === 'broker' && part.id === broker.id)
       );
       const count = brokerProcesses.length;
@@ -257,7 +268,7 @@ export const ReportsManager: React.FC<ReportsManagerProps> = ({
       startY: 55,
       head: [['Métrica', 'Valor']],
       body: [
-        ['Total de Processos', filteredProcesses.length.toString()],
+        ['Total de Processos', totalProcessesCount.toString()],
         ['Volume Total', formatCurrency(totalValue)],
       ],
       theme: 'striped',
@@ -366,7 +377,7 @@ export const ReportsManager: React.FC<ReportsManagerProps> = ({
             <Layers className="w-2.5 h-2.5" />
           </div>
           <div className="flex items-center justify-center gap-0.5">
-            <p className="text-[11px] font-bold">{filteredProcesses.length}</p>
+            <p className="text-[11px] font-bold">{totalProcessesCount}</p>
             {activeView === 'stages' ? <ChevronUp className="w-2 h-2 opacity-40" /> : <ChevronDown className="w-2 h-2 opacity-40" />}
           </div>
           <p className={cn("text-[7px] font-bold uppercase tracking-wider", activeView === 'stages' ? "text-white/60" : "text-black/40")}>Etapas</p>
@@ -481,15 +492,17 @@ export const ReportsManager: React.FC<ReportsManagerProps> = ({
                         "bg-green-400 text-white",
                         "bg-green-500 text-white",
                         "bg-green-600 text-white",
-                        "bg-green-700 text-white",
+                        "bg-emerald-700 text-white",
+                        "bg-green-800 text-white",
                       ];
                       return (
                         <div key={stage} className="flex flex-col space-y-1.5">
                           <div 
                             className={cn(
-                              "w-full py-1 rounded-lg text-[8px] font-bold uppercase tracking-widest shadow-sm text-center",
-                              colors[idx]
+                              "w-full py-1 rounded-lg text-[8px] md:text-[9.5px] font-bold uppercase tracking-wider shadow-sm text-center truncate px-1",
+                              colors[idx] || "bg-green-700 text-white"
                             )}
+                            title={stage}
                           >
                             {stage}
                           </div>
@@ -797,7 +810,7 @@ export const ReportsManager: React.FC<ReportsManagerProps> = ({
           <div className="flex items-center gap-4">
             <div className="flex flex-col">
               <span className="text-black/40 text-[9px] uppercase tracking-widest font-bold">Total de Processos</span>
-              <span className="font-bold text-base text-black">{filteredProcesses.length}</span>
+              <span className="font-bold text-base text-black">{totalProcessesCount}</span>
             </div>
             <div className="w-px h-6 bg-black/5" />
             <div className="flex flex-col">

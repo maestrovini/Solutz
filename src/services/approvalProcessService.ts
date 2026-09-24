@@ -1,0 +1,237 @@
+import { api } from '../api';
+import { Client, Process, Agency, Broker, Participant, ApprovedBank } from '../types';
+
+/**
+ * Checks if a given date string is strictly in the past (expired).
+ * Supports YYYY-MM-DD, DD/MM/YYYY or ISO strings.
+ */
+export function isDateExpired(dateStr?: string): boolean {
+  if (!dateStr || !dateStr.trim()) return false;
+  let normalized = dateStr.trim();
+  
+  if (normalized.includes('/')) {
+    const parts = normalized.split('/');
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        // YYYY/MM/DD
+        normalized = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+      } else {
+        // DD/MM/YYYY
+        normalized = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      }
+    }
+  } else if (normalized.includes('T')) {
+    normalized = normalized.split('T')[0];
+  }
+
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  
+  return normalized < todayStr;
+}
+
+/**
+ * Returns all non-expired approved banks for a client.
+ */
+export function getValidApprovedBanks(client: Client): ApprovedBank[] {
+  if (!client.approvedBanks || client.approvedBanks.length === 0) return [];
+  return client.approvedBanks.filter(b => !isDateExpired(b.expirationDate));
+}
+
+/**
+ * Checks if a client currently has any process in progress (active, not finished or cancelled).
+ */
+export function hasActiveProcess(clientId: string, processes: Process[]): boolean {
+  return processes.some(p => {
+    const isClient = p.clientId === clientId || p.participants?.some(part => part.id === clientId);
+    if (!isClient) return false;
+    return p.stage !== 'Finalizado' && p.status !== 'Finalizado' && p.status !== 'Cancelado';
+  });
+}
+
+/**
+ * Creates a new process in "Aprovado" stage for an approved client.
+ */
+export async function createProcessForApprovedClient(
+  client: Client, 
+  agencies: Agency[] = [], 
+  brokers: Broker[] = []
+): Promise<Process | null> {
+  if (!client.id) return null;
+
+  const validBanks = getValidApprovedBanks(client);
+  const bankToUse = validBanks[0] || client.approvedBanks?.[0];
+
+  const agency = agencies.find(a => a.id === client.agencyId);
+  const broker = brokers.find(b => b.id === client.brokerId);
+
+  const participants: Participant[] = [
+    {
+      id: client.id,
+      name: client.name,
+      type: 'buyer'
+    }
+  ];
+
+  if (client.agencyId) {
+    participants.push({
+      id: client.agencyId,
+      name: agency?.name || 'Imobiliária',
+      type: 'agency'
+    });
+  }
+
+  if (client.brokerId) {
+    participants.push({
+      id: client.brokerId,
+      name: broker?.name || 'Corretor',
+      type: 'broker'
+    });
+  }
+
+  const approvedValue = bankToUse?.approvedValue || client.income || 0;
+  const expirationDate = bankToUse?.expirationDate ? (
+    bankToUse.expirationDate.includes('/') 
+      ? bankToUse.expirationDate.split('/').reverse().join('-') 
+      : bankToUse.expirationDate
+  ) : '';
+
+  const newProcessData: Omit<Process, 'id'> = {
+    clientId: client.id,
+    participants,
+    type: 'Financiamento',
+    status: 'Em andamento',
+    stage: 'Aprovado',
+    stageHistory: [
+      {
+        stage: 'Aprovado',
+        date: new Date().toISOString()
+      }
+    ],
+    bankId: bankToUse?.bankId || '',
+    purchaseValue: approvedValue,
+    financingValue: approvedValue,
+    value: approvedValue,
+    financingType: 'SBPE',
+    brokerId: client.brokerId || '',
+    agency: agency?.name || '',
+    commercialUserId: client.commercialUserId || '',
+    approvalExpirationDate: expirationDate || undefined,
+    notes: expirationDate ? `Aprovação de crédito válida até ${expirationDate}` : '',
+    updatedAt: new Date().toISOString()
+  };
+
+  try {
+    const created = await api.create('processes', newProcessData);
+    return created as Process;
+  } catch (error) {
+    console.error(`Erro ao criar processo para cliente aprovado ${client.name}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Checks and deletes processes in "Aprovado" stage that have expired approvals.
+ */
+export async function cleanupExpiredApprovedProcesses(
+  processes: Process[], 
+  clients: Client[]
+): Promise<string[]> {
+  const deletedIds: string[] = [];
+  const clientMap = new Map<string, Client>(clients.map(c => [c.id || '', c]));
+
+  for (const process of processes) {
+    // Only check processes that are in stage 'Aprovado'
+    if (process.stage !== 'Aprovado' || !process.id) continue;
+
+    let isExpired = false;
+
+    // 1. Direct expiration on process
+    if (process.approvalExpirationDate && isDateExpired(process.approvalExpirationDate)) {
+      isExpired = true;
+    }
+
+    // 2. Client bank approval expiration check
+    if (!isExpired && process.clientId) {
+      const client = clientMap.get(process.clientId);
+      if (client && client.approvedBanks && client.approvedBanks.length > 0) {
+        // If bank matches
+        const matchingBank = process.bankId 
+          ? client.approvedBanks.find(b => b.bankId === process.bankId) 
+          : client.approvedBanks[0];
+
+        if (matchingBank?.expirationDate && isDateExpired(matchingBank.expirationDate)) {
+          isExpired = true;
+        } else {
+          // If all client approved banks are expired
+          const hasAnyValid = client.approvedBanks.some(b => !isDateExpired(b.expirationDate));
+          if (!hasAnyValid && client.approvedBanks.some(b => !!b.expirationDate)) {
+            isExpired = true;
+          }
+        }
+      }
+    }
+
+    if (isExpired) {
+      try {
+        console.log(`Excluindo processo aprovado vencido: ${process.id} (Cliente: ${process.clientId})`);
+        await api.delete('processes', process.id);
+        deletedIds.push(process.id);
+      } catch (err) {
+        console.error(`Erro ao excluir processo vencido ${process.id}:`, err);
+      }
+    }
+  }
+
+  return deletedIds;
+}
+
+let isSyncInProgress = false;
+
+/**
+ * Synchronizes all registered clients and processes:
+ * 1. Cleans up any expired processes in "Aprovado".
+ * 2. Checks all clients with valid approved banks who don't have an active process and creates one.
+ */
+export async function syncAllApprovedClientsAndProcesses(
+  clients: Client[],
+  processes: Process[],
+  agencies: Agency[] = [],
+  brokers: Broker[] = []
+): Promise<{ createdCount: number; deletedCount: number }> {
+  if (isSyncInProgress) {
+    return { createdCount: 0, deletedCount: 0 };
+  }
+
+  isSyncInProgress = true;
+  try {
+    // 1. Cleanup expired processes in 'Aprovado'
+    const deletedIds = await cleanupExpiredApprovedProcesses(processes, clients);
+    const remainingProcesses = processes.filter(p => !deletedIds.includes(p.id || ''));
+
+    // 2. Check each client for valid approval
+    let createdCount = 0;
+    for (const client of clients) {
+      if (!client.id) continue;
+
+      const validBanks = getValidApprovedBanks(client);
+      if (validBanks.length === 0) continue;
+
+      // Check if client already has an active process in progress
+      const alreadyHasActive = hasActiveProcess(client.id, remainingProcesses);
+      if (alreadyHasActive) continue;
+
+      // Create process in "Aprovado"
+      const created = await createProcessForApprovedClient(client, agencies, brokers);
+      if (created) {
+        createdCount++;
+        // Add to remainingProcesses to avoid creating duplicates in the same cycle
+        remainingProcesses.push(created);
+      }
+    }
+
+    return { createdCount, deletedCount: deletedIds.length };
+  } finally {
+    isSyncInProgress = false;
+  }
+}
