@@ -390,12 +390,14 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
         updatedAt: new Date().toISOString(),
       };
 
+      const currentProcesses = processes.length > 0 ? processes : ((await api.list('processes')) as Process[] || []);
+
       if (clientId) {
         await api.update('clients', clientId, clientData);
         const updatedClient = { ...clientData, id: clientId, createdAt } as Client;
 
         // Auto create process in 'Aprovado' if client has valid approved bank and no active process
-        if (getValidApprovedBanks(updatedClient).length > 0 && !hasActiveProcess(clientId, processes)) {
+        if (getValidApprovedBanks(updatedClient).length > 0 && !hasActiveProcess(clientId, currentProcesses)) {
           await createProcessForApprovedClient(updatedClient, agencies, brokers);
         }
 
@@ -409,7 +411,7 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
         const createdClient = result as Client;
 
         // Auto create process in 'Aprovado' if client has valid approved bank and no active process
-        if (getValidApprovedBanks(createdClient).length > 0 && !hasActiveProcess(result.id, processes)) {
+        if (getValidApprovedBanks(createdClient).length > 0 && !hasActiveProcess(result.id, currentProcesses)) {
           await createProcessForApprovedClient(createdClient, agencies, brokers);
         }
 

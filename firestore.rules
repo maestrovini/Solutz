@@ -111,7 +111,10 @@ service cloud.firestore {
 
     match /processes/{processId} {
       allow read: if isAuthenticated();
-      allow create: if isAdmin();
+      allow create: if isAdmin() && 
+        !(request.resource.data.notes is string && 
+          (request.resource.data.notes.matches('^Aprovação de crédito válida até .*') || 
+           request.resource.data.notes == 'Processo gerado a partir de aprovação de crédito'));
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }

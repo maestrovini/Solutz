@@ -12,7 +12,7 @@ import { capitalizeName } from '../utils/stringUtils';
 import PropertyModal from './PropertyModal';
 import ClientModal from './ClientModal';
 import BrokerModal from './BrokerModal';
-import { syncAllApprovedClientsAndProcesses, isDateExpired, getValidApprovedBanks } from '../services/approvalProcessService';
+import { isDateExpired, getValidApprovedBanks } from '../services/approvalProcessService';
 
 interface ProcessManagerProps {
   initialSelectedProcessId?: string | null;
@@ -38,6 +38,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
   const [isBrokerModalOpen, setIsBrokerModalOpen] = useState(false);
   const [currentClientRole, setCurrentClientRole] = useState<'buyer' | 'seller'>('buyer');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [editingProcess, setEditingProcess] = useState<Process | null>(null);
   const [selectedProcessForDetail, setSelectedProcessForDetail] = useState<Process | null>(null);
   const [selectedEntityForDetail, setSelectedEntityForDetail] = useState<{ type: 'client' | 'broker' | 'agency', id: string } | null>(null);
@@ -493,11 +494,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     };
   }, []);
 
-  useEffect(() => {
-    if (clients.length > 0 && processes.length > 0) {
-      syncAllApprovedClientsAndProcesses(clients, processes, agencies, brokers);
-    }
-  }, [clients.length, processes.length, filters.stage]);
+  // Sync is handled at root level in App.tsx
 
   const handleUpdateHistoryDate = async () => {
     if (!selectedProcessForDetail || !editingHistoryDate) return;
@@ -718,11 +715,19 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
   };
 
   const handleDelete = async (id: string) => {
+    if (isDeleting) return;
+    setIsDeleting(true);
     try {
       await api.delete('processes', id);
       setDeleteConfirmId(null);
+      setSelectedProcessForDetail(null);
+      setEditingProcess(null);
+      setIsModalOpen(false);
+      onCloseDetail?.();
     } catch (error) {
       console.error("Erro ao excluir processo:", error);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -3227,10 +3232,13 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                   Cancelar
                 </button>
                 <button
+                  disabled={isDeleting}
                   onClick={() => handleDelete(deleteConfirmId)}
-                  className="flex-1 px-6 py-3 rounded-full font-bold bg-red-500 text-white hover:bg-red-600 transition-all"
+                  className={`flex-1 px-6 py-3 rounded-full font-bold text-white transition-all ${
+                    isDeleting ? 'bg-red-400 cursor-not-allowed' : 'bg-red-500 hover:bg-red-600'
+                  }`}
                 >
-                  Excluir
+                  {isDeleting ? 'Excluindo...' : 'Excluir'}
                 </button>
               </div>
             </motion.div>

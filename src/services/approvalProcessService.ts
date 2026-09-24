@@ -39,13 +39,13 @@ export function getValidApprovedBanks(client: Client): ApprovedBank[] {
 }
 
 /**
- * Checks if a client currently has any process in progress (active, not finished or cancelled).
+ * Checks if a client currently has any process (active or completed, not cancelled).
  */
 export function hasActiveProcess(clientId: string, processes: Process[]): boolean {
   return processes.some(p => {
     const isClient = p.clientId === clientId || p.participants?.some(part => part.id === clientId);
     if (!isClient) return false;
-    return p.stage !== 'Finalizado' && p.status !== 'Finalizado' && p.status !== 'Cancelado';
+    return p.status !== 'Cancelado';
   });
 }
 
@@ -58,6 +58,21 @@ export async function createProcessForApprovedClient(
   brokers: Broker[] = []
 ): Promise<Process | null> {
   if (!client.id) return null;
+
+  try {
+    // Safety check: ensure client does not already have any process (active or finished)
+    const existingProcesses = (await api.list('processes')) as Process[] || [];
+    const alreadyHas = existingProcesses.some(p => 
+      p.clientId === client.id || 
+      p.participants?.some(part => part.id === client.id)
+    );
+    if (alreadyHas) {
+      console.warn(`[createProcessForApprovedClient] Client ${client.name} (${client.id}) already has a process. Aborting auto-creation to avoid duplicates.`);
+      return null;
+    }
+  } catch (err) {
+    console.error("Erro ao verificar processos existentes para o cliente:", err);
+  }
 
   const validBanks = getValidApprovedBanks(client);
   const bankToUse = validBanks[0] || client.approvedBanks?.[0];
@@ -263,28 +278,7 @@ export async function syncAllApprovedClientsAndProcesses(
       }
     }
 
-    // 3. Check each client for valid approval
-    let createdCount = 0;
-    for (const client of clients) {
-      if (!client.id) continue;
-
-      const validBanks = getValidApprovedBanks(client);
-      if (validBanks.length === 0) continue;
-
-      // Check if client already has an active process in progress
-      const alreadyHasActive = hasActiveProcess(client.id, remainingProcesses);
-      if (alreadyHasActive) continue;
-
-      // Create process in "Aprovado"
-      const created = await createProcessForApprovedClient(client, agencies, brokers);
-      if (created) {
-        createdCount++;
-        // Add to remainingProcesses to avoid creating duplicates in the same cycle
-        remainingProcesses.push(created);
-      }
-    }
-
-    return { createdCount, deletedCount: deletedIds.length };
+    return { createdCount: 0, deletedCount: deletedIds.length };
   } finally {
     isSyncInProgress = false;
   }

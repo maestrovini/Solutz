@@ -24,7 +24,6 @@ import { Process, Client, Bank, Agency, Broker, Property, Product } from './type
 import { useAuth } from './context/AuthContext';
 import Login from './components/Login';
 import { notificationService } from './services/notificationService';
-import { syncAllApprovedClientsAndProcesses } from './services/approvalProcessService';
 
 function AppContent() {
   const { user, loading, isAdmin } = useAuth();
@@ -67,11 +66,7 @@ function AppContent() {
     };
   }, [user]);
 
-  useEffect(() => {
-    if (clients.length > 0 && processes.length > 0) {
-      syncAllApprovedClientsAndProcesses(clients, processes, agencies, brokers);
-    }
-  }, [clients.length, processes.length]);
+
 
   const prevProcessesRef = React.useRef<Process[] | null>(null);
   const { showToast } = useToast();
