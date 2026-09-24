@@ -89,7 +89,7 @@ export async function createProcessForApprovedClient(
     });
   }
 
-  const approvedValue = bankToUse?.approvedValue || client.income || 0;
+  const approvedValue = bankToUse?.approvedValue || 0;
   const expirationDate = bankToUse?.expirationDate ? (
     bankToUse.expirationDate.includes('/') 
       ? bankToUse.expirationDate.split('/').reverse().join('-') 
@@ -109,8 +109,8 @@ export async function createProcessForApprovedClient(
       }
     ],
     bankId: bankToUse?.bankId || '',
-    purchaseValue: approvedValue,
-    financingValue: approvedValue,
+    purchaseValue: 0, // Compra e venda mantido em 0 quando não informado
+    financingValue: approvedValue, // Preencher apenas o valor do financiamento
     value: approvedValue,
     financingType: 'SBPE',
     brokerId: client.brokerId || '',
@@ -209,7 +209,61 @@ export async function syncAllApprovedClientsAndProcesses(
     const deletedIds = await cleanupExpiredApprovedProcesses(processes, clients);
     const remainingProcesses = processes.filter(p => !deletedIds.includes(p.id || ''));
 
-    // 2. Check each client for valid approval
+    // 2. Review and adjust existing processes in 'Aprovado'
+    const clientMap = new Map<string, Client>(clients.map(c => [c.id || '', c]));
+    for (const p of remainingProcesses) {
+      if (p.stage !== 'Aprovado' || !p.id) continue;
+
+      let clientId = p.clientId;
+      if (!clientId) {
+        const buyer = p.participants?.find(part => part.type === 'buyer');
+        clientId = buyer?.id || '';
+      }
+      const client = clientId ? clientMap.get(clientId) : undefined;
+      const matchingBank = client?.approvedBanks?.find(b => b.bankId === p.bankId) || client?.approvedBanks?.[0];
+      const approvedVal = matchingBank?.approvedValue || 0;
+      const expirationDate = matchingBank?.expirationDate ? (
+        matchingBank.expirationDate.includes('/')
+          ? matchingBank.expirationDate.split('/').reverse().join('-')
+          : matchingBank.expirationDate
+      ) : '';
+
+      const updates: Partial<Process> = {};
+
+      if (!p.clientId && clientId) {
+        updates.clientId = clientId;
+      }
+
+      if ((!p.financingValue || p.financingValue === 0) && approvedVal > 0) {
+        updates.financingValue = approvedVal;
+        updates.value = approvedVal;
+        if (!p.bankId && matchingBank?.bankId) {
+          updates.bankId = matchingBank.bankId;
+        }
+        if (!p.approvalExpirationDate && expirationDate) {
+          updates.approvalExpirationDate = expirationDate;
+        }
+      }
+
+      // If purchaseValue is equal to financingValue and no property is linked, reset purchaseValue to 0
+      if (p.purchaseValue && p.purchaseValue > 0 && p.purchaseValue === (updates.financingValue || p.financingValue || 0) && !p.propertyId) {
+        updates.purchaseValue = 0;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        try {
+          await api.update('processes', p.id, {
+            ...updates,
+            updatedAt: new Date().toISOString()
+          });
+          Object.assign(p, updates);
+        } catch (err) {
+          console.error(`Erro ao atualizar processo aprovado ${p.id}:`, err);
+        }
+      }
+    }
+
+    // 3. Check each client for valid approval
     let createdCount = 0;
     for (const client of clients) {
       if (!client.id) continue;

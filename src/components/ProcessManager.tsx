@@ -12,7 +12,7 @@ import { capitalizeName } from '../utils/stringUtils';
 import PropertyModal from './PropertyModal';
 import ClientModal from './ClientModal';
 import BrokerModal from './BrokerModal';
-import { syncAllApprovedClientsAndProcesses, isDateExpired } from '../services/approvalProcessService';
+import { syncAllApprovedClientsAndProcesses, isDateExpired, getValidApprovedBanks } from '../services/approvalProcessService';
 
 interface ProcessManagerProps {
   initialSelectedProcessId?: string | null;
@@ -100,6 +100,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     signatureType: '' as 'Digital' | 'Física' | '',
     notes: '',
     commercialUserId: '',
+    approvalExpirationDate: '' as string | undefined,
   });
 
   const stages = {
@@ -157,9 +158,25 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
         name: clientName 
       }];
 
+      let initialFinancingValue = 0;
+      let initialBankId = '';
+      let initialExpirationDate: string | undefined = undefined;
+
       if (initialRole === 'buyer') {
         const client = clients.find(c => c.id === initialNewProcessClientId);
         if (client) {
+          const validBanks = getValidApprovedBanks(client);
+          const bankToUse = validBanks[0] || client.approvedBanks?.[0];
+          if (bankToUse) {
+            initialFinancingValue = bankToUse.approvedValue || 0;
+            initialBankId = bankToUse.bankId || '';
+            if (bankToUse.expirationDate) {
+              initialExpirationDate = bankToUse.expirationDate.includes('/')
+                ? bankToUse.expirationDate.split('/').reverse().join('-')
+                : bankToUse.expirationDate;
+            }
+          }
+
           if (client.brokerId) {
             const broker = brokers.find(b => b.id === client.brokerId);
             if (broker) {
@@ -189,10 +206,11 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
         type: 'Financiamento',
         status: 'Em andamento',
         stage: 'Aprovado',
-        bankId: '',
+        bankId: initialBankId,
         propertyId: '',
         purchaseValue: 0,
-        financingValue: 0,
+        financingValue: initialFinancingValue,
+        approvalExpirationDate: initialExpirationDate,
         financingType: 'SBPE',
         isAssistedPurchase: false,
         assistedPurchaseValue: 0,
@@ -309,10 +327,16 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
 
   const sortedProcesses = [...filteredProcesses].sort((a, b) => {
     switch (sortOrder) {
-      case 'value-desc':
-        return (b.purchaseValue || 0) - (a.purchaseValue || 0);
-      case 'value-asc':
-        return (a.purchaseValue || 0) - (b.purchaseValue || 0);
+      case 'value-desc': {
+        const valB = (b.purchaseValue && b.purchaseValue > 0) ? b.purchaseValue : (b.financingValue || b.value || 0);
+        const valA = (a.purchaseValue && a.purchaseValue > 0) ? a.purchaseValue : (a.financingValue || a.value || 0);
+        return valB - valA;
+      }
+      case 'value-asc': {
+        const valA = (a.purchaseValue && a.purchaseValue > 0) ? a.purchaseValue : (a.financingValue || a.value || 0);
+        const valB = (b.purchaseValue && b.purchaseValue > 0) ? b.purchaseValue : (b.financingValue || b.value || 0);
+        return valA - valB;
+      }
       case 'buyer-asc': {
         const buyerA = a.participants?.find(p => p.type === 'buyer');
         const buyerB = b.participants?.find(p => p.type === 'buyer');
@@ -421,6 +445,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                 signatureType: '' as 'Digital' | 'Física' | '',
                 notes: '',
                 commercialUserId: '',
+                approvalExpirationDate: '' as string | undefined,
               });
               setIsModalOpen(true);
             }}
@@ -685,6 +710,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
         signatureType: '' as 'Digital' | 'Física' | '',
         notes: '',
         commercialUserId: '',
+        approvalExpirationDate: '' as string | undefined,
       });
     } catch (error) {
       console.error("Erro ao salvar processo:", error);
@@ -785,6 +811,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     if (formData.participants.some(p => p.id === id && p.type === type)) return;
     
     let newParticipants: Participant[] = [...formData.participants, { id, type, name }];
+    const extraUpdates: Partial<typeof formData> = {};
     
     if (type === 'buyer') {
       const client = clients.find(c => c.id === id);
@@ -819,6 +846,24 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
             });
           }
         }
+
+        if (!formData.clientId) {
+          extraUpdates.clientId = client.id;
+        }
+        const validBanks = getValidApprovedBanks(client);
+        const bankToUse = validBanks[0] || client.approvedBanks?.[0];
+        if (bankToUse && (!formData.financingValue || formData.financingValue === 0)) {
+          extraUpdates.financingValue = bankToUse.approvedValue || 0;
+          extraUpdates.value = bankToUse.approvedValue || 0;
+          if (!formData.bankId) {
+            extraUpdates.bankId = bankToUse.bankId || '';
+          }
+          if (!formData.approvalExpirationDate && bankToUse.expirationDate) {
+            extraUpdates.approvalExpirationDate = bankToUse.expirationDate.includes('/')
+              ? bankToUse.expirationDate.split('/').reverse().join('-')
+              : bankToUse.expirationDate;
+          }
+        }
       }
     }
 
@@ -838,6 +883,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     
     setFormData({
       ...formData,
+      ...extraUpdates,
       participants: newParticipants
     });
   };
@@ -1107,7 +1153,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
           const brokersList = process.participants?.filter(p => p.type === 'broker') || [];
           const agenciesList = process.participants?.filter(p => p.type === 'agency') || [];
 
-          const isFinance = process.type === 'Financiamento' || process.type === 'Home Equity';
+          const isFinance = process.type === 'Financiamento' || process.type === 'Home Equity' || process.stage === 'Aprovado' || (process.financingValue || 0) > 0;
           const bankColor = banks.find(b => b.id === process.bankId)?.color || stageConfig[process.stage]?.color || '#000000';
 
           const openEditModal = (process: Process) => {
@@ -1141,6 +1187,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
               signatureType: process.signatureType || '',
               notes: process.notes || '',
               commercialUserId: process.commercialUserId || '',
+              approvalExpirationDate: process.approvalExpirationDate || '',
             });
             setSelectedProcessForDetail(null);
             setIsModalOpen(true);
@@ -1555,6 +1602,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                             signatureType: process.signatureType || '',
                             notes: process.notes || '',
                             commercialUserId: process.commercialUserId || '',
+                            approvalExpirationDate: process.approvalExpirationDate || '',
                           });
                           setSelectedProcessForDetail(null);
                           onCloseDetail?.();
@@ -1734,7 +1782,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                       <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Compra/Venda</p>
                       <p className="text-base font-bold text-[#1a1a1a]">{formatCurrency(selectedProcessForDetail.purchaseValue || 0)}</p>
                     </div>
-                  {(selectedProcessForDetail.type === 'Financiamento' || selectedProcessForDetail.type === 'Home Equity') && (
+                  {(selectedProcessForDetail.type === 'Financiamento' || selectedProcessForDetail.type === 'Home Equity' || selectedProcessForDetail.stage === 'Aprovado' || (selectedProcessForDetail.financingValue || 0) > 0) && (
                     <div className="space-y-1">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-black/40">Financiamento</p>
                       <p className="text-base font-bold text-[#1a1a1a]">{formatCurrency(selectedProcessForDetail.financingValue || 0)}</p>
