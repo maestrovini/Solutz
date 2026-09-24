@@ -57,92 +57,10 @@ export async function createProcessForApprovedClient(
   agencies: Agency[] = [], 
   brokers: Broker[] = []
 ): Promise<Process | null> {
-  if (!client.id) return null;
-
-  try {
-    // Safety check: ensure client does not already have any process (active or finished)
-    const existingProcesses = (await api.list('processes')) as Process[] || [];
-    const alreadyHas = existingProcesses.some(p => 
-      p.clientId === client.id || 
-      p.participants?.some(part => part.id === client.id)
-    );
-    if (alreadyHas) {
-      console.warn(`[createProcessForApprovedClient] Client ${client.name} (${client.id}) already has a process. Aborting auto-creation to avoid duplicates.`);
-      return null;
-    }
-  } catch (err) {
-    console.error("Erro ao verificar processos existentes para o cliente:", err);
-  }
-
-  const validBanks = getValidApprovedBanks(client);
-  const bankToUse = validBanks[0] || client.approvedBanks?.[0];
-
-  const agency = agencies.find(a => a.id === client.agencyId);
-  const broker = brokers.find(b => b.id === client.brokerId);
-
-  const participants: Participant[] = [
-    {
-      id: client.id,
-      name: client.name,
-      type: 'buyer'
-    }
-  ];
-
-  if (client.agencyId) {
-    participants.push({
-      id: client.agencyId,
-      name: agency?.name || 'Imobiliária',
-      type: 'agency'
-    });
-  }
-
-  if (client.brokerId) {
-    participants.push({
-      id: client.brokerId,
-      name: broker?.name || 'Corretor',
-      type: 'broker'
-    });
-  }
-
-  const approvedValue = bankToUse?.approvedValue || 0;
-  const expirationDate = bankToUse?.expirationDate ? (
-    bankToUse.expirationDate.includes('/') 
-      ? bankToUse.expirationDate.split('/').reverse().join('-') 
-      : bankToUse.expirationDate
-  ) : '';
-
-  const newProcessData: Omit<Process, 'id'> = {
-    clientId: client.id,
-    participants,
-    type: 'Financiamento',
-    status: 'Em andamento',
-    stage: 'Aprovado',
-    stageHistory: [
-      {
-        stage: 'Aprovado',
-        date: new Date().toISOString()
-      }
-    ],
-    bankId: bankToUse?.bankId || '',
-    purchaseValue: 0, // Compra e venda mantido em 0 quando não informado
-    financingValue: approvedValue, // Preencher apenas o valor do financiamento
-    value: approvedValue,
-    financingType: 'SBPE',
-    brokerId: client.brokerId || '',
-    agency: agency?.name || '',
-    commercialUserId: client.commercialUserId || '',
-    approvalExpirationDate: expirationDate || undefined,
-    notes: expirationDate ? `Aprovação de crédito válida até ${expirationDate}` : '',
-    updatedAt: new Date().toISOString()
-  };
-
-  try {
-    const created = await api.create('processes', newProcessData);
-    return created as Process;
-  } catch (error) {
-    console.error(`Erro ao criar processo para cliente aprovado ${client.name}:`, error);
-    return null;
-  }
+  // Automatic process creation is disabled to prevent duplicate processes or resurrection of deleted processes.
+  // Processes should only be created manually by user action in ProcessManager.
+  console.info(`[createProcessForApprovedClient] Auto-creation disabled. Manual process creation is required for client: ${client?.name}`);
+  return null;
 }
 
 /**

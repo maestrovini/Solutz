@@ -22,8 +22,11 @@ export default defineConfig(({ mode }) => {
         registerType: 'autoUpdate',
         injectRegister: false,
         manifest: false,
+        workbox: {
+          maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+        },
         devOptions: {
-          enabled: true,
+          enabled: false,
         },
       }),
     ],

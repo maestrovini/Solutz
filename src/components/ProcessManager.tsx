@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
 import { Process, Client, Bank, Agency, Broker, Participant, Notification, Property, UserProfile } from '../types';
 import { resolveParticipantName } from '../utils/participantUtils';
@@ -6,6 +6,7 @@ import { Plus, Search, Trash2, Edit2, X, FileText, Clock, DollarSign, Building2,
 import { motion, AnimatePresence } from 'motion/react';
 import { useHeader } from '../context/HeaderContext';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { cn } from '../utils/cn';
 import { hexToRgba, getContrastColor } from '../utils/colors';
 import { capitalizeName } from '../utils/stringUtils';
@@ -24,6 +25,7 @@ interface ProcessManagerProps {
 
 export default function ProcessManager({ initialSelectedProcessId, initialNewProcessClientId, initialNewProcessRole, onCloseDetail, onOpenClient }: ProcessManagerProps) {
   const { user, isAdmin } = useAuth();
+  const { showToast } = useToast();
   const canEditProcesses = isAdmin || user?.role === 'user';
   const [processes, setProcesses] = useState<Process[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -46,6 +48,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
   const [entityFormData, setEntityFormData] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [sortOrder, setSortOrder] = useState('updated-desc');
@@ -274,20 +277,36 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     const brokersList = process.participants?.filter(p => p.type === 'broker') || [];
     const agenciesList = process.participants?.filter(p => p.type === 'agency') || [];
     
-    const searchMatch = 
-      buyers.some(p => getParticipantName(p).toLowerCase().includes(searchTerm.toLowerCase())) ||
-      sellers.some(p => getParticipantName(p).toLowerCase().includes(searchTerm.toLowerCase())) ||
-      brokersList.some(p => getParticipantName(p).toLowerCase().includes(searchTerm.toLowerCase())) ||
-      agenciesList.some(p => getParticipantName(p).toLowerCase().includes(searchTerm.toLowerCase())) ||
-      process.notes?.toLowerCase().includes(searchTerm.toLowerCase());
+    const searchLower = searchTerm.toLowerCase().trim();
+    const isSearching = Boolean(searchLower);
+
+    const clientObj = process.clientId ? clients.find(c => c.id === process.clientId) : undefined;
+    const bankName = process.bankId ? getBankName(process.bankId) : '';
+
+    const searchMatch = !isSearching || (
+      buyers.some(p => getParticipantName(p).toLowerCase().includes(searchLower)) ||
+      sellers.some(p => getParticipantName(p).toLowerCase().includes(searchLower)) ||
+      brokersList.some(p => getParticipantName(p).toLowerCase().includes(searchLower)) ||
+      agenciesList.some(p => getParticipantName(p).toLowerCase().includes(searchLower)) ||
+      (clientObj && clientObj.name.toLowerCase().includes(searchLower)) ||
+      (process.agency && process.agency.toLowerCase().includes(searchLower)) ||
+      (process.stage && process.stage.toLowerCase().includes(searchLower)) ||
+      (process.type && process.type.toLowerCase().includes(searchLower)) ||
+      (process.financingType && process.financingType.toLowerCase().includes(searchLower)) ||
+      (bankName && bankName.toLowerCase().includes(searchLower)) ||
+      (process.notes && process.notes.toLowerCase().includes(searchLower))
+    );
 
     const bankMatch = !filters.bankId || process.bankId === filters.bankId;
     const typeMatch = !filters.type || process.type === filters.type;
     
-    // Logic: 'Finalizado' and 'Aprovado' processes only appear if explicitly selected in the filter
-    const stageMatch = filters.stage 
-      ? process.stage === filters.stage 
-      : process.stage !== 'Finalizado' && process.stage !== 'Aprovado';
+    // When actively searching via the search bar / magnifying glass, search across ALL stages!
+    // When not searching: if a stage is selected, show that stage; otherwise default to active pipeline (excluding Finalizado and Aprovado)
+    const stageMatch = isSearching 
+      ? true 
+      : filters.stage 
+        ? process.stage === filters.stage 
+        : process.stage !== 'Finalizado' && process.stage !== 'Aprovado';
 
     const brokerMatch = !filters.brokerId || process.brokerId === filters.brokerId || brokersList.some(p => p.id === filters.brokerId);
     
@@ -375,14 +394,24 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
           {sortedProcesses.length}
         </div>
         <button
-          onClick={() => setIsSearchOpen(prev => !prev)}
+          onClick={() => {
+            setIsSearchOpen(prev => {
+              const nextState = !prev;
+              if (nextState) {
+                // Clear any selected stage so it searches across all stages
+                setFilters(f => ({ ...f, stage: '' }));
+                setTimeout(() => searchInputRef.current?.focus(), 80);
+              }
+              return nextState;
+            });
+          }}
           className={cn(
             "p-2 rounded-lg transition-all border shadow-sm",
             isSearchOpen || searchTerm
               ? "bg-white text-black border-white" 
               : "bg-white/10 text-white border-white/10 hover:bg-white/20"
           )}
-          title="Buscar"
+          title="Buscar em todas as etapas"
         >
           <Search className="w-5 h-5" />
         </button>
@@ -663,6 +692,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
 
     const processData = {
       ...formData,
+      source: 'manual',
       stageHistory,
       notifications,
       brokerId: 'admin-1',
@@ -718,14 +748,25 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     if (isDeleting) return;
     setIsDeleting(true);
     try {
+      setProcesses(prev => prev.filter(p => p.id !== id));
       await api.delete('processes', id);
       setDeleteConfirmId(null);
       setSelectedProcessForDetail(null);
       setEditingProcess(null);
       setIsModalOpen(false);
       onCloseDetail?.();
+      showToast({
+        type: 'info',
+        title: 'Processo excluído',
+        description: 'O processo foi excluído com sucesso.'
+      });
     } catch (error) {
       console.error("Erro ao excluir processo:", error);
+      showToast({
+        type: 'error',
+        title: 'Erro ao excluir',
+        description: 'Não foi possível excluir o processo. Tente novamente.'
+      });
     } finally {
       setIsDeleting(false);
     }
@@ -936,15 +977,53 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-black/40 w-5 h-5" />
-              <input
-                type="text"
-                placeholder="Buscar por nome ou observações..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-white text-[#1a1a1a] rounded-2xl border border-black/5 focus:outline-none focus:ring-2 focus:ring-black/5 transition-all placeholder:text-black/40"
-              />
+            <div className="space-y-2">
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilters(f => ({ ...f, stage: '' }));
+                    searchInputRef.current?.focus();
+                  }}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-black/40 hover:text-black transition-colors"
+                  title="Buscar em todas as etapas"
+                >
+                  <Search className="w-5 h-5" />
+                </button>
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Buscar em todas as etapas por nome, comprador, corretor, banco..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-12 py-4 bg-white text-[#1a1a1a] rounded-2xl border border-black/5 focus:outline-none focus:ring-2 focus:ring-black/10 transition-all placeholder:text-black/40 text-sm shadow-sm"
+                />
+                {searchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-black/40 hover:text-black rounded-full hover:bg-black/5 transition-all"
+                    title="Limpar busca"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              {searchTerm.trim() && (
+                <div className="flex items-center justify-between px-2 text-xs text-black/60">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    Buscando em todas as etapas: <strong className="text-black">{sortedProcesses.length}</strong> {sortedProcesses.length === 1 ? 'processo encontrado' : 'processos encontrados'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm('')}
+                    className="text-xs text-black/40 hover:text-black underline font-medium"
+                  >
+                    Limpar busca
+                  </button>
+                </div>
+              )}
             </div>
           </motion.div>
         )}

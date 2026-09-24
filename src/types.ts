@@ -110,6 +110,7 @@ export interface Process {
   notes?: string;
   commercialUserId?: string;
   approvalExpirationDate?: string;
+  source?: string;
   updatedAt: string;
 }
 

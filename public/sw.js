@@ -1,6 +1,6 @@
 // Service Worker for Solutz PWA (Offline Support + Push Notifications)
 
-const CACHE_NAME = 'solutz-pwa-v2';
+const CACHE_NAME = 'solutz-pwa-v3';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
@@ -15,70 +15,23 @@ const PRECACHE_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(PRECACHE_ASSETS).catch((err) => {
-        console.warn('[SW] Pre-caching non-fatal warning:', err);
-      });
-    }).then(() => self.skipWaiting())
-  );
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            return caches.delete(cache);
-          }
-        })
+        cacheNames.map((cache) => caches.delete(cache))
       );
     }).then(() => self.clients.claim())
   );
 });
 
-// Fetch event listener required by Chromium / Android / Xiaomi PWA installability criteria
+// Fetch event listener: do not intercept or cache JS / HTML so updates are always fresh
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
-  const url = new URL(event.request.url);
-
-  // Only intercept same-origin requests (don't block Firestore / Google APIs)
-  if (url.origin === self.location.origin) {
-    // Skip API routes so push / db calls go straight to network
-    if (url.pathname.startsWith('/api/')) {
-      return;
-    }
-
-    event.respondWith(
-      fetch(event.request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-            const responseClone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              if (
-                url.pathname.match(/\.(png|jpg|jpeg|svg|css|js|woff2?|json)$/) ||
-                url.pathname === '/' ||
-                url.pathname === '/index.html'
-              ) {
-                cache.put(event.request, responseClone);
-              }
-            });
-          }
-          return networkResponse;
-        })
-        .catch(() => {
-          return caches.match(event.request).then((cachedResponse) => {
-            if (cachedResponse) {
-              return cachedResponse;
-            }
-            if (event.request.headers.get('accept')?.includes('text/html')) {
-              return caches.match('/');
-            }
-          });
-        })
-    );
-  }
+  // Let network handle all requests directly
+  return;
 });
 
 // Push Notifications Handling
