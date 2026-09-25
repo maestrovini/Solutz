@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { api } from '../api';
 import { Process, Client, Bank, Agency, Broker, Participant, Notification, Property, UserProfile } from '../types';
 import { resolveParticipantName } from '../utils/participantUtils';
@@ -66,7 +66,8 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     stage: '',
     brokerId: '',
     agencyId: '',
-    financingType: ''
+    financingType: '',
+    duplicates: ''
   });
   const [participantSearch, setParticipantSearch] = useState({
     buyer: '',
@@ -271,6 +272,111 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
   const getBankName = (id: string) => banks.find(b => b.id === id)?.name || 'N/A';
   const getParticipantName = (p: Participant) => resolveParticipantName(p, clients, brokers, agencies);
 
+  // Map of process IDs that have duplicate entries in the system (sharing client, CPF, buyer name or property)
+  const duplicateProcessInfoMap = useMemo(() => {
+    const map = new Map<string, { count: number; reason: string }>();
+    if (!processes || processes.length < 2) return map;
+
+    const getProcessKeys = (p: Process) => {
+      const clientIds = new Set<string>();
+      if (p.clientId) clientIds.add(p.clientId);
+      p.participants?.filter(pt => pt.type === 'buyer').forEach(pt => {
+        if (pt.id) clientIds.add(pt.id);
+      });
+
+      const cpfs = new Set<string>();
+      const names = new Set<string>();
+
+      clientIds.forEach(cId => {
+        const client = clients.find(c => c.id === cId);
+        if (client) {
+          if (client.cpf) {
+            const cleanCpf = client.cpf.replace(/\D/g, '');
+            if (cleanCpf.length >= 9) cpfs.add(cleanCpf);
+          }
+          if (client.name && client.name.trim().length >= 3) {
+            names.add(client.name.trim().toLowerCase());
+          }
+        }
+      });
+
+      p.participants?.filter(pt => pt.type === 'buyer').forEach(pt => {
+        const ptName = resolveParticipantName(pt, clients, brokers, agencies);
+        if (ptName && ptName.trim().length >= 3 && ptName.toLowerCase() !== 'cliente desconhecido') {
+          names.add(ptName.trim().toLowerCase());
+        }
+      });
+
+      return {
+        id: p.id || '',
+        clientIds,
+        cpfs,
+        names,
+        propertyId: p.propertyId || ''
+      };
+    };
+
+    const processKeys = processes.map(getProcessKeys);
+
+    for (let i = 0; i < processKeys.length; i++) {
+      for (let j = i + 1; j < processKeys.length; j++) {
+        const a = processKeys[i];
+        const b = processKeys[j];
+        if (!a.id || !b.id || a.id === b.id) continue;
+
+        let isMatch = false;
+        let reason = '';
+
+        // Check matching client ID
+        for (const cId of a.clientIds) {
+          if (b.clientIds.has(cId)) {
+            isMatch = true;
+            reason = 'Mesmo comprador cadastrado';
+            break;
+          }
+        }
+
+        // Check matching CPF
+        if (!isMatch) {
+          for (const cpf of a.cpfs) {
+            if (b.cpfs.has(cpf)) {
+              isMatch = true;
+              reason = 'Mesmo CPF do comprador';
+              break;
+            }
+          }
+        }
+
+        // Check matching buyer name
+        if (!isMatch) {
+          for (const name of a.names) {
+            if (b.names.has(name)) {
+              isMatch = true;
+              reason = 'Mesmo nome de comprador';
+              break;
+            }
+          }
+        }
+
+        // Check matching property ID
+        if (!isMatch && a.propertyId && b.propertyId && a.propertyId === b.propertyId) {
+          isMatch = true;
+          reason = 'Mesmo imóvel associado';
+        }
+
+        if (isMatch) {
+          const currentA = map.get(a.id) || { count: 1, reason };
+          map.set(a.id, { count: currentA.count + 1, reason });
+
+          const currentB = map.get(b.id) || { count: 1, reason };
+          map.set(b.id, { count: currentB.count + 1, reason });
+        }
+      }
+    }
+
+    return map;
+  }, [processes, clients, brokers, agencies]);
+
   const filteredProcesses = processes.filter(process => {
     const buyers = process.participants?.filter(p => p.type === 'buyer') || [];
     const sellers = process.participants?.filter(p => p.type === 'seller') || [];
@@ -300,13 +406,9 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     const bankMatch = !filters.bankId || process.bankId === filters.bankId;
     const typeMatch = !filters.type || process.type === filters.type;
     
-    // When actively searching via the search bar / magnifying glass, search across ALL stages!
-    // When not searching: if a stage is selected, show that stage; otherwise default to active pipeline (excluding Finalizado and Aprovado)
-    const stageMatch = isSearching 
-      ? true 
-      : filters.stage 
-        ? process.stage === filters.stage 
-        : process.stage !== 'Finalizado' && process.stage !== 'Aprovado';
+    // Os filtros buscam processos em todas as etapas (de Aprovados a Finalizados).
+    // Se uma etapa específica for selecionada, filtra por ela; caso contrário, abrange todas as etapas.
+    const stageMatch = !filters.stage || process.stage === filters.stage;
 
     const brokerMatch = !filters.brokerId || process.brokerId === filters.brokerId || brokersList.some(p => p.id === filters.brokerId);
     
@@ -317,7 +419,14 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
 
     const financingTypeMatch = !filters.financingType || process.financingType === filters.financingType;
 
-    return searchMatch && bankMatch && typeMatch && stageMatch && brokerMatch && agencyMatch && financingTypeMatch;
+    const isDuplicate = Boolean(process.id && duplicateProcessInfoMap.has(process.id));
+    const duplicateMatch = !filters.duplicates
+      ? true
+      : filters.duplicates === 'duplicates'
+        ? isDuplicate
+        : !isDuplicate;
+
+    return searchMatch && bankMatch && typeMatch && stageMatch && brokerMatch && agencyMatch && financingTypeMatch && duplicateMatch;
   });
 
   const getProcessExpirationTimestamp = (p: Process): number => {
@@ -969,6 +1078,106 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
         })}
       </div>
 
+      {/* Quick Duplicates / Active Filters Bar */}
+      {(duplicateProcessInfoMap.size > 0 || Object.values(filters).some(v => v)) && (
+        <div className="flex items-center justify-between gap-2 flex-wrap px-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            {duplicateProcessInfoMap.size > 0 && (
+              <button
+                type="button"
+                onClick={() => setFilters(f => ({ ...f, duplicates: f.duplicates === 'duplicates' ? '' : 'duplicates' }))}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shadow-xs cursor-pointer select-none",
+                  filters.duplicates === 'duplicates'
+                    ? "bg-amber-500 text-white border-amber-600 shadow-sm ring-2 ring-amber-400/30 scale-[1.02]"
+                    : "bg-amber-50 text-amber-800 border-amber-200/80 hover:bg-amber-100/70"
+                )}
+                title="Filtrar processos duplicados"
+              >
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>Duplicados</span>
+                <span className={cn(
+                  "px-1.5 py-0.2 rounded-full text-[10px] font-black",
+                  filters.duplicates === 'duplicates' ? "bg-black/20 text-white" : "bg-amber-200/80 text-amber-900"
+                )}>
+                  {duplicateProcessInfoMap.size}
+                </span>
+                {filters.duplicates === 'duplicates' && (
+                  <X className="w-3.5 h-3.5 ml-0.5 hover:opacity-75" />
+                )}
+              </button>
+            )}
+
+            {filters.duplicates === 'unique' && (
+              <span className="flex items-center gap-1 px-2.5 py-1 bg-black/5 text-black/70 rounded-xl text-xs font-semibold border border-black/5">
+                <span>Sem duplicados</span>
+                <button onClick={() => setFilters(f => ({ ...f, duplicates: '' }))} className="hover:text-black">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            {filters.stage && (
+              <span className="flex items-center gap-1 px-2.5 py-1 bg-black/5 text-black/70 rounded-xl text-xs font-semibold border border-black/5">
+                <span>Etapa: {filters.stage}</span>
+                <button onClick={() => setFilters(f => ({ ...f, stage: '' }))} className="hover:text-black">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            {filters.bankId && (
+              <span className="flex items-center gap-1 px-2.5 py-1 bg-black/5 text-black/70 rounded-xl text-xs font-semibold border border-black/5">
+                <span>Banco: {getBankName(filters.bankId)}</span>
+                <button onClick={() => setFilters(f => ({ ...f, bankId: '' }))} className="hover:text-black">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            {filters.agencyId && (
+              <span className="flex items-center gap-1 px-2.5 py-1 bg-black/5 text-black/70 rounded-xl text-xs font-semibold border border-black/5">
+                <span>Imobiliária: {agencies.find(a => a.id === filters.agencyId)?.name || 'Imobiliária'}</span>
+                <button onClick={() => setFilters(f => ({ ...f, agencyId: '' }))} className="hover:text-black">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            {filters.brokerId && (
+              <span className="flex items-center gap-1 px-2.5 py-1 bg-black/5 text-black/70 rounded-xl text-xs font-semibold border border-black/5">
+                <span>Corretor: {brokers.find(b => b.id === filters.brokerId)?.name || 'Corretor'}</span>
+                <button onClick={() => setFilters(f => ({ ...f, brokerId: '' }))} className="hover:text-black">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            {filters.type && (
+              <span className="flex items-center gap-1 px-2.5 py-1 bg-black/5 text-black/70 rounded-xl text-xs font-semibold border border-black/5">
+                <span>Tipo: {filters.type}</span>
+                <button onClick={() => setFilters(f => ({ ...f, type: '' }))} className="hover:text-black">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            {filters.financingType && (
+              <span className="flex items-center gap-1 px-2.5 py-1 bg-black/5 text-black/70 rounded-xl text-xs font-semibold border border-black/5">
+                <span>Modalidade: {filters.financingType}</span>
+                <button onClick={() => setFilters(f => ({ ...f, financingType: '' }))} className="hover:text-black">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+          </div>
+
+          {Object.values(filters).some(v => v) && (
+            <button
+              type="button"
+              onClick={() => setFilters({ bankId: '', type: '', stage: '', brokerId: '', agencyId: '', financingType: '', duplicates: '' })}
+              className="text-[11px] font-bold text-red-500 hover:text-red-700 transition-colors cursor-pointer"
+            >
+              Limpar filtros
+            </button>
+          )}
+        </div>
+      )}
+
       <AnimatePresence>
         {isSearchOpen && (
           <motion.div
@@ -1079,7 +1288,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                   onChange={(e) => setFilters({ ...filters, stage: e.target.value })}
                   className="w-full px-4 py-2 text-sm rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] focus:ring-2 focus:ring-black/5 outline-none"
                 >
-                  <option value="">Todas as Etapas</option>
+                  <option value="">Todas as Etapas (de Aprovados a Finalizados)</option>
                   {allStages.map(s => (
                     <option key={s} value={s}>{s}</option>
                   ))}
@@ -1126,9 +1335,24 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                 </select>
               </div>
 
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-black/40">Duplicados</label>
+                <select
+                  value={filters.duplicates}
+                  onChange={(e) => setFilters({ ...filters, duplicates: e.target.value })}
+                  className="w-full px-4 py-2 text-sm rounded-xl border border-black/10 bg-[#f5f5f0] text-[#1a1a1a] focus:ring-2 focus:ring-black/5 outline-none font-medium"
+                >
+                  <option value="">Todos os Processos</option>
+                  <option value="duplicates">
+                    Apenas Duplicados {duplicateProcessInfoMap.size > 0 ? `(${duplicateProcessInfoMap.size})` : ''}
+                  </option>
+                  <option value="unique">Sem Duplicados</option>
+                </select>
+              </div>
+
               <div className="sm:col-span-3 flex justify-end">
                 <button
-                  onClick={() => setFilters({ bankId: '', type: '', stage: '', brokerId: '', agencyId: '', financingType: '' })}
+                  onClick={() => setFilters({ bankId: '', type: '', stage: '', brokerId: '', agencyId: '', financingType: '', duplicates: '' })}
                   className="text-xs font-bold uppercase tracking-wider text-red-500 hover:text-red-600 transition-colors"
                 >
                   Limpar Filtros
@@ -1314,6 +1538,19 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                   <div className="flex items-center justify-end gap-1 sm:gap-1.5 flex-wrap sm:flex-nowrap shrink-0">
                     {/* Days in stage counter or Finish date */}
                     <div className="flex items-center gap-1">
+                      {(() => {
+                        const dupInfo = process.id ? duplicateProcessInfoMap.get(process.id) : null;
+                        if (!dupInfo) return null;
+                        return (
+                          <div 
+                            className="h-6.5 sm:h-8 px-1.5 sm:px-2 flex items-center gap-1 rounded-lg border transition-colors bg-amber-500/10 border-amber-500/30 text-amber-800 shrink-0" 
+                            title={`Processo duplicado (${dupInfo.reason})`}
+                          >
+                            <AlertCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-600 shrink-0" />
+                            <span className="text-[9px] sm:text-[10px] font-bold">Duplicado</span>
+                          </div>
+                        );
+                      })()}
                       {process.stage === 'Finalizado' ? (
                         <div 
                           className="h-6.5 sm:h-8 px-1.5 sm:px-2 flex items-center gap-1 sm:gap-1.5 rounded-lg border transition-colors" 
@@ -1547,6 +1784,19 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
               className="bg-white w-full max-w-2xl rounded-[32px] shadow-2xl overflow-hidden border border-black/10"
             >
               <div className="px-5 pt-6 pb-4 border-b border-black/5 space-y-4">
+                {(() => {
+                  const dupInfo = selectedProcessForDetail.id ? duplicateProcessInfoMap.get(selectedProcessForDetail.id) : null;
+                  if (!dupInfo) return null;
+                  return (
+                    <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 text-xs font-medium">
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <strong className="font-bold text-amber-950 block">Atenção: Processo duplicado detectado</strong>
+                        <span>Identificado outro processo no sistema com o {dupInfo.reason.toLowerCase()}.</span>
+                      </div>
+                    </div>
+                  );
+                })()}
                 <div className="flex items-center justify-between">
                   {/* Bank, Type and Stage */}
                   <div className="flex items-center gap-3 bg-black/5 p-3 rounded-2xl">
