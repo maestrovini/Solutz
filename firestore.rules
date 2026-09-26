@@ -111,7 +111,7 @@ service cloud.firestore {
 
     match /processes/{processId} {
       allow read: if isAuthenticated();
-      allow create: if isAdmin() && ('source' in request.resource.data && request.resource.data.source == 'manual');
+      allow create: if isAdmin();
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }

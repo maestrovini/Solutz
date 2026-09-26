@@ -24,6 +24,7 @@ import { Process, Client, Bank, Agency, Broker, Property, Product } from './type
 import { useAuth } from './context/AuthContext';
 import Login from './components/Login';
 import { notificationService } from './services/notificationService';
+import { syncAllApprovedClientsAndProcesses, hasActiveProcess, getValidApprovedBanks } from './services/approvalProcessService';
 
 function AppContent() {
   const { user, loading, isAdmin } = useAuth();
@@ -66,7 +67,23 @@ function AppContent() {
     };
   }, [user]);
 
+  // Synchronize clients with credit approval to ensure corresponding processes in 'Aprovado' exist
+  useEffect(() => {
+    if (!user || clients.length === 0) return;
 
+    const hasUnsynced = clients.some(c => {
+      if (!c.id || !c.approvedBanks || c.approvedBanks.length === 0) return false;
+      const validBanks = getValidApprovedBanks(c);
+      if (validBanks.length === 0) return false;
+      return !hasActiveProcess(c.id, processes);
+    });
+
+    if (hasUnsynced) {
+      syncAllApprovedClientsAndProcesses(clients, processes, agencies, brokers).catch(err => {
+        console.error('Error during approved clients and processes sync:', err);
+      });
+    }
+  }, [user, clients, processes, agencies, brokers]);
 
   const prevProcessesRef = React.useRef<Process[] | null>(null);
   const { showToast } = useToast();

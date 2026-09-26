@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { Client, Bank, Broker, Agency, Process, ClientTag, UserProfile } from '../types';
+import { createProcessForApprovedClient, hasActiveProcess } from '../services/approvalProcessService';
 import { X, Save, UserPlus, Phone, Mail, Calendar, CreditCard, Building2, UserCircle, Edit2, Trash2, CheckCircle2, Clock, XCircle, AlertCircle, DollarSign, Users, FileText, TrendingUp, TrendingDown, User as UserIcon, FilePlus, Search, Plus, Tag } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
@@ -380,8 +381,14 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
           : bank.expirationDate
       }));
 
+      let resolvedStatus = formData.status;
+      if (formattedApprovedBanks.length > 0 && !resolvedStatus) {
+        resolvedStatus = 'Aprovado';
+      }
+
       const clientData = {
         ...formData,
+        status: resolvedStatus,
         name: formattedName,
         email: formattedEmail,
         birthDate: formattedBirthDate,
@@ -393,6 +400,13 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
         await api.update('clients', clientId, clientData);
         const updatedClient = { ...clientData, id: clientId, createdAt } as Client;
 
+        if (formattedApprovedBanks.length > 0) {
+          const hasActive = hasActiveProcess(clientId, processes);
+          if (!hasActive) {
+            await createProcessForApprovedClient(updatedClient, agencies, brokers);
+          }
+        }
+
         onSuccess?.(updatedClient);
         setNewClientId(clientId);
         setShowSuccessOptions(true);
@@ -400,7 +414,11 @@ export default function ClientModal({ clientId, isOpen, onClose, onSuccess, onCr
       } else {
         const fullClientData = { ...clientData, createdAt: new Date().toISOString() };
         const result = await api.create('clients', fullClientData);
-        const createdClient = result as Client;
+        const createdClient = { ...fullClientData, id: result.id } as Client;
+
+        if (formattedApprovedBanks.length > 0) {
+          await createProcessForApprovedClient(createdClient, agencies, brokers);
+        }
 
         onSuccess?.(createdClient);
         setNewClientId(result.id);

@@ -13,7 +13,7 @@ import { capitalizeName } from '../utils/stringUtils';
 import PropertyModal from './PropertyModal';
 import ClientModal from './ClientModal';
 import BrokerModal from './BrokerModal';
-import { isDateExpired, getValidApprovedBanks } from '../services/approvalProcessService';
+import { isDateExpired, getValidApprovedBanks, deleteDuplicateAprovadoProcesses } from '../services/approvalProcessService';
 
 interface ProcessManagerProps {
   initialSelectedProcessId?: string | null;
@@ -41,6 +41,8 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
   const [currentClientRole, setCurrentClientRole] = useState<'buyer' | 'seller'>('buyer');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeleteDuplicatesModalOpen, setIsDeleteDuplicatesModalOpen] = useState(false);
+  const [isDeletingDuplicates, setIsDeletingDuplicates] = useState(false);
   const [editingProcess, setEditingProcess] = useState<Process | null>(null);
   const [selectedProcessForDetail, setSelectedProcessForDetail] = useState<Process | null>(null);
   const [selectedEntityForDetail, setSelectedEntityForDetail] = useState<{ type: 'client' | 'broker' | 'agency', id: string } | null>(null);
@@ -376,6 +378,10 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
 
     return map;
   }, [processes, clients, brokers, agencies]);
+
+  const duplicateAprovadosCount = useMemo(() => {
+    return processes.filter(p => p.stage === 'Aprovado' && p.id && duplicateProcessInfoMap.has(p.id)).length;
+  }, [processes, duplicateProcessInfoMap]);
 
   const filteredProcesses = processes.filter(process => {
     const buyers = process.participants?.filter(p => p.type === 'buyer') || [];
@@ -881,6 +887,38 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
     }
   };
 
+  const handleDeleteDuplicatesInAprovado = async () => {
+    if (isDeletingDuplicates) return;
+    setIsDeletingDuplicates(true);
+    try {
+      const deletedIds = await deleteDuplicateAprovadoProcesses(processes, clients);
+      if (deletedIds.length > 0) {
+        setProcesses(prev => prev.filter(p => !deletedIds.includes(p.id || '')));
+        showToast({
+          type: 'success',
+          title: 'Duplicados Excluídos',
+          description: `${deletedIds.length} processo(s) duplicado(s) na etapa Aprovado foram excluídos com sucesso.`
+        });
+      } else {
+        showToast({
+          type: 'info',
+          title: 'Nenhum duplicado encontrado',
+          description: 'Não foram encontrados processos duplicados na etapa Aprovado.'
+        });
+      }
+      setIsDeleteDuplicatesModalOpen(false);
+    } catch (error) {
+      console.error('Erro ao excluir duplicados:', error);
+      showToast({
+        type: 'error',
+        title: 'Erro ao excluir duplicados',
+        description: 'Ocorreu um erro ao excluir os processos duplicados.'
+      });
+    } finally {
+      setIsDeletingDuplicates(false);
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'Finalizado': return <CheckCircle2 className="w-5 h-5" />;
@@ -1079,7 +1117,7 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
       </div>
 
       {/* Quick Duplicates / Active Filters Bar */}
-      {(duplicateProcessInfoMap.size > 0 || Object.values(filters).some(v => v)) && (
+      {(duplicateProcessInfoMap.size > 0 || Boolean(filters.duplicates || filters.bankId || filters.agencyId || filters.brokerId || filters.type || filters.financingType)) && (
         <div className="flex items-center justify-between gap-2 flex-wrap px-1">
           <div className="flex items-center gap-2 flex-wrap">
             {duplicateProcessInfoMap.size > 0 && (
@@ -1108,18 +1146,22 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
               </button>
             )}
 
+            {duplicateAprovadosCount > 0 && canEditProcesses && (
+              <button
+                type="button"
+                onClick={() => setIsDeleteDuplicatesModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shadow-xs cursor-pointer select-none bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100 hover:border-rose-300"
+                title="Excluir processos duplicados na etapa Aprovado"
+              >
+                <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                <span>Excluir Duplicados ({duplicateAprovadosCount})</span>
+              </button>
+            )}
+
             {filters.duplicates === 'unique' && (
               <span className="flex items-center gap-1 px-2.5 py-1 bg-black/5 text-black/70 rounded-xl text-xs font-semibold border border-black/5">
                 <span>Sem duplicados</span>
                 <button onClick={() => setFilters(f => ({ ...f, duplicates: '' }))} className="hover:text-black">
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-            {filters.stage && (
-              <span className="flex items-center gap-1 px-2.5 py-1 bg-black/5 text-black/70 rounded-xl text-xs font-semibold border border-black/5">
-                <span>Etapa: {filters.stage}</span>
-                <button onClick={() => setFilters(f => ({ ...f, stage: '' }))} className="hover:text-black">
                   <X className="w-3 h-3" />
                 </button>
               </span>
@@ -1165,16 +1207,6 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
               </span>
             )}
           </div>
-
-          {Object.values(filters).some(v => v) && (
-            <button
-              type="button"
-              onClick={() => setFilters({ bankId: '', type: '', stage: '', brokerId: '', agencyId: '', financingType: '', duplicates: '' })}
-              className="text-[11px] font-bold text-red-500 hover:text-red-700 transition-colors cursor-pointer"
-            >
-              Limpar filtros
-            </button>
-          )}
         </div>
       )}
 
@@ -3568,6 +3600,48 @@ export default function ProcessManager({ initialSelectedProcessId, initialNewPro
                   }`}
                 >
                   {isDeleting ? 'Excluindo...' : 'Excluir'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isDeleteDuplicatesModalOpen && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white w-full max-w-sm rounded-[32px] shadow-2xl p-8 text-center border border-black/10"
+            >
+              <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-100">
+                <Trash2 className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-bold mb-2 text-[#1a1a1a]">Excluir Duplicados?</h3>
+              <p className="text-black/60 mb-6 text-sm">
+                {duplicateAprovadosCount > 0
+                  ? `Identificamos ${duplicateAprovadosCount} processo(s) na etapa Aprovado que já possuem processo em outra etapa. Deseja excluí-los permanentemente?`
+                  : 'Deseja buscar e excluir os processos duplicados na etapa Aprovado?'}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsDeleteDuplicatesModalOpen(false)}
+                  className="flex-1 px-6 py-3 rounded-full font-bold border border-black/10 text-black/60 hover:bg-black/5 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeletingDuplicates}
+                  onClick={handleDeleteDuplicatesInAprovado}
+                  className={`flex-1 px-6 py-3 rounded-full font-bold text-white transition-all ${
+                    isDeletingDuplicates ? 'bg-red-400 cursor-not-allowed' : 'bg-red-500 hover:bg-red-600'
+                  }`}
+                >
+                  {isDeletingDuplicates ? 'Excluindo...' : 'Excluir Todos'}
                 </button>
               </div>
             </motion.div>
