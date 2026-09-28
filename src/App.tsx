@@ -24,7 +24,7 @@ import { Process, Client, Bank, Agency, Broker, Property, Product } from './type
 import { useAuth } from './context/AuthContext';
 import Login from './components/Login';
 import { notificationService } from './services/notificationService';
-import { syncAllApprovedClientsAndProcesses, hasActiveProcess, getValidApprovedBanks } from './services/approvalProcessService';
+import { syncAllApprovedClientsAndProcesses, hasActiveProcess, getValidApprovedBanks, analyzeAprovadoProcesses, hasCreditApproval } from './services/approvalProcessService';
 
 function AppContent() {
   const { user, loading, isAdmin } = useAuth();
@@ -67,18 +67,19 @@ function AppContent() {
     };
   }, [user]);
 
-  // Synchronize clients with credit approval to ensure corresponding processes in 'Aprovado' exist
+  // Synchronize clients with credit approval to ensure corresponding processes in 'Aprovado' exist and clean up duplicates
   useEffect(() => {
     if (!user || clients.length === 0) return;
 
+    const analysis = analyzeAprovadoProcesses(processes, clients, brokers, agencies);
+    const hasDuplicatesOrInvalid = analysis.duplicateCount > 0;
     const hasUnsynced = clients.some(c => {
-      if (!c.id || !c.approvedBanks || c.approvedBanks.length === 0) return false;
-      const validBanks = getValidApprovedBanks(c);
-      if (validBanks.length === 0) return false;
-      return !hasActiveProcess(c.id, processes);
+      if (!c.id) return false;
+      if (!hasCreditApproval(c)) return false;
+      return !hasActiveProcess(c.id, processes, clients);
     });
 
-    if (hasUnsynced) {
+    if (hasDuplicatesOrInvalid || hasUnsynced) {
       syncAllApprovedClientsAndProcesses(clients, processes, agencies, brokers).catch(err => {
         console.error('Error during approved clients and processes sync:', err);
       });
